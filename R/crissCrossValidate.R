@@ -169,31 +169,35 @@ crissCrossValidate <- function(measurements, outcomes,
         result$random <- randomPerformance
     }
     
-    # If runTOP is TRUE, perform logistic regression using a leave-one-dataset-out approach
+    # If runTOP is TRUE, perform TOP procedure using a leave-one-dataset-out approach
     if (runTOP == TRUE){
-        if (verbose > 0) message("Starting logistic regression using leave-one-dataset-out approach.")
-        logisticPerformance <- vector("numeric", length(measurements))
-        names(logisticPerformance) <- names(measurements)
+        if (verbose > 0) message("Starting TOP procedure.")
+        topPerformance <- vector("numeric", length(measurements))
+        names(topPerformance) <- names(measurements)
+        
+        positive_class <- levels(outcomes)[1] 
+        negative_class <- levels(outcomes)[2] 
+        contrast_string <- paste(positive_class, "-", negative_class) # TOP needs this string for the filterFeatures function
+        
         for (i in seq_along(measurements)){
-            # Combine all datasets except the i-th one for training
-            trainMeasurements <- do.call(rbind, measurements[-i])
-            trainOutcomes <- unlist(outcomes[-i])
-            # Left-out test data
-            testMeasurements <- measurements[[i]]
-            testOutcomes <- outcomes[[i]]
-            # Train logistic regression model
-            logisticModel <- glm(trainOutcomes ~ ., data = as.data.frame(trainMeasurements), family = binomial())
-            # Predict probabilities on the test data
-            predictedProbabilities <- predict(logisticModel, newdata = as.data.frame(testMeasurements), type = "response")
-            # Convert probabilities to class labels based on a threshold of 0.5
-            predictedClasses <- ifelse(predictedProbabilities > 0.5, levels(factor(trainOutcomes))[2], levels(factor(trainOutcomes))[1])
-            # Calculate performance
-            logisticPerformance[i] <- calcExternalPerformance(testOutcomes, predictedClasses, performanceType)
+            #Check if TOP is installed
+            if (!requireNamespace("TOP", quietly = TRUE)) {
+                stop("The TOP package is required for the runTOP option.")
+            } else {library(TOP)}
+            
+            topfeatures = TOP::filterFeatures(measurements[-i], outcomes[-i], nFeatures = nFeatures, contrast = contrast_string)
+            measurementsTOP = lapply(measurements[-i], function(x) x[, topfeatures])
+            test_measurmentsTop = measurements[[i]][, topfeatures]
+            outcomesTOP = outcomes[-i]
+            test_outcomesTop = outcomes[[i]]
+            model = TOP::TOP_model(measurementsTOP, outcomesTOP)
+            predictedProbabilities = TOP::TOP_predict(model, test_measurmentsTop)
+            predictedClasses = ifelse(predictedProbabilities > 0.5, levels(factor(outcomesTOP[[1]])[2], levels(factor(outcomesTOP)[1]))
+            topPerformance[i] <- calcExternalPerformance(test_outcomesTop, predictedClasses, performanceType)
         }
-        # Convert logisticPerformance to a matrix to match the format of realPerformance
-        logisticPerformanceMatrix <- matrix(logisticPerformance, nrow = 1,
-                                            dimnames = list("Logistic Regression", names(measurements)))
-        result$logisticRegression <- logisticPerformanceMatrix
+        # Convert topPerformance to a matrix to match the format of realPerformance
+        topPerformanceMatrix <- matrix(topPerformance, nrow = 1, dimnames = list("TOP", names(measurements)))
+        result$top <- topPerformanceMatrix
     }
     
     # Store the parameters used during execution for reference
