@@ -192,7 +192,7 @@ crissCrossValidate <- function(measurements, outcomes,
             test_outcomesTop = outcomes[[i]]
             model = TOP::TOP_model(measurementsTOP, outcomesTOP)
             predictedProbabilities = TOP::TOP_predict(model, test_measurmentsTop)
-            predictedClasses = ifelse(predictedProbabilities > 0.5, levels(factor(outcomesTOP[[1]])[2], levels(factor(outcomesTOP)[1]))
+            predictedClasses = ifelse(predictedProbabilities > 0.5, levels(factor(outcomesTOP))[2], levels(factor(outcomesTOP))[1])
             topPerformance[i] <- calcExternalPerformance(test_outcomesTop, predictedClasses, performanceType)
         }
         # Convert topPerformance to a matrix to match the format of realPerformance
