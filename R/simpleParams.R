@@ -1,7 +1,6 @@
 # Random Forest
-RFparams <- function(autoTune) {
-    tuneParams <- NULL
-    if(autoTune) tuneParams <- list(mTryProportion = c(0.10, 0.25, 0.33, 0.5), num.trees = c(1, 10, 100))
+RFparams <- function(tuneParams) {
+    if(is.character(tuneParams) && tuneParams == "auto") tuneParams <- list(mTryProportion = c(0.10, 0.25, 0.33, 0.5), num.trees = c(1, 10, 100))
     trainParams <- TrainParams(randomForestTrainInterface, tuneParams = tuneParams,
                                getFeatures = forestFeatures)
     predictParams <- PredictParams(randomForestPredictInterface)
@@ -10,9 +9,8 @@ RFparams <- function(autoTune) {
 }
 
 # Random Survival Forest
-RSFparams <- function(autoTune) {
-    tuneParams <- NULL
-    if(autoTune) tuneParams <- list(mTryProportion = c(0.10, 0.25, 0.33, 0.5), ntree = c(1, 10, 100))
+RSFparams <- function(tuneParams) {
+    if(is.character(tuneParams) && tuneParams == "auto") tuneParams <- list(mTryProportion = c(0.10, 0.25, 0.33, 0.5), ntree = c(1, 10, 100))
     trainParams <- TrainParams(rfsrcTrainInterface, tuneParams = tuneParams,
                                getFeatures = rfsrcFeatures)
     predictParams <- PredictParams(rfsrcPredictInterface)
@@ -20,9 +18,8 @@ RSFparams <- function(autoTune) {
     return(list(trainParams = trainParams, predictParams = predictParams))
 }
 
-XGBparams <- function(autoTune) {
-    tuneParams <- NULL
-    if(autoTune) tuneParams <- list(mTryProportion = c(0.10, 0.25, 0.33, 0.5), nrounds = c(5, 10))
+XGBparams <- function(tuneParams) {
+    if(is.character(tuneParams) && tuneParams == "auto") tuneParams <- list(mTryProportion = c(0.10, 0.25, 0.33, 0.5), nrounds = c(5, 10))
     trainParams <- TrainParams(extremeGradientBoostingTrainInterface, tuneParams = tuneParams,
                                getFeatures = XGBfeatures)
     predictParams <- PredictParams(extremeGradientBoostingPredictInterface)
@@ -70,10 +67,9 @@ LASSOGLMparams <- function() {
 }
 
 # Support Vector Machine
-SVMparams = function(autoTune) {
-    tuneParams <- NULL
-    if(autoTune) tuneParams <- list(kernel = c("linear", "polynomial", "radial", "sigmoid"),
-                                     cost = 10^(-3:3))
+SVMparams = function(tuneParams) {
+    if(is.character(tuneParams) && tuneParams == "auto")
+        tuneParams <- list(kernel = c("linear", "polynomial", "radial", "sigmoid"), cost = 10^(-3:3))
     trainParams <- TrainParams(SVMtrainInterface, tuneParams = tuneParams)
     predictParams <- PredictParams(SVMpredictInterface)
     
@@ -97,9 +93,8 @@ DLDAparams = function() {
 }
 
 # naive Bayes Kernel
-naiveBayesParams <- function(autoTune) {
-    tuneParams <- NULL
-    if(autoTune) tuneParams <- list(difference = c("unweighted", "weighted")) 
+naiveBayesParams <- function(tuneParams) {
+    if(is.character(tuneParams) && tuneParams == "auto") tuneParams <- list(difference = c("unweighted", "weighted")) 
     trainParams <- TrainParams(naiveBayesKernel, tuneParams = tuneParams)
     predictParams <- NULL
     return(list(trainParams = trainParams, predictParams = predictParams))

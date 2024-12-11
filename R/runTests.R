@@ -43,8 +43,9 @@
 #'   #{
 #'     data(asthma)
 #'     
-#'     CVparams <- CrossValParams(permutations = 5)
-#'     tuneList <- list(nFeatures = seq(5, 25, 5), performanceType = "Balanced Error")
+#'     CVparams <- CrossValParams(permutations = 5, tuneMode = "Resubstitution")
+#'     tuneList <- list(nFeatures = seq(5, 25, 5))
+#'     attr(tuneList, "performanceType") <- "Balanced Error"
 #'     selectParams <- SelectParams("t-test", tuneParams = tuneList)
 #'     modellingParams <- ModellingParams(selectParams = selectParams)
 #'     runTests(measurements, classes, CVparams, modellingParams,
@@ -88,11 +89,24 @@ setMethod("runTests", "DataFrame", function(measurements, outcome, crossValParam
   measurements <- splitDataset[["measurements"]]
   outcome <- splitDataset[["outcome"]]
   
-  if(!is.null(modellingParams@selectParams) && max(modellingParams@selectParams@tuneParams[["nFeatures"]]) > ncol(measurements))
+  if(crossValParams@performanceType == "auto")
   {
-      warning("Attempting to evaluate more features for feature selection than in
+    if(is.factor(outcome)) crossValParams@performanceType <- "Balanced Accuracy" else
+      crossValParams@performanceType <- "C-index"    
+  }
+  if(!is.null(modellingParams@selectParams))
+  {
+    nFeatures <- modellingParams@selectParams@tuneParams[["nFeatures"]]
+    if(is.null(nFeatures)) nFeatures <- modellingParams@selectParams@nFeatures
+  }
+  if(!is.null(modellingParams@selectParams) && max(nFeatures) > ncol(measurements))
+  {
+    warning("Attempting to evaluate more features for feature selection than in
 input data. Autmomatically reducing to smaller number.")
-      modellingParams@selectParams@tuneParams[["nFeatures"]] <- 1:min(10, ncol(measurements))
+    if(is.null(modellingParams@selectParams@nFeatures))
+      modellingParams@selectParams@tuneParams[["nFeatures"]][modellingParams@selectParams@tuneParams[["nFeatures"]] > max(nFeatures)] <- max(nFeatures)
+    else
+      modellingParams@selectParams@nFeatures <- max(nFeatures)
   }
   
   # Element names of the list returned by runTest, in order.

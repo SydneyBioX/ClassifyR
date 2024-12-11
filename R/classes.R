@@ -76,7 +76,9 @@ setClassUnion("MultiAssayExperimentOrList", c("MultiAssayExperiment", "list"))
 #' combination of and use as the test set.  Only relevant if \code{samplesSplits} is
 #' \code{"Leave-k-Out"}. If set to 1, it is the traditional leave-one-out cross-validation,
 #' sometimes written as LOOCV.
-#' @param tuneMode Default: Resubstitution. The scheme to use for selecting any tuning parameters.
+#' @param tuneMode Default: None. The cross-validation scheme to use for selecting any tuning parameters. Valid values
+#' are \code{"Resubstitution"}, \code{"Nested CV"}, \code{"none"}.
+#' @param performanceType Default: \code{"auto"}. The performance metric to use if \code{tuneMode} is not \code{"none"}.
 #' @param adaptiveResamplingDelta Default: \code{NULL}. If not null, adaptive resampling of training
 #' samples is performed and this number is the difference in consecutive iterations that the
 #' class probability or risk of all samples must change less than for the iterative process to stop. 0.01
@@ -105,6 +107,7 @@ setClass("CrossValParams", representation(
     folds = "numericOrNULL",
     leave = "numericOrNULL",
     tuneMode = "character",
+    performanceType = "character",
     adaptiveResamplingDelta = "numericOrNULL",
     parallelParams = "BiocParallelParam"
 )
@@ -115,7 +118,7 @@ setClass("CrossValParams", representation(
 #' @rdname CrossValParams-class
 CrossValParams <- function(samplesSplits = c("Permute k-Fold", "Permute Percentage Split", "Leave-k-Out", "k-Fold"),
                            permutations = 100, percentTest = 25, folds = 5, leave = 2,
-                           tuneMode = c("Resubstitution", "Nested CV", "none"), adaptiveResamplingDelta = NULL, parallelParams = bpparam())
+                           tuneMode = c("none", "Resubstitution", "Nested CV"), performanceType = "auto", adaptiveResamplingDelta = NULL, parallelParams = bpparam())
 {
   samplesSplits <- match.arg(samplesSplits)
   tuneMode <- match.arg(tuneMode)
@@ -137,7 +140,7 @@ CrossValParams <- function(samplesSplits = c("Permute k-Fold", "Permute Percenta
   }
 
   new("CrossValParams", samplesSplits = samplesSplits, permutations = permutations,
-      percentTest = percentTest, folds = folds, leave = leave, tuneMode = tuneMode,
+      percentTest = percentTest, folds = folds, leave = leave, tuneMode = tuneMode, performanceType = performanceType,
       adaptiveResamplingDelta = adaptiveResamplingDelta, parallelParams = parallelParams)
 }
 
@@ -453,6 +456,7 @@ setClassUnion("characterOrList", c("character", "list"))
 setClass("SelectParams", representation(
   featureRanking = "functionOrList",
   characteristics = "DataFrame",
+  nFeatures = "numericOrNULL",
   minPresence = "numeric",
   intermediate = "character",
   subsetToSelections = "logical",
@@ -477,14 +481,15 @@ setClassUnion("SelectParamsOrNULL", c("SelectParams", "NULL"))
 #' @docType class
 #' @section Constructor:
 #' \describe{
-#' \item{\code{SelectParams(featureRanking, characteristics = DataFrame(), minPresence = 1, intermediate = character(0),subsetToSelections = TRUE, tuneParams = list(nFeatures = seq(10, 100, 10), performanceType = "Balanced Accuracy"), ...)}}{Creates a \code{SelectParams} object which stores the function(s) which will do the selection and parameters that the function will use.\cr
+#' \item{\code{SelectParams(featureRanking, characteristics = DataFrame(), nFeatures = 20, minPresence = 1, intermediate = character(0), subsetToSelections = TRUE, tuneParams = list(nFeatures = seq(10, 100, 10)), ...)}}{Creates a \code{SelectParams} object which stores the function(s) which will do the selection and parameters that the function will use.\cr
 #'     \describe{
 #'         \item{\code{featureRanking}}{A character keyword referring to a registered feature ranking function. See \code{\link{available}} for valid keywords.}
 #'         \item{\code{characteristics}}{A \code{\link{DataFrame}} describing the characteristics of feature selection to be done. First column must be named \code{"charateristic"} and second column must be named \code{"value"}. If using wrapper functions for feature selection in this package, the feature selection name will automatically be generated and therefore it is not necessary to specify it.}
-#'         \item{\code{minPresence}}{If a list of functions was provided, how many of those must a feature have been selected by to be used in classification. 1 is equivalent to a set union and a number the same length as \code{featureSelection} is equivalent to set intersection.}
+#'         \item{\code{nFeatures}}{Default: \code{20}. The number of top-ranked features to choose. Can also be \code{NULL} if a vector of top numbers is specified to \code{tuneParams} for the list element named \code{nFeatures}.}
+#'         \item{\code{minPresence}}{Default: \code{1}. If a list of functions was provided, how many of those must a feature have been selected by to be used in classification. 1 is equivalent to a set union and a number the same length as \code{featureSelection} is equivalent to set intersection.}
 #'         \item{\code{intermediate}}{Character vector. Names of any variables created in prior stages by \code{\link{runTest}} that need to be passed to a feature selection function.}
 #'         \item{\code{subsetToSelections}}{Whether to subset the data table(s), after feature selection has been done.}
-#'         \item{\code{tuneParams}}{A list specifying tuning parameters required during feature selection. The names of the list are the names of the parameters and the vectors are the values of the parameters to try. All possible combinations are generated. Two elements named \code{nFeatures} and \code{performanceType} are mandatory, to define the performance metric which will be used to select features and how many top-ranked features to try.}
+#'         \item{\code{tuneParams}}{A list specifying tuning parameters to try during feature selection. A list element named \code{nFeatures} is used to represent a variety of top-n ranked features to try. Other names of the list are the names of the parameters of the ranking function and the vectors are the values of the ranking function's parameters to try. All possible combinations are generated.}
 #'         \item{\code{...}}{Other named parameters which will be used by the selection function. If \code{featureSelection} was a list of functions, this must be a list of lists, as long as \code{featureSelection}.}}
 #'     }
 #' }
@@ -513,8 +518,8 @@ standardGeneric("SelectParams"))
 #' @usage NULL
 #' @export
 setMethod("SelectParams", c("characterOrList"),
-          function(featureRanking, characteristics = DataFrame(), minPresence = 1, 
-                   intermediate = character(0), subsetToSelections = TRUE, tuneParams = list(nFeatures = seq(10, 100, 10), performanceType = "Balanced Accuracy"), ...)
+          function(featureRanking, characteristics = DataFrame(), nFeatures = 20, minPresence = 1, 
+                   intermediate = character(0), subsetToSelections = TRUE, tuneParams = NULL, ...)
           {
             if(is.character(featureRanking)) featureRanking <- .selectionKeywordToFunction(featureRanking) else featureRanking <- lapply(featureRanking, .selectionKeywordToFunction)
             if(!is.list(featureRanking) && (ncol(characteristics) == 0 || !"Selection Name" %in% characteristics[, "characteristic"]))
@@ -527,9 +532,10 @@ setMethod("SelectParams", c("characterOrList"),
               selectMethodNames <- unlist(lapply(featureRanking, function(rankingFunction) .ClassifyRenvir[["functionsTable"]][.ClassifyRenvir[["functionsTable"]][, "character"] == attr(rankingFunction, "name"), "name"]))
               characteristics <- rbind(characteristics, S4Vectors::DataFrame(characteristic = "Ensemble Selection", value = paste(selectMethodNames, collapse = ", ")))
             }
+            if(!is.null(tuneParams[["nFeatures"]])) nFeatures <- NULL # User wants to do tuning of nFeatures.
             others <- list(...)
             if(length(others) == 0) others <- NULL
-            new("SelectParams", featureRanking = featureRanking,
+            new("SelectParams", featureRanking = featureRanking, nFeatures = nFeatures,
                 characteristics = characteristics, minPresence = minPresence,
                 intermediate = intermediate, subsetToSelections = subsetToSelections,
                 tuneParams = tuneParams, otherParams = others)
@@ -629,12 +635,12 @@ setClassUnion("characterOrFunction", c("character", "function"))
 #' @rdname TrainParams-class
 #' @export
 setMethod("TrainParams", c("characterOrFunction"),
-          function(classifier, autoTune = FALSE, balancing = c("downsample", "upsample", "none"), characteristics = DataFrame(), intermediate = character(0), tuneParams = NULL, getFeatures = NULL, ...)
+          function(classifier, balancing = c("downsample", "upsample", "none"), characteristics = DataFrame(), intermediate = character(0), tuneParams = NULL, getFeatures = NULL, ...)
           {
             extras <- list(...)              
             if(is.character(classifier))
             {
-              TPparams <- .classifierKeywordToParams(classifier, autoTune)
+              TPparams <- .classifierKeywordToParams(classifier, tuneParams)
               trainParams <- TPparams[[1]] # Get a default params object.
               if(is.null(getFeatures) && !is.null(trainParams@getFeatures))
                 getFeatures <- trainParams@getFeatures
@@ -737,7 +743,7 @@ setMethod("PredictParams", c("characterOrFunction"),
           function(predictor, characteristics = DataFrame(), intermediate = character(0), ...)
           {
             if(is.character(predictor))              
-              predictor <- .classifierKeywordToParams(predictor)[[2]]@predictor # Prediction function.
+              predictor <- .classifierKeywordToParams(keyword = predictor, NULL)[[2]]@predictor # Prediction function.
             others <- list(...)
             if(length(others) == 0) others <- NULL
             new("PredictParams", predictor = predictor, characteristics = characteristics,

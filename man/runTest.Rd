@@ -91,14 +91,17 @@ perform each iteration.
   #if(require(sparsediscrim))
   #{
     data(asthma)
-    tuneList <- list(nFeatures = seq(5, 25, 5), performanceType = "Balanced Error")
+    CVparams <- CrossValParams(tuneMode = "Resubstitution")
+    tuneList <- list(nFeatures = seq(5, 25, 5))
+    attr(tuneList, "performanceType") <- "Balanced Error"
     selectParams <- SelectParams("limma", tuneParams = tuneList)
     modellingParams <- ModellingParams(selectParams = selectParams)
     trainIndices <- seq(1, nrow(measurements), 2)
     testIndices <- seq(2, nrow(measurements), 2)
     
     runTest(measurements[trainIndices, ], classes[trainIndices],
-            measurements[testIndices, ], classes[testIndices], modellingParams = modellingParams)
+            measurements[testIndices, ], classes[testIndices],
+            crossValParams = CVparams, modellingParams = modellingParams)
   #}
 
 }

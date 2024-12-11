@@ -142,6 +142,7 @@ setMethod("calcCVperformance", "ClassifyResult",
           function(result, performanceTypes = "auto")
 {
   actualOutcome <- actualOutcome(result) # Extract the known outcome of each sample.
+  actualOutcomeOrdered <- actualOutcome[match(result@predictions[, "sample"], sampleNames(result))]
   if(length(performanceTypes) == 1 && performanceTypes == "auto")
   {
       if(is.factor(actualOutcome))
@@ -175,7 +176,7 @@ setMethod("calcCVperformance", "ClassifyResult",
       ### Performance for survival data
       if(performanceType %in% c("C-index", "Sample C-index")) {
         samples <- factor(result@predictions[, "sample"], levels = sampleNames(result))
-        performance <- .calcPerformance(actualOutcome = actualOutcome[match(result@predictions[, "sample"], sampleNames(result))],
+        performance <- .calcPerformance(actualOutcome = actualOutcomeOrdered,
                                         predictedOutcome = result@predictions[, "risk"], 
                                         samples = samples,
                                         performanceType = performanceType, 
@@ -188,12 +189,14 @@ setMethod("calcCVperformance", "ClassifyResult",
       }
       
       if(performanceType == "AUC") {
-        performance <- .calcPerformance(actualOutcome[match(result@predictions[, "sample"], sampleNames(result))],
+        performance <- .calcPerformance(actualOutcomeOrdered,
                                         result@predictions[, levels(actualOutcome)],
                                         performanceType = performanceType, grouping = grouping)
         if(grepl(':', names(performance[["values"]])[1])) # Then average for each permutation.
         {
-          performance[["values"]] <- by(performance[["values"]], sapply(strsplit(names(performance[["values"]]), ':'), '[', 1), mean)
+          permuteID <- sapply(strsplit(names(performance[["values"]]), ':'), '[', 1)
+          performance[["values"]] <- by(performance[["values"]], permuteID, mean)
+          names(performance[["values"]]) <- unique(permuteID)
         }
         result@performance[[performance[["name"]]]] <- performance[["values"]]
       }
@@ -210,7 +213,7 @@ setMethod("calcCVperformance", "ClassifyResult",
         classLevels <- levels(actualOutcome)
         samples <- factor(result@predictions[, "sample"], levels = sampleNames(result))
         predictedOutcome <- factor(result@predictions[, "class"], levels = classLevels)
-        actualOutcome <- factor(actualOutcome[match(result@predictions[, "sample"], sampleNames(result))], levels = classLevels, ordered = TRUE)
+        actualOutcome <- factor(actualOutcomeOrdered, levels = classLevels, ordered = TRUE)
         performance <- .calcPerformance(actualOutcome, predictedOutcome, samples, performanceType, grouping)
         result@performance[[performance[["name"]]]] <- performance[["values"]]
       }

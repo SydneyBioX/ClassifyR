@@ -3,8 +3,8 @@ Type: Package
 Title: A framework for cross-validated classification problems, with
        applications to differential variability and differential
        distribution testing
-Version: 3.11.4
-Date: 2024-12-06
+Version: 3.11.5
+Date: 2024-12-11
 Authors@R:
     c(
     person(given = "Dario", family = "Strbenac", email = "dario.strbenac@sydney.edu.au", role = c("aut", "cre")),

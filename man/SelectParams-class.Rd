@@ -16,14 +16,15 @@ feature selection. The empty constructor is provided for convenience.
 \section{Constructor}{
 
 \describe{
-\item{\code{SelectParams(featureRanking, characteristics = DataFrame(), minPresence = 1, intermediate = character(0),subsetToSelections = TRUE, tuneParams = list(nFeatures = seq(10, 100, 10), performanceType = "Balanced Accuracy"), ...)}}{Creates a \code{SelectParams} object which stores the function(s) which will do the selection and parameters that the function will use.\cr
+\item{\code{SelectParams(featureRanking, characteristics = DataFrame(), nFeatures = 20, minPresence = 1, intermediate = character(0), subsetToSelections = TRUE, tuneParams = list(nFeatures = seq(10, 100, 10)), ...)}}{Creates a \code{SelectParams} object which stores the function(s) which will do the selection and parameters that the function will use.\cr
     \describe{
         \item{\code{featureRanking}}{A character keyword referring to a registered feature ranking function. See \code{\link{available}} for valid keywords.}
         \item{\code{characteristics}}{A \code{\link{DataFrame}} describing the characteristics of feature selection to be done. First column must be named \code{"charateristic"} and second column must be named \code{"value"}. If using wrapper functions for feature selection in this package, the feature selection name will automatically be generated and therefore it is not necessary to specify it.}
-        \item{\code{minPresence}}{If a list of functions was provided, how many of those must a feature have been selected by to be used in classification. 1 is equivalent to a set union and a number the same length as \code{featureSelection} is equivalent to set intersection.}
+        \item{\code{nFeatures}}{Default: \code{20}. The number of top-ranked features to choose. Can also be \code{NULL} if a vector of top numbers is specified to \code{tuneParams} for the list element named \code{nFeatures}.}
+        \item{\code{minPresence}}{Default: \code{1}. If a list of functions was provided, how many of those must a feature have been selected by to be used in classification. 1 is equivalent to a set union and a number the same length as \code{featureSelection} is equivalent to set intersection.}
         \item{\code{intermediate}}{Character vector. Names of any variables created in prior stages by \code{\link{runTest}} that need to be passed to a feature selection function.}
         \item{\code{subsetToSelections}}{Whether to subset the data table(s), after feature selection has been done.}
-        \item{\code{tuneParams}}{A list specifying tuning parameters required during feature selection. The names of the list are the names of the parameters and the vectors are the values of the parameters to try. All possible combinations are generated. Two elements named \code{nFeatures} and \code{performanceType} are mandatory, to define the performance metric which will be used to select features and how many top-ranked features to try.}
+        \item{\code{tuneParams}}{A list specifying tuning parameters to try during feature selection. A list element named \code{nFeatures} is used to represent a variety of top-n ranked features to try. Other names of the list are the names of the parameters of the ranking function and the vectors are the values of the ranking function's parameters to try. All possible combinations are generated.}
         \item{\code{...}}{Other named parameters which will be used by the selection function. If \code{featureSelection} was a list of functions, this must be a list of lists, as long as \code{featureSelection}.}}
     }
 }

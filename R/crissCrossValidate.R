@@ -109,7 +109,7 @@ crissCrossValidate <- function(measurements, outcomes,
     {
       mapply(function(measurementsOne, outcomesOne)
       {
-        classifierParams <- .classifierKeywordToParams(classifier)
+        classifierParams <- .classifierKeywordToParams(classifier, NULL)
         modellingParams <- ModellingParams(selectParams = SelectParams("previousSelection", intermediate = ".iteration", classifyResult = trainedModel),
                                            trainParams = classifierParams$trainParams,
                                            predictParams = classifierParams$predictParams)

@@ -54,14 +54,17 @@
 #'   #if(require(sparsediscrim))
 #'   #{
 #'     data(asthma)
-#'     tuneList <- list(nFeatures = seq(5, 25, 5), performanceType = "Balanced Error")
+#'     CVparams <- CrossValParams(tuneMode = "Resubstitution")
+#'     tuneList <- list(nFeatures = seq(5, 25, 5))
+#'     attr(tuneList, "performanceType") <- "Balanced Error"
 #'     selectParams <- SelectParams("limma", tuneParams = tuneList)
 #'     modellingParams <- ModellingParams(selectParams = selectParams)
 #'     trainIndices <- seq(1, nrow(measurements), 2)
 #'     testIndices <- seq(2, nrow(measurements), 2)
 #'     
 #'     runTest(measurements[trainIndices, ], classes[trainIndices],
-#'             measurements[testIndices, ], classes[testIndices], modellingParams = modellingParams)
+#'             measurements[testIndices, ], classes[testIndices],
+#'             crossValParams = CVparams, modellingParams = modellingParams)
 #'   #}
 #' 
 #' @importFrom S4Vectors do.call mcols
@@ -96,6 +99,11 @@ function(measurementsTrain, outcomeTrain, measurementsTest, outcomeTest,
       stop("Some data elements are missing and classifiers don't work with missing data. Consider imputation or filtering.")                
     
     splitDatasetTrain <- prepareData(measurementsTrain, outcomeTrain, ...)
+    if(crossValParams@performanceType == "auto")
+    {
+      if(is.factor(splitDatasetTrain[["outcome"]])) crossValParams@performanceType <- "Balanced Accuracy" else
+        crossValParams@performanceType <- "C-index"    
+    }
       
     # Rebalance the class sizes of the training samples by either downsampling or upsampling
     # or leave untouched if balancing is none.
@@ -109,12 +117,20 @@ function(measurementsTrain, outcomeTrain, measurementsTest, outcomeTest,
   
   if("feature" %in% colnames(S4Vectors::mcols(measurementsTrain))) originalFeatures <- S4Vectors::mcols(measurementsTrain)[, na.omit(match(c("assay", "feature"), colnames(S4Vectors::mcols(measurementsTrain))))]    
   else originalFeatures <- colnames(measurementsTrain)
-    
-  if(!is.null(modellingParams@selectParams) && max(modellingParams@selectParams@tuneParams[["nFeatures"]]) > ncol(measurementsTrain))
+
+  if(!is.null(modellingParams@selectParams))
+  {
+    nFeatures <- modellingParams@selectParams@tuneParams[["nFeatures"]]
+    if(is.null(nFeatures)) nFeatures <- modellingParams@selectParams@nFeatures
+  }
+  if(!is.null(modellingParams@selectParams) && max(nFeatures) > ncol(measurementsTrain))
   {
     warning("Attempting to evaluate more features for feature selection than in
 input data. Autmomatically reducing to smaller number.")
-    modellingParams@selectParams@tuneParams[["nFeatures"]] <- 1:min(10, ncol(measurementsTrain))
+    if(is.null(modellingParams@selectParams@nFeatures))
+      modellingParams@selectParams@tuneParams[["nFeatures"]][modellingParams@selectParams@tuneParams[["nFeatures"]] > max(nFeatures)] <- max(nFeatures)
+    else
+      modellingParams@selectParams@nFeatures <- max(nFeatures)
   }
   
   if(!is.null(crossValParams) && !is.null(crossValParams@adaptiveResamplingDelta))
@@ -193,7 +209,7 @@ input data. Autmomatically reducing to smaller number.")
   }
   
   # Some classifiers have one function for training and testing, so that's why test data is also passed in.
-  #trained <- .doTrain(measurementsTrain, outcomeTrain, measurementsTest, outcomeTest, crossValParams, modellingParams, verbose)
+  # trained <- .doTrain(measurementsTrain, outcomeTrain, measurementsTest, outcomeTest, crossValParams, modellingParams, verbose)
   trained <- tryCatch(.doTrain(measurementsTrain, outcomeTrain, measurementsTest, outcomeTest, crossValParams, modellingParams, verbose),
                       error = function(error) error[["message"]])
   if(is.character(trained)) return(trained) # An error occurred.

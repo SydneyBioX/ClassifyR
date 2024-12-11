@@ -145,9 +145,9 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
 .doSelection <- function(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
 {
   tuneParams <- modellingParams@selectParams@tuneParams
-  performanceType <- tuneParams[["performanceType"]]
-  topNfeatures <- tuneParams[["nFeatures"]]
-  tuneParams <- tuneParams[-match(c("performanceType", "nFeatures"), names(tuneParams))] # Only used as evaluation metric.
+  performanceType <- crossValParams@performanceType
+  if(!is.null(tuneParams[["nFeatures"]])) topNfeatures <- tuneParams[["nFeatures"]] else topNfeatures <- modellingParams@selectParams@nFeatures
+  tuneParams <- tuneParams[-match("nFeatures", names(tuneParams))] # Only used as evaluation metric.
   
   # Make selectParams NULL, since we are currently doing selection and it shouldn't call
   # itself infinitely, but save the parameters of the ranking function for calling the ranking
@@ -177,17 +177,11 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
 
     if(attr(featureRanking, "name") %in% c("randomSelection", "previousSelection", "Union Selection")) # Actually selection not ranking.
       return(list(NULL, rankings[[1]], NULL))
-    
+
     if(crossValParams@tuneMode == "none") # No parameters to choose between.
-        return(list(NULL, rankings[[1]], NULL))
-    
+        return(list(rankings[[1]], rankings[[1]][1:topNfeatures], NULL))
+
     tuneParamsTrain <- list(topN = topNfeatures)
-    performanceIndex <- match("performanceType", names(modellingParams@trainParams@tuneParams))
-    if(!is.na(performanceIndex))
-    {
-      performanceType <- modellingParams@trainParams@tuneParams[["performanceType"]]
-      modellingParams@trainParams@tuneParams <- modellingParams@trainParams@tuneParams[-performanceIndex]
-    }
     tuneParamsTrain <- append(tuneParamsTrain, modellingParams@trainParams@tuneParams)
     tuneCombosTrain <- expand.grid(tuneParamsTrain, stringsAsFactors = FALSE)  
     modellingParams@trainParams@tuneParams <- NULL
@@ -243,7 +237,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
       
       if(verbose == 3)
          message("Features selected.")
-      
+
       tuneDetails <- allPerformanceTables[[tunePick]] # List of length 2.
       
       rankingUse <- rankings[[tunePick]]
@@ -290,10 +284,10 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
         }
       })
       bestOne <- ifelse(betterValues == "lower", which.min(performances)[1], which.max(performances)[1])
-      
+
       selectionIndices <- unlist(lapply(featuresLists, function(featuresList) featuresList[1:topNfeatures[bestOne]]))
       names(table(selectionIndices))[table(selectionIndices) >= modellingParams@selectParams@minPresence]
-      
+
       list(NULL, selectionIndices, NULL)
     } else { # Previous selection
       selectedFeatures <- list(NULL, selectionIndices, NULL)
@@ -317,8 +311,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
   tuneDetails <- NULL
   if(!is.null(modellingParams@trainParams@tuneParams) && is.null(modellingParams@selectParams))
   {
-    performanceType <- modellingParams@trainParams@tuneParams[["performanceType"]]
-    modellingParams@trainParams@tuneParams <- modellingParams@trainParams@tuneParams[-match("performanceType", names(modellingParams@trainParams@tuneParams))]
+    performanceType <- crossValParams@performanceType
     tuneCombos <- expand.grid(modellingParams@trainParams@tuneParams, stringsAsFactors = FALSE)
     modellingParams@trainParams@tuneParams <- NULL
     
@@ -571,21 +564,21 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
     )
 }
 
-.classifierKeywordToParams <- function(keyword, autoTune = FALSE)
+.classifierKeywordToParams <- function(keyword, tuneParams)
 {
     switch(
         keyword,
-        "randomForest" = RFparams(autoTune = autoTune),
-        "randomSurvivalForest" = RSFparams(autoTune = autoTune),
-        "XGB" = XGBparams(autoTune = autoTune),
+        "randomForest" = RFparams(tuneParams = tuneParams),
+        "randomSurvivalForest" = RSFparams(tuneParams = tuneParams),
+        "XGB" = XGBparams(tuneParams = tuneParams),
         "GLM" = GLMparams(),
         "ridgeGLM" = ridgeGLMparams(),
         "elasticNetGLM" = elasticNetGLMparams(),
         "LASSOGLM" = LASSOGLMparams(),
-        "SVM" = SVMparams(autoTune = autoTune),
+        "SVM" = SVMparams(tuneParams = tuneParams),
         "NSC" = NSCparams(),
         "DLDA" = DLDAparams(),
-        "naiveBayes" = naiveBayesParams(autoTune = autoTune),
+        "naiveBayes" = naiveBayesParams(tuneParams = tuneParams),
         "mixturesNormals" = mixModelsParams(),
         "kNN" = kNNparams(),
         "CoxPH" = coxphParams(),

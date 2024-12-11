@@ -8,7 +8,7 @@ output:
         toc: false
 ---
 
-When a choice about a model to use is made and specified to `crossValidate`, performance tuning of a range of typical values is automatically made. These values can be changed or removed. Below is a table of models and their default values, which can be changed by specifying the `extraParams` parameter. It is a list with named elements. Each element must be named one of `"select"`, `"train"` or `"predict"` (as well as `"prepare"` for data preparation which is not a parameter tuning operation, so is not discussed here), to identify which modelling the parameter corresponds to.
+When a choice about a model to use is made and specified to `crossValidate`, performance tuning of a range of typical values may be automatically made or manually specified. Below is a table of models and their default tuning values, which can be activated by specifying the `extraParams` parameter's list element `"select"`, `"train"` or `"predict"`'s element's `"tuneParams"` element as `"auto"`. Otherwise, it is a named list of parameter values.
 
 Model | Keyword | Default Parameters | Other Parameters
 ----|:----:|:----:|:----:
