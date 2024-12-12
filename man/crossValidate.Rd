@@ -116,7 +116,7 @@ of survival information, time must be in first column and event status in the se
 \item{...}{For \code{train} and \code{predict} functions, parameters not used by the non-DataFrame signature functions but passed into the DataFrame signature function.}
 
 \item{nFeatures}{The number of features to be used for classification. If a named vector with the same names of multiple assays, 
-a different number of features will be used for each assay. If a named list of vectors, the respective number of features will be optimised over. Set to "all" if all features should be used. To tune it, specify a vector or \code{list} of named vectors to
+a different number of features will be used for each assay. Set to \code{"all"} if all features should be used. To tune it, specify a vector or \code{list} of named vectors to \code{"tuneParams"} list of
 \code{"select"} element list of \code{extraParams} list.}
 
 \item{selectionMethod}{Default: \code{"auto"}. A character vector of feature selection methods to compare. If a named character vector with names corresponding to different assays, 

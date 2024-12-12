@@ -1,6 +1,6 @@
 setClass("pcaModel", slots = "fullModel")
 
-pcaTrainInterface <- function(measurements, classes, params, nFeatures, ...)
+pcaTrainInterface <- function(measurements, outcome, params, nFeatures, ...)
           {
               
               ###
@@ -12,7 +12,7 @@ pcaTrainInterface <- function(measurements, classes, params, nFeatures, ...)
               
               # Create generic crossValParams just to get things working, might be used for optimising features in runTest later???
               CVparams <- CrossValParams(permutations = 1, folds = 10, parallelParams = SerialParam(RNGseed = .Random.seed[1]), tuneMode = "Resubstitution") 
-              
+              if(is(outcome, "Surv")) CVparams@performanceType <- "C-index" else CVparams@performanceType <- "Balanced Accuracy"
               ###
               # Run PCA for all assays except clinical
               ###
@@ -56,9 +56,9 @@ pcaTrainInterface <- function(measurements, classes, params, nFeatures, ...)
               
               runTestOutput = runTest(
                   fullTrain,
-                  classes,
+                  outcome,
                   fullTrain,
-                  classes,
+                  outcome,
                   modellingParams = finalModParam,
                   crossValParams = CVparams,
                   .iteration = 1,

@@ -25,7 +25,7 @@
 #' the website), specify a list element of \code{"select"} or \code{"train"} lists named \code{"tuneParams"} with value \code{"auto"}. To specify your own range of values, specify a \code{list} with names being the parameters in the functions
 #' described in the same article on the website. For the valid element names in the \code{"prepare"} list, see \code{?prepareData} for its parameter names. The list \code{"tuneCross"} can have elements named \code{"tuneMode"} and \code{"performanceType"}. Valid values for \code{"tuneMode"} are \code{"Resubstitution"} or \code{"Nested CV"}. For \code{"performanceType"}, it is any of the metrics which can be specified to \code{\link{calcPerformance}}.
 #' @param nFeatures The number of features to be used for classification. If a named vector with the same names of multiple assays, 
-#' a different number of features will be used for each assay. If a named list of vectors, the respective number of features will be optimised over. Set to "all" if all features should be used. To tune it, specify a vector or \code{list} of named vectors to
+#' a different number of features will be used for each assay. Set to \code{"all"} if all features should be used. To tune it, specify a vector or \code{list} of named vectors to \code{"tuneParams"} list of
 #' \code{"select"} element list of \code{extraParams} list.
 #' @param selectionMethod Default: \code{"auto"}. A character vector of feature selection methods to compare. If a named character vector with names corresponding to different assays, 
 #' and performing multiview classification, the respective selection methods will be used on each assay. If \code{"auto"}, t-test (two categories) / F-test (three or more categories) ranking
@@ -140,12 +140,14 @@ setMethod("crossValidate", "DataFrame",
               if(is.null(assayIDs)) assayIDs <- 1
 
               # Check that other variables are in the right format and fix
-              nFeatures <- cleanNFeatures(nFeatures = nFeatures,
+              nFeaturesUse <- extraParams$select$tuneParams$nFeatures
+              if(is.null(nFeaturesUse)) nFeaturesUse <- nFeatures
+              nFeaturesUse <- cleanNFeatures(nFeatures = nFeaturesUse,
                                           measurements = measurements)
               selectionMethod <- cleanSelectionMethod(selectionMethod = selectionMethod,
                                                       measurements = measurements)
               classifier <- cleanClassifier(classifier = classifier,
-                                            measurements = measurements, nFeatures = nFeatures)
+                                            measurements = measurements, nFeatures = nFeaturesUse)
               
               ##!!!!! Do something with data combinations
 
@@ -173,11 +175,12 @@ setMethod("crossValidate", "DataFrame",
                                   measurementsUse <- measurements
                                   if(verbose > 0)
                                     message(Sys.time(), ": Running selection ", selectionForAssay, ", classifier ", classifierForAssay, '.')
+
                                   if(assayIndex != 1) measurementsUse <- measurements[, S4Vectors::mcols(measurements)[, "assay"] == assayIndex, drop = FALSE]
                                   CV(
                                       measurements = measurementsUse, outcome = outcome,
                                       assayIDs = assayIndex,
-                                      nFeatures = nFeatures[assayIndex],
+                                      nFeatures = nFeaturesUse[assayIndex],
                                       selectionMethod = selectionForAssay,
                                       classifier = classifierForAssay,
                                       multiViewMethod = multiViewMethod,
@@ -212,7 +215,7 @@ setMethod("crossValidate", "DataFrame",
                   result <- sapply(assayCombinations, function(assayIndex){
                       CV(measurements = measurements[, S4Vectors::mcols(measurements)[["assay"]] %in% assayIndex, drop = FALSE],
                          outcome = outcome, assayIDs = assayIndex,
-                         nFeatures = nFeatures[assayIndex],
+                         nFeatures = nFeaturesUse[assayIndex],
                          selectionMethod = selectionMethod[assayIndex],
                          classifier = classifier[assayIndex],
                          multiViewMethod = ifelse(length(assayIndex) == 1, "none", multiViewMethod),
@@ -244,7 +247,7 @@ setMethod("crossValidate", "DataFrame",
                   result <- sapply(assayCombinations, function(assayIndex){
                       CV(measurements = measurements[, S4Vectors::mcols(measurements)[["assay"]] %in% assayIndex, drop = FALSE],
                          outcome = outcome, assayIDs = assayIndex,
-                         nFeatures = nFeatures[assayIndex],
+                         nFeatures = nFeaturesUse[assayIndex],
                          selectionMethod = selectionMethod[assayIndex],
                          classifier = classifier[assayIndex],
                          multiViewMethod = ifelse(length(assayIndex) == 1, "none", multiViewMethod),
@@ -277,7 +280,7 @@ setMethod("crossValidate", "DataFrame",
                   result <- sapply(assayCombinations, function(assayIndex){
                       CV(measurements = measurements[, S4Vectors::mcols(measurements)$assay %in% assayIndex, drop = FALSE],
                          outcome = outcome, assayIDs = assayIndex,
-                         nFeatures = nFeatures[assayIndex],
+                         nFeatures = nFeaturesUse[assayIndex],
                          selectionMethod = selectionMethod[assayIndex],
                          classifier = classifier[assayIndex],
                          multiViewMethod = ifelse(length(assayIndex) == 1, "none", multiViewMethod),
@@ -497,15 +500,15 @@ generateModellingParams <- function(assayIDs,
         return(params)
     }
 
+    obsFeatures <- ncol(measurements)
 
-    if(length(assayIDs) > 1) obsFeatures <- sum(S4Vectors::mcols(measurements)[, "assay"] %in% assayIDs)
-    else obsFeatures <- ncol(measurements)
-
-    nFeatures <- unlist(nFeatures)
-    if(max(nFeatures) > obsFeatures) {
-
-        warning("nFeatures greater than the max number of features in data. Setting to max")
-        nFeatures <- pmin(nFeatures, obsFeatures)
+    if(is.list(nFeatures) && any(nFeatures[[1]] > obsFeatures)) {
+      warning("nFeatures greater than the maximum number of features in data. Setting to maximum.")
+          nFeatures[[1]][nFeatures[[1]] > obsFeatures] <- obsFeatures
+    }
+    if(is.numeric(nFeatures) && any(nFeatures > obsFeatures)) {
+      warning("nFeatures greater than the maximum number of features in data. Setting to maximum.")
+          nFeatures[nFeatures > obsFeatures] <- obsFeatures
     }
 
     classifier <- unlist(classifier)
@@ -558,35 +561,26 @@ generateModellingParams <- function(assayIDs,
         } 
       }
     }    
-    
+
     selectionMethod <- unlist(selectionMethod)
 
     if(selectionMethod != "none")
     {
-      selectParams <- SelectParams(selectionMethod, nFeatures = nFeatures, tuneParams = extraParams[["select"]][["tuneParams"]])
+      if(length(nFeatures[[1]]) > 1 || length(nFeatures) > 1)
+      {
+        extraParams[["select"]][["tuneParams"]][["nFeatures"]] <- unname(unlist(nFeatures))
+        selectParams <- SelectParams(selectionMethod, nFeatures = NULL)
+      } else {
+          nFeatures <- unlist(nFeatures)
+          selectParams <- SelectParams(selectionMethod, nFeatures = nFeatures)}
+      
       if(!is.null(extraParams) && "select" %in% names(extraParams))
       {
-        for(paramIndex in seq_along(extraParams[["select"]]))
-        {
-          parameter <- extraParams[["select"]][[paramIndex]]
-          parameterName <- names(extraParams[["select"]])[paramIndex]
-          if(length(parameter) == 1)
-          {
-            if(is.null(classifierParams$selectParams@otherParams)) classifierParams$selectParams@otherParams <- extraParams[["select"]][paramIndex]
-            else classifierParams$selectParams@otherParams[parameterName] <- parameter
-          } else if(length(parameter) > 1) {
-            if(is.null(classifierParams$selectParams@tuneParams)) classifierParams$selectParams@tuneParams <- extraParams[["select"]][paramIndex]
-            else classifierParams$selectParams@tuneParams[parameterName] <- parameter # Multiple values, so tune them.
-          } else { # Remove the parameter
-             inOther <- match(parameterName, names(classifierParams$selectParams@otherParams))
-             inTune <- match(parameterName, names(classifierParams$selectParams@tuneParams))
-             if(!is.na(inOther)) classifierParams$selectParams@otherParams <- classifierParams$selectParams@otherParams[-inOther]
-             if(!is.na(inTune)) classifierParams$selectParams@tuneParams <- classifierParams$selectParams@tuneParams[-inTune]
-          }
-        }
+        others <- setdiff(names(extraParams[["select"]]), "tuneParams")
+        if(length(others) > 0) selectParams@otherParams <- extraParams[["select"]][others]
+        selectParams@tuneParams <- extraParams[["select"]][["tuneParams"]]
       }
     } else {selectParams <- NULL}
-
     params <- ModellingParams(
         balancing = "none",
         selectParams = selectParams,
@@ -640,7 +634,7 @@ generateMultiviewParams <- function(assayIDs,
         # Reconsider how to do this well later. 
         params <- generateModellingParams(assayIDs = assayIDs,
                                           measurements = measurements,
-                                          nFeatures = sum(unlist(nFeatures)),
+                                          nFeatures = max(unlist(nFeatures)),
                                           selectionMethod = selectionMethod[[1]],
                                           classifier = classifier[[1]],
                                           multiViewMethod = "none",
