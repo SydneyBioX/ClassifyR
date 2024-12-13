@@ -33,7 +33,7 @@ extractPrevalidation = function(assayPreval){ #}, startingCol) {
 
 setClass("prevalModel", slots = "fullModel")
 
-prevalTrainInterface <- function(measurements, outcome, params, verbose)
+prevalTrainInterface <- function(measurements, outcomeTrain, params, verbose)
           {
               ###
               # Splitting measurements into a list of each of the assays
@@ -51,7 +51,7 @@ prevalTrainInterface <- function(measurements, outcome, params, verbose)
               }
               
               crossValParams <- CrossValParams(permutations = 1, folds = 10, parallelParams = SerialParam(RNGseed = .Random.seed[1]), tuneMode = tuneMode, performanceType = performanceType)
-              if(is(outcome, "Surv")) crossValParams@performanceType <- "C-index" else crossValParams@performanceType <- "Balanced Accuracy"
+              if(is(outcomeTrain, "Surv")) crossValParams@performanceType <- "C-index" else crossValParams@performanceType <- "Balanced Accuracy"
               ###
               # Fit a classification model for each non-clinical data set, pulling models from "params"
               ###
@@ -61,7 +61,7 @@ prevalTrainInterface <- function(measurements, outcome, params, verbose)
                   measurements = assayTrain[usePreval],
                   modellingParams = params[usePreval],
                   MoreArgs = list(
-                      outcome = outcome,
+                      outcome = outcomeTrain,
                       crossValParams = crossValParams,
                       verbose = 0
                   )) |> sapply(function(result) result@predictions, simplify = FALSE)
@@ -100,9 +100,9 @@ prevalTrainInterface <- function(measurements, outcome, params, verbose)
               # Fit classification model (from clinical in params)
               runTestOutput = runTest(
                   measurementsTrain = fullTrain,
-                  outcomeTrain = outcome,
+                  outcomeTrain = outcomeTrain,
                   measurementsTest = fullTrain,
-                  outcomeTest = outcome,
+                  outcomeTest = outcomeTrain,
                   modellingParams = finalModParam,
                   crossValParams = crossValParams,
                   .iteration = 1,
@@ -122,8 +122,8 @@ prevalTrainInterface <- function(measurements, outcome, params, verbose)
                   modellingParams = params,
                   MoreArgs = list(
                       crossValParams = crossValParams,
-                      outcomeTrain = outcome,
-                      outcomeTest = outcome,
+                      outcomeTrain = outcomeTrain,
+                      outcomeTest = outcomeTrain,
                       .iteration = 1,
                       verbose = 0
                   )
