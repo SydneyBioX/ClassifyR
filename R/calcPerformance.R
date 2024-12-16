@@ -130,6 +130,11 @@ setMethod("calcExternalPerformance", c("factor", "tabular"), # table has class p
             )
           })
 
+calcCVperformance <- function(results, ...)
+{
+    lapply(results, calcCVperformance)
+}
+
 #' @rdname calcPerformance
 #' @usage NULL
 #' @export

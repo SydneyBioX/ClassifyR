@@ -797,7 +797,7 @@ train.DataFrame <- function(x, outcomeTrain, selectionMethod = "auto", nFeatures
               if(isTuneCross && !extraParams[["tuneCross"]][["performanceType"]] %in% c("auto", .ClassifyRenvir[["performanceTypes"]]))
                 stop(paste("performanceType for tuning must be one of", paste(c("auto", .ClassifyRenvir[["performanceTypes"]]), collapse = ", "), "but is", extraParams[["tuneCross"]][["performanceType"]]))
               
-              isCategorical <- is.character(outcome) && (length(outcome) == 1 || length(outcome) == nrow(measurements)) || is.factor(outcome)
+              isCategorical <- is.character(outcomeTrain) && (length(outcomeTrain) == 1 || length(outcomeTrain) == nrow(measurements)) || is.factor(outcomeTrain)
               if(isTuneCross && extraParams[["tuneCross"]][["performanceType"]] == "auto")
                 if(isCategorical) extraParams[["tuneCross"]][["performanceType"]] <- "Balanced Accuracy" else extraParams[["tuneCross"]][["performanceType"]] <- "C-index"
               if(length(selectionMethod) == 1 && selectionMethod == "auto")
@@ -838,7 +838,7 @@ train.DataFrame <- function(x, outcomeTrain, selectionMethod = "auto", nFeatures
                                     measurementsUse <- measurements
                                   }
 
-                                  classifierParams <- .classifierKeywordToParams(keyword = classifierForAssay)
+                                  classifierParams <- .classifierKeywordToParams(classifierForAssay, extraParams[["train"]][["tuneParams"]])
                                   if(!is.null(extraParams) && "train" %in% names(extraParams))
                                   {
                                      for(paramIndex in seq_along(extraParams[["train"]]))

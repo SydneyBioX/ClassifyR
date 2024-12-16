@@ -3,7 +3,7 @@ Type: Package
 Title: A framework for cross-validated classification problems, with
        applications to differential variability and differential
        distribution testing
-Version: 3.11.5
+Version: 3.11.6
 Date: 2024-12-12
 Authors@R:
     c(
@@ -21,7 +21,7 @@ Encoding: UTF-8
 biocViews: Classification, Survival
 Depends: R (>= 4.1.0), generics, methods, S4Vectors, MultiAssayExperiment, BiocParallel, survival
 Imports: grid, genefilter, utils, dplyr, tidyr, rlang, ranger, ggplot2 (>= 3.0.0), ggpubr, reshape2, ggupset
-Suggests: limma, edgeR, car, Rmixmod, gridExtra (>= 2.0.0), cowplot,
+Suggests: limma, edgeR, car, dcanr, Rmixmod, gridExtra (>= 2.0.0), cowplot,
         BiocStyle, pamr, PoiClaClu, parathyroidSE, knitr, htmltools, gtable,
         scales, e1071, rmarkdown, IRanges, robustbase, glmnet, class, randomForestSRC,
         MatrixModels, xgboost, data.tree, ggnewscale
