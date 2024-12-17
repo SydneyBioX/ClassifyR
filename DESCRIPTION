@@ -20,11 +20,11 @@ VignetteBuilder: knitr
 Encoding: UTF-8
 biocViews: Classification, Survival
 Depends: R (>= 4.1.0), generics, methods, S4Vectors, MultiAssayExperiment, BiocParallel, survival
-Imports: grid, genefilter, utils, dplyr, tidyr, rlang, ranger, ggplot2 (>= 3.0.0), ggpubr, reshape2, ggupset
+Imports: grid, genefilter, utils, dplyr, tidyr, rlang, ranger, ggplot2 (>= 3.0.0), ggpubr, reshape2, ggupset, broom, dcanr
 Suggests: limma, edgeR, car, dcanr, Rmixmod, gridExtra (>= 2.0.0), cowplot,
         BiocStyle, pamr, PoiClaClu, parathyroidSE, knitr, htmltools, gtable,
         scales, e1071, rmarkdown, IRanges, robustbase, glmnet, class, randomForestSRC,
-        MatrixModels, xgboost, data.tree, ggnewscale, broom
+        MatrixModels, xgboost, data.tree, ggnewscale
 Description: The software formalises a framework for classification and survival model evaluation
              in R. There are four stages; Data transformation, feature selection, model training,
              and prediction. The requirements of variable types and variable order are

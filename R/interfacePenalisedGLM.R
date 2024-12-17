@@ -32,9 +32,10 @@ attr(penalisedGLMtrainInterface, "name") <- "penalisedGLMtrainInterface"
 
 # model is of class multnet
 penalisedGLMpredictInterface <- function(model, measurementsTest, lambda, ..., returnType = c("both", "class", "score"), verbose = 3)
-{ # ... just consumes emitted tuning variables from .doTrain which are unused.
+{
+  # ... just consumes emitted tuning variables from .doTrain which are unused.
   returnType <- match.arg(returnType)
-  # One-hot encoding needed.    
+  # One-hot encoding needed.
   measurementsTest <- MatrixModels::model.Matrix(~ 0 + ., data = measurementsTest)
   
   # Ensure that testing data has same columns names in same order as training data.
@@ -51,7 +52,7 @@ penalisedGLMpredictInterface <- function(model, measurementsTest, lambda, ..., r
 
   
   measurementsTest <- measurementsTest[, rownames(model[["beta"]][[1]])]
-  
+
   classPredictions <- factor(as.character(predict(model, measurementsTest, s = lambda, type = "class")), levels = model[["classnames"]])
   classScores <- predict(model, measurementsTest, s = lambda, type = "response")[, , 1]
   
