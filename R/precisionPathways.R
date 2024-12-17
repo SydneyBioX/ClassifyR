@@ -345,7 +345,7 @@ bubblePlot.PrecisionPathways <- function(precisionPathways, pathwayColours = NUL
   performance <- precisionPathways[["performance"]]
   performance <- cbind(Sequence = rownames(performance), performance)
   ggplot2::ggplot(performance, aes(x = accuracy, y = cost, colour = Sequence, size = 4)) + ggplot2::geom_point() +
-    ggplot2::scale_color_manual(values = pathwayColours) + ggplot2::labs(x = "Balanced Accuracy", y = "Total Cost") + ggplot2::guides(size = FALSE)
+    ggplot2::scale_color_manual(values = pathwayColours) + ggplot2::labs(x = "Balanced Accuracy", y = "Total Cost") + ggplot2::guides(size = "none")
 }
 
 #' @export

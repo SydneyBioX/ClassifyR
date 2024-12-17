@@ -190,7 +190,7 @@ crissCrossPlot <- function(crissCrossResult, includeValues = FALSE){
   
     ggheatmap <- ggplot(melted_cormat, aes(Var1, Var2, fill = value)) +
       geom_tile(color = "white") +
-      scale_fill_gradient2(high = "red", mid = "white", low = "blue", 
+      scale_fill_gradient2(high = "#e25563ff", mid = "white", low = "#094bacff", 
                           midpoint = 0.5, limit = c(0,1), space = "Lab", 
                           name=as.character(scalebar_title)) +
       theme_bw() + xlab("Training Dataset") + ylab("Testing Dataset") +
@@ -205,7 +205,7 @@ crissCrossPlot <- function(crissCrossResult, includeValues = FALSE){
     melted_cormat_1 <- melt(real, na.rm = TRUE)
     ggheatmap_1 <- ggplot(melted_cormat_1, aes(Var1, Var2, fill = value)) +
       geom_tile(color = "white") +
-      scale_fill_gradient2(high = "red", mid = "white", low = "blue", 
+      scale_fill_gradient2(high = "#e25563ff", mid = "white", low = "#094bacff", 
                           midpoint = 0.5, limit = c(0,1), space = "Lab", 
                           name=as.character(scalebar_title)) +
       theme_bw() + xlab("Features Extracted") + ylab("Dataset Tested") +
@@ -218,7 +218,7 @@ crissCrossPlot <- function(crissCrossResult, includeValues = FALSE){
       melted_cormat_2 <- melt(random, na.rm = TRUE)
       ggheatmap_2 <- ggplot(melted_cormat_2, aes(Var1, Var2, fill = value)) +
         geom_tile(color = "white") +
-        scale_fill_gradient2(high = "red", mid = "white", low = "blue", 
+        scale_fill_gradient2(high = "#e25563ff", mid = "white", low = "#094bacff", 
                             midpoint = 0.5, limit = c(0,1), space = "Lab", 
                             name=as.character(scalebar_title)) +
         theme_bw() + xlab("Features Extracted") + ylab("Dataset Tested") +
