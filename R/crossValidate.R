@@ -1055,13 +1055,13 @@ predict.trainedByClassifyR <- function(object, newData, outcome, ...)
                }, newData, names(newData))
     newData <- do.call(cbind, newData)
     } else if(is(newData, "MultiAssayExperiment"))
-            {
-              newData <- prepareData(newData, outcome)
+    {
+              newData <- prepareData(newData, outcome)[["measurements"]]
     }
     
     predictFunctionUse <- attr(object, "predictFunction")
     class(object) <- class(object)[-1] # Now want the predict method of the specific model to be picked, so put model class first.
     if (is(object, "listOfModels")) 
-         mapply(function(model, assay) predictFunctionUse(model, assay), object, newData[["measurements"]], MoreArgs = list(...), SIMPLIFY = FALSE)
-    else do.call(predictFunctionUse, list(object, newData[["measurements"]], ...)) # Object is itself a trained model and it is assumed that a predict method is defined for it.
+         mapply(function(model, assay) predictFunctionUse(model, assay), object, newData, MoreArgs = list(...), SIMPLIFY = FALSE)
+    else do.call(predictFunctionUse, list(object, newData, ...)) # Object is itself a trained model and it is assumed that a predict method is defined for it.
 }
