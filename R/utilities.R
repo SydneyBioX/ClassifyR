@@ -33,7 +33,6 @@ samplesSplits <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permute
     {
       # Create maximally-balanced folds, so class balance is about the same in all.
       allFolds <- vector(mode = "list", length = nFolds)
-      foldsIndexes <- rep(1:nFolds, length.out = length(outcome))
       
       foldsIndex = 1
       # Balance the non-censored observations across folds.
@@ -42,15 +41,14 @@ samplesSplits <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permute
       {
         # Permute the indexes of samples in the class.
         whichSamples <- sample(which(outcome == outcomeName))
-        whichFolds <- foldsIndexes[foldsIndex:(foldsIndex + length(whichSamples) - 1)]
+        whichFolds <- rep(1:nFolds, length.out = length(whichSamples))
+        samplesByFolds <- split(whichSamples, whichFolds)
         
         # Put each sample into its fold.
-        for(sampleIndex in 1:length(whichSamples))
+        for(foldIndex in 1:length(samplesByFolds))
         {
-          allFolds[[whichFolds[sampleIndex]]] <- c(allFolds[[whichFolds[sampleIndex]]], whichSamples[sampleIndex])
+          allFolds[[foldIndex]] <- c(allFolds[[foldIndex]], samplesByFolds[[foldIndex]])
         }
-        # Move the beginning index to the first new index.
-        foldsIndex <- foldsIndex + length(whichSamples)
       }
       
       list(train = lapply(1:nFolds, function(index) unlist(allFolds[setdiff(1:nFolds, index)])),
