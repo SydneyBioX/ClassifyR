@@ -79,8 +79,13 @@ penalisedFeatures <- function(model)
                       {
                         # Floating point numbers test for equality.
                         whichCoefficientColumn <- which(abs(model[["lambda"]] - attr(model, "tune")[["lambda"]]) < 0.00001)[1]
-                        coefficientsUsed <- sapply(model[["beta"]], function(classCoefficients) classCoefficients[, whichCoefficientColumn])
-                        featureScores <- rowSums(abs(coefficientsUsed))
+                        if(is.list(model[["beta"]])) # Categorical data
+                        {
+                          coefficientsUsed <- sapply(model[["beta"]], function(classCoefficients) classCoefficients[, whichCoefficientColumn])
+                          featureScores <- rowSums(abs(coefficientsUsed))
+                        } else { # survival data
+                            featureScores <- model[["beta"]][, whichCoefficientColumn]
+                        }
                         featureGroups <- attr(model, "featureGroups")[match(names(featureScores), attr(model, "featureNames"))]
                         groupScores <- unname(by(featureScores, featureGroups, max))
                         rankedFeaturesIndices <- order(groupScores, decreasing = TRUE)

@@ -8,7 +8,7 @@ coxnetTrainInterface <- function(measurementsTrain, survivalTrain, lambda = NULL
     message(Sys.time(), ": Fitting coxnet model to data.")
     
   measurementsTrain <- data.frame(measurementsTrain, check.names = FALSE)
-  measurementsMatrix <- glmnet::makeX(as(measurementsTrain, "data.frame"))
+  measurementsMatrix <- MatrixModels::model.Matrix(~ 0 + ., data = measurementsTrain)
   
   # The response variable is a Surv class of object.
   fit <- glmnet::cv.glmnet(measurementsMatrix, survivalTrain, family = "cox", type = "C", ...)
@@ -16,6 +16,8 @@ coxnetTrainInterface <- function(measurementsTrain, survivalTrain, lambda = NULL
   
   offset <- -mean(predict(fitted, measurementsMatrix, s = fit$lambda.min, type = "link"))
   attr(fitted, "tune") <- list(lambda = fit$lambda.min, offset = offset)
+  attr(fitted, "featureNames") <- colnames(measurementsMatrix)
+  attr(fitted, "featureGroups") <- measurementsMatrix@assign
   
   class(fitted) <- class(fitted)[1] # Get rid of glmnet which messes with dispatch. 
   fitted

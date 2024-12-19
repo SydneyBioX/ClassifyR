@@ -118,7 +118,7 @@ coxphParams <- function() {
 
 # Cox Proportional Hazards Model with Elastic Net for Survival
 coxnetParams <- function() {
-    trainParams <- TrainParams(coxnetTrainInterface)
+    trainParams <- TrainParams(coxnetTrainInterface, getFeatures = penalisedFeatures)
     predictParams <- PredictParams(coxnetPredictInterface)
     
     return(list(trainParams = trainParams, predictParams = predictParams))
