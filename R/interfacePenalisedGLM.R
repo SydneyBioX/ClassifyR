@@ -5,7 +5,7 @@ penalisedGLMtrainInterface <- function(measurementsTrain, classesTrain, lambda =
   if(!requireNamespace("glmnet", quietly = TRUE))
     stop("The package 'glmnet' could not be found. Please install it.")
   if(verbose == 3)
-    message("Fitting elastic net regularised GLM classifier to data.")
+    message(Sys.time(), ": Fitting elastic net regularised GLM classifier to data.")
 
   # One-hot encoding needed.    
   measurementsTrain <- MatrixModels::model.Matrix(~ 0 + ., data = measurementsTrain)
@@ -32,9 +32,10 @@ attr(penalisedGLMtrainInterface, "name") <- "penalisedGLMtrainInterface"
 
 # model is of class multnet
 penalisedGLMpredictInterface <- function(model, measurementsTest, lambda, ..., returnType = c("both", "class", "score"), verbose = 3)
-{ # ... just consumes emitted tuning variables from .doTrain which are unused.
+{
+  # ... just consumes emitted tuning variables from .doTrain which are unused.
   returnType <- match.arg(returnType)
-  # One-hot encoding needed.    
+  # One-hot encoding needed.
   measurementsTest <- MatrixModels::model.Matrix(~ 0 + ., data = measurementsTest)
   
   # Ensure that testing data has same columns names in same order as training data.
@@ -51,7 +52,7 @@ penalisedGLMpredictInterface <- function(model, measurementsTest, lambda, ..., r
 
   
   measurementsTest <- measurementsTest[, rownames(model[["beta"]][[1]])]
-  
+
   classPredictions <- factor(as.character(predict(model, measurementsTest, s = lambda, type = "class")), levels = model[["classnames"]])
   classScores <- predict(model, measurementsTest, s = lambda, type = "response")[, , 1]
   
@@ -78,8 +79,13 @@ penalisedFeatures <- function(model)
                       {
                         # Floating point numbers test for equality.
                         whichCoefficientColumn <- which(abs(model[["lambda"]] - attr(model, "tune")[["lambda"]]) < 0.00001)[1]
-                        coefficientsUsed <- sapply(model[["beta"]], function(classCoefficients) classCoefficients[, whichCoefficientColumn])
-                        featureScores <- rowSums(abs(coefficientsUsed))
+                        if(is.list(model[["beta"]])) # Categorical data
+                        {
+                          coefficientsUsed <- sapply(model[["beta"]], function(classCoefficients) classCoefficients[, whichCoefficientColumn])
+                          featureScores <- rowSums(abs(coefficientsUsed))
+                        } else { # survival data
+                            featureScores <- model[["beta"]][, whichCoefficientColumn]
+                        }
                         featureGroups <- attr(model, "featureGroups")[match(names(featureScores), attr(model, "featureNames"))]
                         groupScores <- unname(by(featureScores, featureGroups, max))
                         rankedFeaturesIndices <- order(groupScores, decreasing = TRUE)

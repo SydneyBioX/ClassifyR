@@ -31,7 +31,7 @@
 \arguments{
 \item{measurements}{Either a \code{\link{MultiAssayExperiment}} or a list of the basic tabular objects containing the data.}
 
-\item{class}{Same as \code{measurements} but only training samples. IF \code{measurements} is a \code{list}, may also be
+\item{class}{If a \code{\link{MultiAssayExperiment}}, a column name in \code{colData(measurements)} with the classes. If \code{measurements} is a \code{list} of tabular data, may also be
 a vector of classes.}
 
 \item{useFeatures}{Default: \code{NULL} (i.e. use all provided features). A named list of features to use. Otherwise, the input data is a single table and this can just be a vector of feature names.

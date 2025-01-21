@@ -21,11 +21,11 @@ differentMeansRanking <- function(measurementsTrain, classesTrain, verbose = 3)
     if(length(levels(classesTrain)) == 2)
     {
       if(verbose == 3)
-        message("Ranking features based on t-statistic.")
+        message(Sys.time(), ": Ranking features based on t-statistic.")
       pValues[!categorical] <- genefilter::rowttests(measurementsMatrix, classesTrain)[, "p.value"]
     } else {
       if(verbose == 3)
-        message("Ranking features based on F-statistic.")
+        message(Sys.time(), ": Ranking features based on F-statistic.")
       pValues[!categorical]  <- genefilter::rowFtests(measurementsMatrix, classesTrain)[, "p.value"]
     }
   }

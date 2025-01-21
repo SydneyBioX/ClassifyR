@@ -4,7 +4,7 @@ rfsrcTrainInterface <- function(measurementsTrain, survivalTrain, mTryProportion
   if(!requireNamespace("randomForestSRC", quietly = TRUE))
     stop("The package 'randomForestSRC' could not be found. Please install it.")
   if(verbose == 3)
-    message("Fitting rfsrc classifier to training data and making predictions on test data.")
+    message(Sys.time(), ": Fitting rfsrc classifier to training data and making predictions on test data.")
 
   # Surv objects store survival information as a two-column table, time and event, in that order.    
   bindedMeasurements <- cbind(measurementsTrain, time = survivalTrain[, 1], event = survivalTrain[, 2])

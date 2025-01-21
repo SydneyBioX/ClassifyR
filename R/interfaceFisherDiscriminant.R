@@ -7,7 +7,7 @@ fisherDiscriminant <- function(measurementsTrain, classesTrain, measurementsTest
   returnType <- match.arg(returnType)
   
   if(verbose == 3)
-    message("Fitting Fisher discriminant.")              
+    message(Sys.time(), ": Fitting Fisher discriminant.")              
 
   oneClassTraining <- which(classesTrain == levels(classesTrain)[1])
   otherClassTraining <- which(classesTrain == levels(classesTrain)[2])

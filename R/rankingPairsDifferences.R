@@ -12,10 +12,10 @@ pairsDifferencesRanking <- function(measurementsTrain, classesTrain, featurePair
   featurePairs <- featurePairs[keepPairs]
   
   if(verbose == 3)
-    message(suppliedPairs, " pairs input and ", length(featurePairs), " pairs remain after filtering based on data set row names.")
+    message(Sys.time(), ": ", suppliedPairs, " pairs input and ", length(featurePairs), " pairs remain after filtering based on data set row names.")
   
   if(verbose == 3)
-    message("Selecting pairs of features with consistent differences.")
+    message(Sys.time(), ": Selecting pairs of features with consistent differences.")
 
   oneClassTraining <- which(classesTrain == levels(classesTrain)[1])
   otherClassTraining <- which(classesTrain == levels(classesTrain)[2])

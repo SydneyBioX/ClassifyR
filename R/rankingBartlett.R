@@ -2,7 +2,7 @@
 bartlettRanking <- function(measurementsTrain, classesTrain, verbose = 3)
 {
   if(verbose == 3)
-    message("Ranking features based on Bartlett statistic.")
+    message(Sys.time(), ": Ranking features based on Bartlett statistic.")
   
   pValues <- apply(measurementsTrain, 2, function(featureColumn)
     stats::bartlett.test(featureColumn, classesTrain)[["p.value"]])

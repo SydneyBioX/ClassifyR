@@ -2,7 +2,7 @@
 mixModelsTrain <- function(measurementsTrain, classesTrain, ..., verbose = 3) # Mixed data types.
 {
   if(verbose == 3)
-    message("Fitting mixtures of normals for features.")
+    message(Sys.time(), ":Fitting mixtures of normals for features.")
   if(!requireNamespace("Rmixmod", quietly = TRUE))
     stop("The package 'Rmixmod' could not be found. Please install it.")
 
@@ -18,7 +18,7 @@ mixModelsTrain <- function(measurementsTrain, classesTrain, ..., verbose = 3) # 
             })
 
   if(verbose == 3)
-    message("Done fitting normal mixtures.")
+    message(Sys.time(), ": Done fitting normal mixtures.")
 
   models <- lapply(models, function(modelSet)
             {
@@ -74,7 +74,7 @@ mixModelsPredict <- function(models, measurementsTest, difference = c("unweighte
              })
 
   if(verbose == 3)
-    message("Calculating vertical differences between normal mixture densities.")
+    message(Sys.time(), ": Calculating vertical differences between normal mixture densities.")
 
   # Needed even if horizontal distance weighting is used to determine the predicted class.
   posteriorsVertical <- mapply(function(featureSplines, testSamples)
@@ -106,7 +106,7 @@ mixModelsPredict <- function(models, measurementsTest, difference = c("unweighte
   if(difference == "crossover distance")
   {
     if(verbose == 3)
-      message("Calculating horizontal distances to crossover points of class densities.")
+      message(Sys.time(), ": Calculating horizontal distances to crossover points of class densities.")
 
     classesVerticalIndices <- matrix(match(classesVertical, classesNames),
                                      nrow = nrow(classesVertical), ncol = ncol(classesVertical))

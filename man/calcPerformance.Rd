@@ -9,6 +9,8 @@
 \alias{calcCVperformance,ClassifyResult-method}
 \alias{calcExternalPerformance,factor,tabular-method}
 \alias{performanceTable}
+\alias{easyHard}
+\alias{easyHard,MultiAssayExperimentOrList-method}
 \title{Add Performance Calculations to a ClassifyResult Object or Calculate for a
 Pair of Factor Vectors}
 \usage{
@@ -37,6 +39,15 @@ performanceTable(
   performanceTypes = "auto",
   aggregate = c("median", "mean")
 )
+
+\S4method{easyHard}{MultiAssayExperimentOrList}(
+  measurements,
+  result,
+  assay = "clinical",
+  useFeatures = NULL,
+  performanceType = "auto",
+  fitMode = c("single", "full")
+)
 }
 \arguments{
 \item{actualOutcome}{A factor vector or survival information specifying each sample's known outcome.}
@@ -44,7 +55,8 @@ performanceTable(
 \item{predictedOutcome}{A factor vector or survival information of the same length as \code{actualOutcome} specifying each sample's predicted outcome.}
 
 \item{performanceTypes}{Default: \code{"auto"} A character vector. If \code{"auto"}, Balanced Accuracy will be used
-for a classification task and C-index for a time-to-event task.
+for a classification task and C-index for a time-to-event task. If using \code{easyHard}, the default is
+\code{"Sample Accuracy"} for a classification task and \code{"Sample C-index"} for a time-to-event task.
 Must be one of the following options:
 \itemize{
 \item{\code{"Error"}: Ordinary error rate.}
@@ -80,12 +92,22 @@ there are two classes.}
 
 \item{aggregate}{Default: \code{"median"}. Can also be \code{"mean"}. If there are multiple values, such as for repeated
 cross-validation, then they are summarised to a single number using either mean or median.}
+
+\item{assay}{For \code{easyHard} only. The assay to use to look for associations to the per-sample metric.}
+
+\item{useFeatures}{For \code{easyHard} only. Default: \code{NULL} (i.e. use all provided features). A vector of features to consider of the assay specified.
+This allows for the avoidance of variables such spike-in RNAs, sample IDs, sample acquisition dates, etc. which are not relevant for outcome prediction.}
+
+\item{fitMode}{For \code{easyHard} only. Default:\code{"single"}. Either \code{"single"} or \code{"full"}. If \code{"single"},
+an ordinary GLM model is fitted for each covariate separately. If \code{"full"}, elastic net is used to automatically tune the non-zero model coefficients.}
 }
 \value{
 If \code{calcCVperformance} was run, an updated
 \code{\linkS4class{ClassifyResult}} object, with new metric values in the
 \code{performance} slot. If \code{calcExternalPerformance} was run, the
 performance metric value itself.
+
+For \code{easyHard}, a \code{\link{DataFrame}} of logistic regression model summary.
 }
 \description{
 If \code{calcExternalPerformance} is used, such as when having a vector of

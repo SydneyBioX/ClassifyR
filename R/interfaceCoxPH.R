@@ -4,7 +4,7 @@ coxphTrainInterface <- function(measurementsTrain, survivalTrain, ..., verbose =
   if(!requireNamespace("survival", quietly = TRUE))
     stop("The package 'survival' could not be found. Please install it.")
   if(verbose == 3)
-    message("Fitting coxph classifier to training data and making predictions on test
+    message(Sys.time(), ": Fitting coxph classifier to training data and making predictions on test
             data.")
   
   # coxph doesn't like DataFrame input.

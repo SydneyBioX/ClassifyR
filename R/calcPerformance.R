@@ -32,7 +32,8 @@
 #' @param result An object of class \code{\link{ClassifyResult}}.
 #' @param resultsList A list of modelling results. Each element must be of type \code{\link{ClassifyResult}}.
 #' @param performanceTypes Default: \code{"auto"} A character vector. If \code{"auto"}, Balanced Accuracy will be used
-#' for a classification task and C-index for a time-to-event task.
+#' for a classification task and C-index for a time-to-event task. If using \code{easyHard}, the default is
+#' \code{"Sample Accuracy"} for a classification task and \code{"Sample C-index"} for a time-to-event task.
 #' Must be one of the following options:
 #' \itemize{
 #' \item{\code{"Error"}: Ordinary error rate.}
@@ -130,6 +131,11 @@ setMethod("calcExternalPerformance", c("factor", "tabular"), # table has class p
             )
           })
 
+calcCVperformance <- function(results, ...)
+{
+    lapply(results, calcCVperformance)
+}
+
 #' @rdname calcPerformance
 #' @usage NULL
 #' @export
@@ -142,6 +148,7 @@ setMethod("calcCVperformance", "ClassifyResult",
           function(result, performanceTypes = "auto")
 {
   actualOutcome <- actualOutcome(result) # Extract the known outcome of each sample.
+  actualOutcomeOrdered <- actualOutcome[match(result@predictions[, "sample"], sampleNames(result))]
   if(length(performanceTypes) == 1 && performanceTypes == "auto")
   {
       if(is.factor(actualOutcome))
@@ -175,7 +182,7 @@ setMethod("calcCVperformance", "ClassifyResult",
       ### Performance for survival data
       if(performanceType %in% c("C-index", "Sample C-index")) {
         samples <- factor(result@predictions[, "sample"], levels = sampleNames(result))
-        performance <- .calcPerformance(actualOutcome = actualOutcome[match(result@predictions[, "sample"], sampleNames(result))],
+        performance <- .calcPerformance(actualOutcome = actualOutcomeOrdered,
                                         predictedOutcome = result@predictions[, "risk"], 
                                         samples = samples,
                                         performanceType = performanceType, 
@@ -188,12 +195,14 @@ setMethod("calcCVperformance", "ClassifyResult",
       }
       
       if(performanceType == "AUC") {
-        performance <- .calcPerformance(actualOutcome[match(result@predictions[, "sample"], sampleNames(result))],
+        performance <- .calcPerformance(actualOutcomeOrdered,
                                         result@predictions[, levels(actualOutcome)],
                                         performanceType = performanceType, grouping = grouping)
         if(grepl(':', names(performance[["values"]])[1])) # Then average for each permutation.
         {
-          performance[["values"]] <- by(performance[["values"]], sapply(strsplit(names(performance[["values"]]), ':'), '[', 1), mean)
+          permuteID <- sapply(strsplit(names(performance[["values"]]), ':'), '[', 1)
+          performance[["values"]] <- by(performance[["values"]], permuteID, mean)
+          names(performance[["values"]]) <- unique(permuteID)
         }
         result@performance[[performance[["name"]]]] <- performance[["values"]]
       }
@@ -210,7 +219,7 @@ setMethod("calcCVperformance", "ClassifyResult",
         classLevels <- levels(actualOutcome)
         samples <- factor(result@predictions[, "sample"], levels = sampleNames(result))
         predictedOutcome <- factor(result@predictions[, "class"], levels = classLevels)
-        actualOutcome <- factor(actualOutcome[match(result@predictions[, "sample"], sampleNames(result))], levels = classLevels, ordered = TRUE)
+        actualOutcome <- factor(actualOutcomeOrdered, levels = classLevels, ordered = TRUE)
         performance <- .calcPerformance(actualOutcome, predictedOutcome, samples, performanceType, grouping)
         result@performance[[performance[["name"]]]] <- performance[["values"]]
       }
@@ -425,3 +434,89 @@ performanceTable <- function(resultsList, performanceTypes = "auto", aggregate =
     DataFrame(tidyr::pivot_wider(as.data.frame(result@characteristics), names_from = characteristic, values_from = value), performances, check.names = FALSE)  
   }))
 }
+
+#' @rdname calcPerformance
+#' @usage NULL
+#' @export
+setGeneric("easyHard", function(measurements, result, assay, performanceType, ...)
+    standardGeneric("easyHard"))
+
+#' @rdname calcPerformance
+#' @exportMethod easyHard
+#' @importFrom broom tidy
+#' @param assay For \code{easyHard} only. The assay to use to look for associations to the per-sample metric.
+#' @param useFeatures For \code{easyHard} only. Default: \code{NULL} (i.e. use all provided features). A vector of features to consider of the assay specified.
+#' This allows for the avoidance of variables such spike-in RNAs, sample IDs, sample acquisition dates, etc. which are not relevant for outcome prediction.
+#' @param fitMode For \code{easyHard} only. Default:\code{"single"}. Either \code{"single"} or \code{"full"}. If \code{"single"},
+#' an ordinary GLM model is fitted for each covariate separately. If \code{"full"}, elastic net is used to automatically tune the non-zero model coefficients.
+#' @return For \code{easyHard}, a \code{\link{DataFrame}} of logistic regression model summary.
+
+setMethod("easyHard", "MultiAssayExperimentOrList",
+          function(measurements, result, assay = "clinical", useFeatures = NULL, performanceType = "auto",
+                   fitMode = c("single", "full"))
+{
+  if(!requireNamespace("glmnet", quietly = TRUE))
+    stop("The package 'glmnet' could not be found. Please install it.")
+                            
+  if(!assay %in% names(measurements)) stop("'assay' is not one of the names of 'measurements'.")
+  fitMode  <- match.arg(fitMode)              
+              
+  if(is(measurements, "MultiAssayExperiment"))
+  {
+    if(assay == "clinical")
+      assay <- colData(measurements)
+    else assay <- t(measurements[, , assay]) # Ensure that features are in columns.
+  } else {assay <- measurements[[assay]]}
+  if(!is.null(useFeatures)) assay <- assay[, useFeatures]
+  if(performanceType == "auto")
+  {
+      if("risk" %in% colnames(predictions(result)))
+      {
+          performanceType <- "Sample C-index"
+      } else {performanceType <-"Sample Accuracy"}
+  }
+  if(!performanceType %in% names(performance(result)))
+  {
+    warning(paste(performanceType, "not found in result. Calculating it now."))
+    result <- calcCVperformance(result, performanceType)
+  }
+  samplePerformance <- performance(result)[[performanceType]]
+  if(any(is.na(samplePerformance)))
+  {
+    keep <- !is.na(samplePerformance)
+    assay <- assay[keep, ]
+    samplePerformance <- samplePerformance[keep]
+  }
+  assay <- assay[names(samplePerformance), ] # Just in case.
+  assayOHE <- MatrixModels::model.Matrix(~ 0 + ., data = assay)
+  
+  if(fitMode == "single")
+  {
+    as(do.call(rbind, lapply(colnames(assay), function(featureID)
+    {
+      covariate <- assay[, featureID]
+      fitted <- glm(samplePerformance ~ covariate, family = binomial, weights = rep(100, length(samplePerformance)))
+      summaryDF <- broom::tidy(fitted)
+      if(is.factor(covariate))
+      {
+        summaryDF[2:nrow(summaryDF), "term"] <- paste(featureID, levels(covariate)[2:length(levels(covariate))], sep = ": ")
+        
+      } else {summaryDF[, "term"] <- featureID}
+      summaryDF[2:nrow(summaryDF), ]
+    })), "DataFrame")
+  } else { # Penalised regression.
+    samplePerformanceM <- matrix(c(1 - samplePerformance, samplePerformance), ncol = 2)
+    fitted <- glmnet::glmnet(assayOHE, samplePerformanceM, family = "binomial")
+    lambdaConsider <- colSums(as.matrix(fitted[["beta"]])) != 0
+    bestLambda <- fitted[["lambda"]][lambdaConsider][which.min(sapply(fitted[["lambda"]][lambdaConsider], function(lambda) # Largest Lambda with minimum balanced error rate.
+    {
+        predictions <- predict(fitted, assayOHE, s = lambda, type = "response")
+        sum(abs(samplePerformanceM[, 2] - predictions))
+    }))[1]]
+    useVariables <- abs(fitted[["beta"]][, fitted[["lambda"]] == bestLambda]) > 0.00001
+    useVariables <- colnames(assay)[unique(assayOHE@assign[useVariables])]
+    dataForModel <- data.frame(assay, performance = samplePerformanceM[, 2])
+    fitted <- glm(performance ~ . + 0, data = dataForModel, family = binomial(), weights = rep(100, nrow(dataForModel)))
+    broom::tidy(fitted)
+  }
+})

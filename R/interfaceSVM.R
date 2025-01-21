@@ -8,7 +8,7 @@ SVMtrainInterface <- function(measurementsTrain, classesTrain, ..., verbose = 3)
   trainingMatrix <- as.matrix(measurementsTrain)
   
   if(verbose == 3)
-    message("Fitting SVM classifier to data.")
+    message(Sys.time(), ": Fitting SVM classifier to data.")
   
   trained <- e1071::svm(trainingMatrix, classesTrain, probability = TRUE, ...)
   

@@ -4,7 +4,7 @@ randomForestTrainInterface <- function(measurementsTrain, outcomeTrain, mTryProp
   if(!requireNamespace("ranger", quietly = TRUE))
     stop("The package 'ranger' could not be found. Please install it.")
   if(verbose == 3)
-    message("Fitting random forest classifier to training data.")
+    message(Sys.time(), ": Fitting random forest classifier to training data.")
   mtry <- round(mTryProportion * ncol(measurementsTrain)) # Number of features to try.
   # Convert to base data.frame as randomForest doesn't understand DataFrame.
   fittedModel <- ranger::ranger(x = as(measurementsTrain, "data.frame"), y = outcomeTrain, mtry = mtry, ...)

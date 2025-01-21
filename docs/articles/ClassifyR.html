@@ -5,64 +5,54 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<meta name="description" content="ClassifyR">
 <title>Getting Started with ClassifyR • ClassifyR</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><!-- Font Awesome icons --><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css" integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/v4-shims.min.css" integrity="sha256-wZjR52fzng1pJHwx4aV2AO3yyTOXrcDW7jBpJtTwVxw=" crossorigin="anonymous">
-<!-- bootstrap-toc --><script src="https://cdn.jsdelivr.net/gh/afeld/bootstrap-toc@v1.0.1/dist/bootstrap-toc.min.js" integrity="sha256-4veVQbu7//Lk5TSmc7YV48MxtMy98e26cf5MrgZYnwo=" crossorigin="anonymous"></script><!-- headroom.js --><script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/headroom.min.js" integrity="sha256-AsUX4SJE1+yuDu5+mAVzJbuYNPHj/WroHuZ8Ir/CkE0=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/jQuery.headroom.min.js" integrity="sha256-ZX/yNShbjqsohH1k95liqY9Gd8uOiE1S4vZc+9KQ1K4=" crossorigin="anonymous"></script><!-- clipboard.js --><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js" integrity="sha512-7O5pXpc0oCRrxk8RUfDYFgn0nO1t+jLuIOQdOMRp4APB7uZ4vSjspzp5y6YDtDs4VzUSTbWzBFZ/LKJhnyFOKw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script><!-- search --><script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.6/fuse.js" integrity="sha512-zv6Ywkjyktsohkbp9bb45V6tEMoWhzFzXis+LrMehmJZZSys19Yxf1dopHx7WzIKxr5tK2dVcYmaCk2uqdjF4A==" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/autocomplete.js/0.38.0/autocomplete.jquery.min.js" integrity="sha512-GU9ayf+66Xx2TmpxqJpliWbT5PiGYxpaG8rfnBEk1LL8l1KGkRShhngwdXK1UgqhAzWpZHSiYPc09/NwDQIGyg==" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/mark.min.js" integrity="sha512-5CYOlHXGh6QpOFA/TeTylKLWfB3ftPsde7AnmhuitiTX4K5SqCLBeKro6sPS8ilsz1Q4NRx3v8Ko2IBiszzdww==" crossorigin="anonymous"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
 <meta property="og:title" content="Getting Started with ClassifyR">
-<meta property="og:description" content="ClassifyR">
-<!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha256-nvJJv9wWKEm88qvoQl9ekL2J+k/RWIsaSScxxlsrv8k=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/config/TeX-AMS-MML_HTMLorMML.js" integrity="sha256-84DKXVJXs0/F8OTMzX4UR909+jtl4G7SPypPavF+GfA=" crossorigin="anonymous"></script><!--[if lt IE 9]>
-<script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
-<script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
-<![endif]-->
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
-    
 
-    <nav class="navbar fixed-top navbar-light navbar-expand-lg bg-light" data-bs-theme="light"><div class="container">
-    
+
+    <nav class="navbar navbar-expand-lg fixed-top bg-light" data-bs-theme="light" aria-label="Site navigation"><div class="container">
+
     <a class="navbar-brand me-2" href="../index.html">ClassifyR</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.9.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.11.4</small>
 
-    
+
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
     </button>
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
-<li class="active nav-item">
-  <a class="nav-link" href="../articles/ClassifyR.html">Get started</a>
-</li>
-<li class="nav-item">
-  <a class="nav-link" href="../reference/index.html">Reference</a>
-</li>
+<li class="active nav-item"><a class="nav-link" href="../articles/ClassifyR.html">Get started</a></li>
+<li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
-  <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false" aria-haspopup="true" id="dropdown-articles">Articles</a>
-  <div class="dropdown-menu" aria-labelledby="dropdown-articles">
-    <a class="dropdown-item" href="../articles/DevelopersGuide.html">**ClassifyR** Developer's Guide</a>
-    <a class="dropdown-item" href="../articles/incorporateNew.html">Creating a Wrapper for New Functionality and Registering It</a>
-    <a class="dropdown-item" href="../articles/introduction.html">Introduction to the Concepts of ClassifyR</a>
-    <a class="dropdown-item" href="../articles/multiViewMethods.html">Multi-view Methods for Modelling of Multiple Data Views</a>
-    <a class="dropdown-item" href="../articles/performanceEvaluation.html">Performance Evaluation of Fitted Models</a>
-    <a class="dropdown-item" href="../articles/presets.html">Parameter Tuning Presets for crossValidate and Their Customisation</a>
-    <a class="dropdown-item" href="../articles/survival.html">Survival Data Analysis</a>
-  </div>
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
+<li><a class="dropdown-item" href="../articles/DevelopersGuide.html">**ClassifyR** Developer's Guide</a></li>
+    <li><a class="dropdown-item" href="../articles/incorporateNew.html">Creating a Wrapper for New Functionality and Registering It</a></li>
+    <li><a class="dropdown-item" href="../articles/introduction.html">Introduction to the Concepts of ClassifyR</a></li>
+    <li><a class="dropdown-item" href="../articles/multiViewMethods.html">Multi-view Methods for Modelling of Multiple Data Views</a></li>
+    <li><a class="dropdown-item" href="../articles/performanceEvaluation.html">Performance Evaluation of Fitted Models</a></li>
+    <li><a class="dropdown-item" href="../articles/presets.html">Parameter Tuning Presets for crossValidate and Their Customisation</a></li>
+    <li><a class="dropdown-item" href="../articles/survival.html">Survival Data Analysis</a></li>
+  </ul>
 </li>
       </ul>
-<form class="form-inline my-2 my-lg-0" role="search">
-        <input type="search" class="form-control me-sm-2" aria-label="Toggle navigation" name="search-input" data-search-index="../search.json" id="search-input" placeholder="Search for" autocomplete="off">
-</form>
-
-      <ul class="navbar-nav"></ul>
+<ul class="navbar-nav">
+<li class="nav-item"><form class="form-inline" role="search">
+ <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
+</form></li>
+      </ul>
 </div>
 
-    
+
   </div>
 </nav><div class="container template-article">
 
@@ -71,13 +61,14 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-      <img src="" class="logo" alt=""><h1>Getting Started with ClassifyR</h1>
+
+      <h1>Getting Started with ClassifyR</h1>
                         <h4 data-toc-skip class="author">Dario Strbenac,
 Ellis Patrick, Graham Mann, Jean Yang, John Ormerod <br> The University
 of Sydney, Australia.</h4>
             
       
-      
+
       <div class="d-none name"><code>ClassifyR.Rmd</code></div>
     </div>
 
@@ -136,11 +127,8 @@ of Nasal RNA Sequence Data</a>.</p>
 <p>Load the package.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://sydneybiox.github.io/ClassifyR/" class="external-link">ClassifyR</a></span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Warning: multiple methods tables found for 'sort'</span></span>
-<span><span class="co">## Warning: multiple methods tables found for 'sort'</span></span>
-<span><span class="co">## Warning: multiple methods tables found for 'sort'</span></span></code></pre>
 <p>A glimpse at the RNA measurements and sample classes.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">asthma</span><span class="op">)</span> <span class="co"># Contains measurements and classes variables.</span></span>
 <span><span class="va">measurements</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span></span></code></pre></div>
 <pre><code><span><span class="co">##            HBB BPIFA1  XIST FCGR3B HBA2</span></span>
@@ -149,7 +137,7 @@ of Nasal RNA Sequence Data</a>.</p>
 <span><span class="co">## Sample 3 12.15  17.44 10.21   7.87 9.68</span></span>
 <span><span class="co">## Sample 4 10.60  11.87  6.27  14.75 8.96</span></span>
 <span><span class="co">## Sample 5  8.18  15.01 11.21   6.77 6.43</span></span></code></pre>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">classes</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] No  No  No  No  Yes No </span></span>
 <span><span class="co">## Levels: No Yes</span></span></code></pre>
@@ -158,7 +146,8 @@ normalised values of the RNA gene abundances for each sample and the
 factor vector <em>classes</em> identifies which class the samples belong
 to. The measurements were normalised using <strong>DESeq2</strong>’s
 <em>varianceStabilizingTransformation</em> function, which produces
-<span class="math inline">\(log_2\)</span>-like data.</p>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>l</mi><mi>o</mi><msub><mi>g</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">log_2</annotation></semantics></math>-like
+data.</p>
 <p>For more complex data sets with multiple kinds of experiments
 (e.g. DNA methylation, copy number, gene expression on the same set of
 samples) a <a href="https://bioconductor.org/packages/release/bioc/html/MultiAssayExperiment.html" class="external-link"><em>MultiAssayExperiment</em></a>
@@ -177,10 +166,12 @@ ClassifyR. <em>crossValidate</em> must be supplied with
 structure of such related tabular data on common samples. The classes of
 it may be <em>matrix</em>, <em>data.frame</em>, <em>DataFrame</em>,
 <em>MultiAssayExperiment</em> or <em>list</em> of <em>data.frames</em>.
-For a dataset with <span class="math inline">\(n\)</span> observations
-and <span class="math inline">\(p\)</span> variables, the
-<em>crossValidate</em> function will accept inputs of the following
-shapes:</p>
+For a dataset with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>
+observations and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>p</mi><annotation encoding="application/x-tex">p</annotation></semantics></math>
+variables, the <em>crossValidate</em> function will accept inputs of the
+following shapes:</p>
 <table class="table">
 <colgroup>
 <col width="25%">
@@ -189,8 +180,8 @@ shapes:</p>
 </colgroup>
 <thead><tr class="header">
 <th>Data Type</th>
-<th align="center"><span class="math inline">\(n \times p\)</span></th>
-<th align="center"><span class="math inline">\(p \times n\)</span></th>
+<th align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mo>×</mo><mi>p</mi></mrow><annotation encoding="application/x-tex">n \times p</annotation></semantics></math></th>
+<th align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mo>×</mo><mi>n</mi></mrow><annotation encoding="application/x-tex">p \times n</annotation></semantics></math></th>
 </tr></thead>
 <tbody>
 <tr class="odd">
@@ -227,7 +218,8 @@ which represents the prediction to be made in a variety of possible
 ways.</p>
 <ul>
 <li>A <em>factor</em> that contains the class label for each
-observation. <em>classes</em> must be of length <span class="math inline">\(n\)</span>.</li>
+observation. <em>classes</em> must be of length
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>.</li>
 <li>A <em>character</em> of length 1 that matches a column name in a
 data frame which holds the classes. The classes will automatically be
 removed before training is done.</li>
@@ -242,7 +234,7 @@ be removed before training is done.</li>
 <p>ClassifyR enforces reproducible research. Before beginning any
 cross-validation, the random number seed needs to be set in the current
 R session. Any number is fine.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">9500</span><span class="op">)</span></span></code></pre></div>
 <p>The type of classifier used can be changed with the
 <em>classifier</em> argument. The default is a random forest, which
@@ -255,12 +247,10 @@ validation can be changed with the <em>nFolds</em> and <em>nRepeats</em>
 arguments. If wanted, <em>nCores</em> can be specified to run the cross
 validation in parallel. To perform 5-fold cross-validation of a Support
 Vector Machine with 2 repeats:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/crossValidate.html">crossValidate</a></span><span class="op">(</span><span class="va">measurements</span>, <span class="va">classes</span>, classifier <span class="op">=</span> <span class="st">"SVM"</span>,</span>
-<span>                        nFeatures <span class="op">=</span> <span class="fl">20</span>, nFolds <span class="op">=</span> <span class="fl">5</span>, nRepeats <span class="op">=</span> <span class="fl">2</span>, nCores <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Warning: multiple methods tables found for 'sort'</span></span></code></pre>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/performancePlot.html">performancePlot</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></code></pre></div>
+<span>                        nFeatures <span class="op">=</span> <span class="fl">20</span>, nFolds <span class="op">=</span> <span class="fl">5</span>, nRepeats <span class="op">=</span> <span class="fl">2</span>, nCores <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/performancePlot.html">performancePlot</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Warning in .local(results, ...): Balanced Accuracy not found in all elements of results. Calculating it now.</span></span></code></pre>
 <p><img src="ClassifyR_files/figure-html/unnamed-chunk-6-1.png" width="700"></p>
 <div class="section level3">
@@ -277,7 +267,7 @@ of <em>measurements</em>.</p>
 <p>If using Bioconductor’s <em>DataFrame</em>, this can be specified
 using <em>mcols</em>. In the column metadata, each feature must have an
 <em>assay</em> and a <em>feature</em> name.</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">measurementsDF</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/S4Vectors/man/DataFrame-class.html" class="external-link">DataFrame</a></span><span class="op">(</span><span class="va">measurements</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/pkg/S4Vectors/man/Vector-class.html" class="external-link">mcols</a></span><span class="op">(</span><span class="va">measurementsDF</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  assay <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"assay_1"</span>, <span class="st">"assay_2"</span><span class="op">)</span>, times <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">10</span>, <span class="fl">1990</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -292,7 +282,7 @@ using <em>mcols</em>. In the column metadata, each feature must have an
 <p><img src="ClassifyR_files/figure-html/unnamed-chunk-7-1.png" width="700"></p>
 <p>If using a list of <em>data.frame</em>s, the name of each element in
 the list will be used as the assay name.</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Assigns first 10 variables to dataset_1, and the rest to dataset_2</span></span>
 <span><span class="va">measurementsList</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  <span class="op">(</span><span class="va">measurements</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">]</span>,</span>
@@ -474,7 +464,8 @@ rate, for example.</p>
 <tr class="even">
 <td><span style="font-family: 'Courier New', monospace;">DMDranking</span></td>
 <td><span style="white-space: nowrap">Difference in location
-(mean/median) and/or scale (SD, MAD, <span class="math inline">\(Q_n\)</span>)</span></td>
+(mean/median) and/or scale (SD, MAD,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>Q</mi><mi>n</mi></msub><annotation encoding="application/x-tex">Q_n</annotation></semantics></math>)</span></td>
 <td>✔</td>
 <td>✔</td>
 <td>✔</td>
@@ -711,7 +702,7 @@ be <em>SnowParam</em>. Note that each of these have an option
 because some classifiers or feature selection functions will have some
 element of randomisation. One example that works on all operating
 systems, but is best-suited to Windows is:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">CVparams</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/CrossValParams-class.html">CrossValParams</a></span><span class="op">(</span>parallelParams <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/BiocParallel/man/SnowParam-class.html" class="external-link">SnowParam</a></span><span class="op">(</span><span class="fl">16</span>, RNGseed <span class="op">=</span> <span class="fl">123</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">CVparams</span></span></code></pre></div>
 <p>For the actual operations to do to the data to build a model of it,
@@ -723,7 +714,7 @@ computed value from the training set), any feature selection and the
 training and prediction functions to be used. The default is to do an
 ordinary t-test (two groups) or ANOVA (three or more groups) and
 classification using diagonal LDA.</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ModellingParams-class.html">ModellingParams</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## An object of class "ModellingParams"</span></span>
 <span><span class="co">## Slot "balancing":</span></span>
@@ -758,11 +749,9 @@ classifier relies on differences in means between classes. No parameters
 need to be specified, because this is the default classification of
 <em>runTests</em>. By default, the number of features is tuned by
 resubstitution on the training set.</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">crossValParams</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/CrossValParams-class.html">CrossValParams</a></span><span class="op">(</span>permutations <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span>
 <span><span class="va">DMresults</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/runTests.html">runTests</a></span><span class="op">(</span><span class="va">measurements</span>, <span class="va">classes</span>, <span class="va">crossValParams</span>, verbose <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Processing sample set 10.</span></span></code></pre>
-<pre><code><span><span class="co">## Processing sample set 20.</span></span></code></pre>
 <p>Here, 5 permutations (non-default) and 5 folds cross-validation
 (default) is specified. For computers with more than 1 CPU, the number
 of cores to use can be given to <em>runTests</em> by using the argument
@@ -782,7 +771,7 @@ the help pages of such functions.</p>
 <p>The most frequently selected gene can be identified using the
 <em>distribution</em> function and its relative abundance values for all
 samples can be displayed visually by <em>plotFeatureClasses</em>.</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">selectionPercentages</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/distribution.html">distribution</a></span><span class="op">(</span><span class="va">DMresults</span>, plot <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">selectionPercentages</span><span class="op">)</span></span>
 <span><span class="va">sortedPercentages</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">selectionPercentages</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="va">selectionPercentages</span>, decreasing <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
@@ -791,11 +780,11 @@ samples can be displayed visually by <em>plotFeatureClasses</em>.</p>
 <span><span class="va">bestGenePlot</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plotFeatureClasses.html">plotFeatureClasses</a></span><span class="op">(</span><span class="va">measurements</span>, <span class="va">classes</span>, <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">mostChosen</span><span class="op">)</span>, dotBinWidth <span class="op">=</span> <span class="fl">0.1</span>,</span>
 <span>                                   xAxisLabel <span class="op">=</span> <span class="st">"Normalised Expression"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## allFeaturesText</span></span>
-<span><span class="co">##    SSBP4   ZDHHC1 C10orf95    CROCC  TMEM190 C19orf51 </span></span>
-<span><span class="co">##     1.00     1.00     0.96     0.96     0.80     0.76 </span></span>
+<span><span class="co">##    SSBP4   ZDHHC1    CROCC C10orf95    CTXN1  TMEM190 </span></span>
+<span><span class="co">##     1.00     1.00     0.96     0.92     0.84     0.80 </span></span>
 <span><span class="co">## allFeaturesText</span></span>
-<span><span class="co">##    SSBP4   ZDHHC1 C10orf95    CROCC  TMEM190 C19orf51 </span></span>
-<span><span class="co">##     1.00     1.00     0.96     0.96     0.80     0.76</span></span></code></pre>
+<span><span class="co">##    SSBP4   ZDHHC1    CROCC C10orf95    CTXN1  TMEM190 </span></span>
+<span><span class="co">##     1.00     1.00     0.96     0.92     0.84     0.80</span></span></code></pre>
 <p>The means of the abundance levels of SSBP4 are substantially
 different between the people with and without asthma.
 <em>plotFeatureClasses</em> can also plot categorical data, such as may
@@ -808,7 +797,7 @@ defined as the average rate of the correct classifications of each
 class.</p>
 <p>See the documentation of <em>calcCVperformance</em> for a list of
 performance metrics which may be calculated.</p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">DMresults</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/calcPerformance.html">calcCVperformance</a></span><span class="op">(</span><span class="va">DMresults</span><span class="op">)</span></span>
 <span><span class="va">DMresults</span></span></code></pre></div>
 <pre><code><span><span class="co">## An object of class 'ClassifyResult'.</span></span>
@@ -819,30 +808,30 @@ performance metrics which may be calculated.</p>
 <span><span class="co">##  Cross-validation 5 Permutations, 5 Folds</span></span>
 <span><span class="co">## Features: List of length 25 of feature identifiers.</span></span>
 <span><span class="co">## Predictions: A data frame of 950 rows.</span></span>
-<span><span class="co">## Performance Measures: AUC, Balanced Accuracy.</span></span></code></pre>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<span><span class="co">## Performance Measures: Balanced Accuracy, AUC.</span></span></code></pre>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ClassifyResult-class.html">performance</a></span><span class="op">(</span><span class="va">DMresults</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## $AUC</span></span>
+<pre><code><span><span class="co">## $`Balanced Accuracy`</span></span>
+<span><span class="co">##       1:1       1:2       1:3       1:4       1:5       2:1       2:2       2:3       2:4       2:5       3:1       3:2       3:3 </span></span>
+<span><span class="co">## 0.8230769 0.6876923 0.7676923 0.8415385 0.8541667 0.8615385 0.7076923 0.7846154 0.8415385 0.7321429 0.8630769 0.9200000 0.7476923 </span></span>
+<span><span class="co">##       3:4       3:5       4:1       4:2       4:3       4:4       4:5       5:1       5:2       5:3       5:4       5:5 </span></span>
+<span><span class="co">## 0.7430769 0.6904762 0.7092308 0.8800000 0.9000000 0.7461538 0.6964286 0.8046154 0.6861538 0.8815385 0.8815385 0.8035714 </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## $AUC</span></span>
 <span><span class="co">## sapply(strsplit(names(performance[["values"]]), ":"), "[", 1): 1</span></span>
-<span><span class="co">## [1] 0.888</span></span>
+<span><span class="co">## [1] 0.451</span></span>
 <span><span class="co">## ------------------------------------------------------------------------------------------------- </span></span>
 <span><span class="co">## sapply(strsplit(names(performance[["values"]]), ":"), "[", 1): 2</span></span>
-<span><span class="co">## [1] 0.871</span></span>
+<span><span class="co">## [1] 0.458</span></span>
 <span><span class="co">## ------------------------------------------------------------------------------------------------- </span></span>
 <span><span class="co">## sapply(strsplit(names(performance[["values"]]), ":"), "[", 1): 3</span></span>
-<span><span class="co">## [1] 0.889</span></span>
+<span><span class="co">## [1] 0.45</span></span>
 <span><span class="co">## ------------------------------------------------------------------------------------------------- </span></span>
 <span><span class="co">## sapply(strsplit(names(performance[["values"]]), ":"), "[", 1): 4</span></span>
-<span><span class="co">## [1] 0.882</span></span>
+<span><span class="co">## [1] 0.449</span></span>
 <span><span class="co">## ------------------------------------------------------------------------------------------------- </span></span>
 <span><span class="co">## sapply(strsplit(names(performance[["values"]]), ":"), "[", 1): 5</span></span>
-<span><span class="co">## [1] 0.886</span></span>
-<span><span class="co">## </span></span>
-<span><span class="co">## $`Balanced Accuracy`</span></span>
-<span><span class="co">##       1:1       1:2       1:3       1:4       1:5       2:1       2:2       2:3       2:4       2:5       3:1       3:2       3:3 </span></span>
-<span><span class="co">## 0.8430769 0.8015385 0.7661538 0.8230769 0.8452381 0.9015385 0.8246154 0.7046154 0.7061538 0.7529762 0.8030769 0.8215385 0.9000000 </span></span>
-<span><span class="co">##       3:4       3:5       4:1       4:2       4:3       4:4       4:5       5:1       5:2       5:3       5:4       5:5 </span></span>
-<span><span class="co">## 0.8046154 0.7321429 0.8215385 0.8230769 0.7092308 0.8246154 0.8125000 0.9215385 0.9600000 0.6492308 0.7261538 0.7619048</span></span></code></pre>
+<span><span class="co">## [1] 0.447</span></span></code></pre>
 <p>The error rate is about 20%. If only a vector of predictions and a
 vector of actual classes is available, such as from an old study which
 did not use <strong>ClassifyR</strong> for cross-validation, then
@@ -858,15 +847,12 @@ uses Kullback-Leibler divergence ranking and resubstitution error as a
 feature selection heuristic and a naive Bayes classifier for
 classification. This classification will use features that have either a
 change in location or in scale between classes.</p>
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">modellingParamsDD</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ModellingParams-class.html">ModellingParams</a></span><span class="op">(</span>selectParams <span class="op">=</span> <span class="fu"><a href="../reference/SelectParams-class.html">SelectParams</a></span><span class="op">(</span><span class="st">"KL"</span><span class="op">)</span>,</span>
 <span>                                     trainParams <span class="op">=</span> <span class="fu"><a href="../reference/TrainParams-class.html">TrainParams</a></span><span class="op">(</span><span class="st">"naiveBayes"</span><span class="op">)</span>,</span>
 <span>                                     predictParams <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
-<span><span class="va">DDresults</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/runTests.html">runTests</a></span><span class="op">(</span><span class="va">measurements</span>, <span class="va">classes</span>, <span class="va">crossValParams</span>, <span class="va">modellingParamsDD</span>, verbose <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Processing sample set 10.</span></span></code></pre>
-<pre><code><span><span class="co">## Processing sample set 20.</span></span></code></pre>
-<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">DDresults</span></span></code></pre></div>
+<span><span class="va">DDresults</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/runTests.html">runTests</a></span><span class="op">(</span><span class="va">measurements</span>, <span class="va">classes</span>, <span class="va">crossValParams</span>, <span class="va">modellingParamsDD</span>, verbose <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">DDresults</span></span></code></pre></div>
 <pre><code><span><span class="co">## An object of class 'ClassifyResult'.</span></span>
 <span><span class="co">## Characteristics:</span></span>
 <span><span class="co">##    characteristic                       value</span></span>
@@ -883,7 +869,7 @@ classify samples in the tails of the densities.</p>
 <p>The per-sample classification accuracy is automatically calculated
 for both the differential means and differential distribution
 classifiers and plotted with <em>samplesMetricMap</em>.</p>
-<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">resultsList</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>Abundance <span class="op">=</span> <span class="va">DMresults</span>, Distribution <span class="op">=</span> <span class="va">DDresults</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/samplesMetricMap.html">samplesMetricMap</a></span><span class="op">(</span><span class="va">resultsList</span>, showXtickLabels <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Warning in .local(results, ...): Sample Accuracy not found in all elements of results. Calculating it now.</span></span></code></pre>
@@ -892,7 +878,7 @@ classifiers and plotted with <em>samplesMetricMap</em>.</p>
 <pre><code><span><span class="co">## TableGrob (2 x 1) "arrange": 2 grobs</span></span>
 <span><span class="co">##   z     cells    name                grob</span></span>
 <span><span class="co">## 1 1 (2-2,1-1) arrange      gtable[layout]</span></span>
-<span><span class="co">## 2 2 (1-1,1-1) arrange text[GRID.text.585]</span></span></code></pre>
+<span><span class="co">## 2 2 (1-1,1-1) arrange text[GRID.text.581]</span></span></code></pre>
 <p>The benefit of this plot is that it allows the easy identification of
 samples which are hard to classify and could be explained by considering
 additional information about them. Differential distribution class
@@ -904,7 +890,7 @@ plots, but violin plots could also be made. The default performance
 metric to plot is balanced accuracy. If it’s not already calculated for
 all classifications, as in this case for DD, it will be done
 automatically.</p>
-<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/performancePlot.html">performancePlot</a></span><span class="op">(</span><span class="va">resultsList</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Warning in .local(results, ...): Balanced Accuracy not found in all elements of results. Calculating it now.</span></span></code></pre>
 <p><img src="ClassifyR_files/figure-html/unnamed-chunk-16-1.png" width="700"></p>
@@ -916,7 +902,7 @@ can be compared within and between classifiers by the plotting functions
 visually representing how consistent the feature rankings of the top 100
 different features were for the differential distribution classifier for
 all 5 folds in the 5 cross-validations.</p>
-<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/rankingPlot.html">rankingPlot</a></span><span class="op">(</span><span class="va">DDresults</span>, topRanked <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">100</span>, xLabelPositions <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">10</span>, <span class="fl">100</span>, <span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p><img src="ClassifyR_files/figure-html/unnamed-chunk-17-1.png" width="700"></p>
 <p>The top-ranked features are fairly similar between all pairs of the
@@ -950,7 +936,7 @@ and one line is drawn per classification. Alternatively, setting
 separately, average them and also calculate and draw confidence
 intervals. The default interval is a 95% interval and is customisable by
 setting <em>interval</em>.</p>
-<div class="sourceCode" id="cb40"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ROCplot.html">ROCplot</a></span><span class="op">(</span><span class="va">resultsList</span>, fontSizes <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">24</span>, <span class="fl">12</span>, <span class="fl">12</span>, <span class="fl">12</span>, <span class="fl">12</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p><img src="ClassifyR_files/figure-html/unnamed-chunk-18-1.png" width="576"></p>
 <p>This ROC plot shows the classifiability of the asthma data set is
@@ -1013,60 +999,58 @@ the tuning variables, except for one which is named
 for picking the parameter values. Any of the non-sample-specific
 performance metrics which <em>calcCVperformance</em> calculates can be
 optimised.</p>
-<div class="sourceCode" id="cb41"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tuneList</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>cost <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.01</span>, <span class="fl">0.1</span>, <span class="fl">1</span>, <span class="fl">10</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">SVMparams</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ModellingParams-class.html">ModellingParams</a></span><span class="op">(</span>trainParams <span class="op">=</span> <span class="fu"><a href="../reference/TrainParams-class.html">TrainParams</a></span><span class="op">(</span><span class="st">"SVM"</span>, kernel <span class="op">=</span> <span class="st">"linear"</span>, tuneParams <span class="op">=</span> <span class="va">tuneList</span><span class="op">)</span>,</span>
 <span>                             predictParams <span class="op">=</span> <span class="fu"><a href="../reference/PredictParams-class.html">PredictParams</a></span><span class="op">(</span><span class="st">"SVM"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">SVMresults</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/runTests.html">runTests</a></span><span class="op">(</span><span class="va">measurements</span>, <span class="va">classes</span>, <span class="va">crossValParams</span>, <span class="va">SVMparams</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Processing sample set 10.</span></span></code></pre>
-<pre><code><span><span class="co">## Processing sample set 20.</span></span></code></pre>
 <p>The index of chosen of the parameters, as well as all combinations of
 parameters and their associated performance metric, are stored for every
 validation, and can be accessed with the <em>tunedParameters</em>
 function.</p>
-<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="../reference/ClassifyResult-class.html">tunedParameters</a></span><span class="op">(</span><span class="va">SVMresults</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] 25</span></span></code></pre>
-<div class="sourceCode" id="cb46"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ClassifyResult-class.html">tunedParameters</a></span><span class="op">(</span><span class="va">SVMresults</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span></span></code></pre></div>
 <pre><code><span><span class="co">## [[1]]</span></span>
 <span><span class="co">## [[1]]$tuneCombinations</span></span>
 <span><span class="co">##    topN  cost Balanced Accuracy</span></span>
-<span><span class="co">## 1    10  0.01         0.8029350</span></span>
-<span><span class="co">## 2    20  0.01         0.7978845</span></span>
-<span><span class="co">## 3    30  0.01         0.7985516</span></span>
-<span><span class="co">## 4    40  0.01         0.7928340</span></span>
-<span><span class="co">## 5    50  0.01         0.8022680</span></span>
+<span><span class="co">## 1    10  0.01         0.7928340</span></span>
+<span><span class="co">## 2    20  0.01         0.8167524</span></span>
+<span><span class="co">## 3    30  0.01         0.8268534</span></span>
+<span><span class="co">## 4    40  0.01         0.8268534</span></span>
+<span><span class="co">## 5    50  0.01         0.8268534</span></span>
 <span><span class="co">## 6    60  0.01         0.8457214</span></span>
-<span><span class="co">## 7    70  0.01         0.8551553</span></span>
-<span><span class="co">## 8    80  0.01         0.8551553</span></span>
-<span><span class="co">## 9    90  0.01         0.8885077</span></span>
-<span><span class="co">## 10  100  0.01         0.8935582</span></span>
-<span><span class="co">## 11   10  0.10         0.7978845</span></span>
-<span><span class="co">## 12   20  0.10         0.8029350</span></span>
-<span><span class="co">## 13   30  0.10         0.8463884</span></span>
-<span><span class="co">## 14   40  0.10         0.8847913</span></span>
-<span><span class="co">## 15   50  0.10         0.8797408</span></span>
-<span><span class="co">## 16   60  0.10         0.9137602</span></span>
-<span><span class="co">## 17   70  0.10         0.9087097</span></span>
-<span><span class="co">## 18   80  0.10         0.9188107</span></span>
-<span><span class="co">## 19   90  0.10         0.9383457</span></span>
-<span><span class="co">## 20  100  0.10         0.9332952</span></span>
-<span><span class="co">## 21   10  1.00         0.7790166</span></span>
-<span><span class="co">## 22   20  1.00         0.8558224</span></span>
-<span><span class="co">## 23   30  1.00         0.9036592</span></span>
-<span><span class="co">## 24   40  1.00         0.9194778</span></span>
-<span><span class="co">## 25   50  1.00         0.9289118</span></span>
-<span><span class="co">## 26   60  1.00         0.9427292</span></span>
-<span><span class="co">## 27   70  1.00         0.9572136</span></span>
-<span><span class="co">## 28   80  1.00         0.9716981</span></span>
-<span><span class="co">## 29   90  1.00         0.9905660</span></span>
-<span><span class="co">## 30  100  1.00         1.0000000</span></span>
-<span><span class="co">## 31   10 10.00         0.7891176</span></span>
-<span><span class="co">## 32   20 10.00         0.8942253</span></span>
-<span><span class="co">## 33   30 10.00         0.9231942</span></span>
-<span><span class="co">## 34   40 10.00         0.9811321</span></span>
-<span><span class="co">## 35   50 10.00         0.9905660</span></span>
+<span><span class="co">## 7    70  0.01         0.8369545</span></span>
+<span><span class="co">## 8    80  0.01         0.8413379</span></span>
+<span><span class="co">## 9    90  0.01         0.8558224</span></span>
+<span><span class="co">## 10  100  0.01         0.8319039</span></span>
+<span><span class="co">## 11   10  0.10         0.7935010</span></span>
+<span><span class="co">## 12   20  0.10         0.8514389</span></span>
+<span><span class="co">## 13   30  0.10         0.8746903</span></span>
+<span><span class="co">## 14   40  0.10         0.8898418</span></span>
+<span><span class="co">## 15   50  0.10         0.8854584</span></span>
+<span><span class="co">## 16   60  0.10         0.9093768</span></span>
+<span><span class="co">## 17   70  0.10         0.9093768</span></span>
+<span><span class="co">## 18   80  0.10         0.9231942</span></span>
+<span><span class="co">## 19   90  0.10         0.9144273</span></span>
+<span><span class="co">## 20  100  0.10         0.9194778</span></span>
+<span><span class="co">## 21   10  1.00         0.7847341</span></span>
+<span><span class="co">## 22   20  1.00         0.8709739</span></span>
+<span><span class="co">## 23   30  1.00         0.8804079</span></span>
+<span><span class="co">## 24   40  1.00         0.8861254</span></span>
+<span><span class="co">## 25   50  1.00         0.8999428</span></span>
+<span><span class="co">## 26   60  1.00         0.9383457</span></span>
+<span><span class="co">## 27   70  1.00         0.9710311</span></span>
+<span><span class="co">## 28   80  1.00         0.9811321</span></span>
+<span><span class="co">## 29   90  1.00         0.9811321</span></span>
+<span><span class="co">## 30  100  1.00         0.9811321</span></span>
+<span><span class="co">## 31   10 10.00         0.7614828</span></span>
+<span><span class="co">## 32   20 10.00         0.8817419</span></span>
+<span><span class="co">## 33   30 10.00         0.9100438</span></span>
+<span><span class="co">## 34   40 10.00         0.8106537</span></span>
+<span><span class="co">## 35   50 10.00         0.8396226</span></span>
 <span><span class="co">## 36   60 10.00         1.0000000</span></span>
 <span><span class="co">## 37   70 10.00         1.0000000</span></span>
 <span><span class="co">## 38   80 10.00         1.0000000</span></span>
@@ -1074,47 +1058,47 @@ function.</p>
 <span><span class="co">## 40  100 10.00         1.0000000</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## [[1]]$bestIndex</span></span>
-<span><span class="co">## [1] 30</span></span>
+<span><span class="co">## [1] 36</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## [[2]]</span></span>
 <span><span class="co">## [[2]]$tuneCombinations</span></span>
 <span><span class="co">##    topN  cost Balanced Accuracy</span></span>
-<span><span class="co">## 1    10  0.01         0.7935010</span></span>
-<span><span class="co">## 2    20  0.01         0.7884505</span></span>
-<span><span class="co">## 3    30  0.01         0.8123690</span></span>
-<span><span class="co">## 4    40  0.01         0.8319039</span></span>
-<span><span class="co">## 5    50  0.01         0.8413379</span></span>
-<span><span class="co">## 6    60  0.01         0.8413379</span></span>
-<span><span class="co">## 7    70  0.01         0.8413379</span></span>
-<span><span class="co">## 8    80  0.01         0.8696398</span></span>
-<span><span class="co">## 9    90  0.01         0.8696398</span></span>
-<span><span class="co">## 10  100  0.01         0.8935582</span></span>
-<span><span class="co">## 11   10  0.10         0.8268534</span></span>
+<span><span class="co">## 1    10  0.01         0.8022680</span></span>
+<span><span class="co">## 2    20  0.01         0.7972175</span></span>
+<span><span class="co">## 3    30  0.01         0.8160854</span></span>
+<span><span class="co">## 4    40  0.01         0.8261864</span></span>
+<span><span class="co">## 5    50  0.01         0.8211359</span></span>
+<span><span class="co">## 6    60  0.01         0.8450543</span></span>
+<span><span class="co">## 7    70  0.01         0.8356204</span></span>
+<span><span class="co">## 8    80  0.01         0.8312369</span></span>
+<span><span class="co">## 9    90  0.01         0.8645893</span></span>
+<span><span class="co">## 10  100  0.01         0.8645893</span></span>
+<span><span class="co">## 11   10  0.10         0.8079855</span></span>
 <span><span class="co">## 12   20  0.10         0.8369545</span></span>
 <span><span class="co">## 13   30  0.10         0.8746903</span></span>
-<span><span class="co">## 14   40  0.10         0.9080427</span></span>
-<span><span class="co">## 15   50  0.10         0.9130932</span></span>
-<span><span class="co">## 16   60  0.10         0.9181437</span></span>
-<span><span class="co">## 17   70  0.10         0.9137602</span></span>
-<span><span class="co">## 18   80  0.10         0.9376787</span></span>
-<span><span class="co">## 19   90  0.10         0.9427292</span></span>
-<span><span class="co">## 20  100  0.10         0.9471126</span></span>
-<span><span class="co">## 21   10  1.00         0.8426720</span></span>
-<span><span class="co">## 22   20  1.00         0.8652563</span></span>
-<span><span class="co">## 23   30  1.00         0.9282447</span></span>
-<span><span class="co">## 24   40  1.00         0.9477797</span></span>
-<span><span class="co">## 25   50  1.00         0.9477797</span></span>
-<span><span class="co">## 26   60  1.00         0.9521631</span></span>
-<span><span class="co">## 27   70  1.00         0.9572136</span></span>
-<span><span class="co">## 28   80  1.00         0.9760816</span></span>
-<span><span class="co">## 29   90  1.00         0.9855155</span></span>
-<span><span class="co">## 30  100  1.00         0.9949495</span></span>
-<span><span class="co">## 31   10 10.00         0.8056032</span></span>
-<span><span class="co">## 32   20 10.00         0.8332380</span></span>
-<span><span class="co">## 33   30 10.00         0.9514961</span></span>
-<span><span class="co">## 34   40 10.00         0.9855155</span></span>
-<span><span class="co">## 35   50 10.00         0.9949495</span></span>
+<span><span class="co">## 14   40  0.10         0.9036592</span></span>
+<span><span class="co">## 15   50  0.10         0.9036592</span></span>
+<span><span class="co">## 16   60  0.10         0.9188107</span></span>
+<span><span class="co">## 17   70  0.10         0.9188107</span></span>
+<span><span class="co">## 18   80  0.10         0.9188107</span></span>
+<span><span class="co">## 19   90  0.10         0.9572136</span></span>
+<span><span class="co">## 20  100  0.10         0.9572136</span></span>
+<span><span class="co">## 21   10  1.00         0.8413379</span></span>
+<span><span class="co">## 22   20  1.00         0.8709739</span></span>
+<span><span class="co">## 23   30  1.00         0.8716409</span></span>
+<span><span class="co">## 24   40  1.00         0.9471126</span></span>
+<span><span class="co">## 25   50  1.00         0.9332952</span></span>
+<span><span class="co">## 26   60  1.00         0.9477797</span></span>
+<span><span class="co">## 27   70  1.00         0.9332952</span></span>
+<span><span class="co">## 28   80  1.00         0.9572136</span></span>
+<span><span class="co">## 29   90  1.00         0.9905660</span></span>
+<span><span class="co">## 30  100  1.00         1.0000000</span></span>
+<span><span class="co">## 31   10 10.00         0.8558224</span></span>
+<span><span class="co">## 32   20 10.00         0.8659234</span></span>
+<span><span class="co">## 33   30 10.00         0.9376787</span></span>
+<span><span class="co">## 34   40 10.00         0.9804650</span></span>
+<span><span class="co">## 35   50 10.00         0.9905660</span></span>
 <span><span class="co">## 36   60 10.00         1.0000000</span></span>
 <span><span class="co">## 37   70 10.00         1.0000000</span></span>
 <span><span class="co">## 38   80 10.00         1.0000000</span></span>
@@ -1122,47 +1106,47 @@ function.</p>
 <span><span class="co">## 40  100 10.00         1.0000000</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## [[2]]$bestIndex</span></span>
-<span><span class="co">## [1] 36</span></span>
+<span><span class="co">## [1] 30</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## [[3]]</span></span>
 <span><span class="co">## [[3]]$tuneCombinations</span></span>
 <span><span class="co">##    topN  cost Balanced Accuracy</span></span>
-<span><span class="co">## 1    10  0.01         0.7891176</span></span>
-<span><span class="co">## 2    20  0.01         0.7935010</span></span>
-<span><span class="co">## 3    30  0.01         0.8174195</span></span>
-<span><span class="co">## 4    40  0.01         0.8696398</span></span>
-<span><span class="co">## 5    50  0.01         0.8696398</span></span>
-<span><span class="co">## 6    60  0.01         0.8696398</span></span>
-<span><span class="co">## 7    70  0.01         0.8696398</span></span>
+<span><span class="co">## 1    10  0.01         0.8356204</span></span>
+<span><span class="co">## 2    20  0.01         0.8073185</span></span>
+<span><span class="co">## 3    30  0.01         0.8073185</span></span>
+<span><span class="co">## 4    40  0.01         0.7985516</span></span>
+<span><span class="co">## 5    50  0.01         0.8551553</span></span>
+<span><span class="co">## 6    60  0.01         0.8645893</span></span>
+<span><span class="co">## 7    70  0.01         0.8602058</span></span>
 <span><span class="co">## 8    80  0.01         0.8746903</span></span>
-<span><span class="co">## 9    90  0.01         0.8746903</span></span>
-<span><span class="co">## 10  100  0.01         0.8986087</span></span>
-<span><span class="co">## 11   10  0.10         0.8180865</span></span>
-<span><span class="co">## 12   20  0.10         0.8507719</span></span>
-<span><span class="co">## 13   30  0.10         0.8935582</span></span>
-<span><span class="co">## 14   40  0.10         0.8810749</span></span>
-<span><span class="co">## 15   50  0.10         0.8948923</span></span>
-<span><span class="co">## 16   60  0.10         0.9188107</span></span>
-<span><span class="co">## 17   70  0.10         0.9282447</span></span>
-<span><span class="co">## 18   80  0.10         0.9471126</span></span>
-<span><span class="co">## 19   90  0.10         0.9376787</span></span>
-<span><span class="co">## 20  100  0.10         0.9376787</span></span>
-<span><span class="co">## 21   10  1.00         0.8369545</span></span>
-<span><span class="co">## 22   20  1.00         0.8564894</span></span>
-<span><span class="co">## 23   30  1.00         0.8999428</span></span>
-<span><span class="co">## 24   40  1.00         0.9376787</span></span>
-<span><span class="co">## 25   50  1.00         0.9666476</span></span>
-<span><span class="co">## 26   60  1.00         0.9804650</span></span>
-<span><span class="co">## 27   70  1.00         0.9855155</span></span>
-<span><span class="co">## 28   80  1.00         0.9811321</span></span>
-<span><span class="co">## 29   90  1.00         0.9905660</span></span>
-<span><span class="co">## 30  100  1.00         0.9905660</span></span>
-<span><span class="co">## 31   10 10.00         0.8180865</span></span>
-<span><span class="co">## 32   20 10.00         0.8709739</span></span>
-<span><span class="co">## 33   30 10.00         0.9289118</span></span>
-<span><span class="co">## 34   40 10.00         0.9898990</span></span>
-<span><span class="co">## 35   50 10.00         1.0000000</span></span>
+<span><span class="co">## 9    90  0.01         0.8797408</span></span>
+<span><span class="co">## 10  100  0.01         0.8942253</span></span>
+<span><span class="co">## 11   10  0.10         0.8703068</span></span>
+<span><span class="co">## 12   20  0.10         0.8558224</span></span>
+<span><span class="co">## 13   30  0.10         0.8847913</span></span>
+<span><span class="co">## 14   40  0.10         0.8753573</span></span>
+<span><span class="co">## 15   50  0.10         0.8847913</span></span>
+<span><span class="co">## 16   60  0.10         0.8992758</span></span>
+<span><span class="co">## 17   70  0.10         0.8948923</span></span>
+<span><span class="co">## 18   80  0.10         0.9332952</span></span>
+<span><span class="co">## 19   90  0.10         0.9282447</span></span>
+<span><span class="co">## 20  100  0.10         0.9332952</span></span>
+<span><span class="co">## 21   10  1.00         0.8382885</span></span>
+<span><span class="co">## 22   20  1.00         0.8841243</span></span>
+<span><span class="co">## 23   30  1.00         0.8804079</span></span>
+<span><span class="co">## 24   40  1.00         0.9238613</span></span>
+<span><span class="co">## 25   50  1.00         0.9420621</span></span>
+<span><span class="co">## 26   60  1.00         0.9383457</span></span>
+<span><span class="co">## 27   70  1.00         0.9716981</span></span>
+<span><span class="co">## 28   80  1.00         0.9905660</span></span>
+<span><span class="co">## 29   90  1.00         1.0000000</span></span>
+<span><span class="co">## 30  100  1.00         1.0000000</span></span>
+<span><span class="co">## 31   10 10.00         0.8665904</span></span>
+<span><span class="co">## 32   20 10.00         0.8810749</span></span>
+<span><span class="co">## 33   30 10.00         0.9049933</span></span>
+<span><span class="co">## 34   40 10.00         0.9716981</span></span>
+<span><span class="co">## 35   50 10.00         0.9905660</span></span>
 <span><span class="co">## 36   60 10.00         1.0000000</span></span>
 <span><span class="co">## 37   70 10.00         1.0000000</span></span>
 <span><span class="co">## 38   80 10.00         1.0000000</span></span>
@@ -1170,7 +1154,7 @@ function.</p>
 <span><span class="co">## 40  100 10.00         1.0000000</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## [[3]]$bestIndex</span></span>
-<span><span class="co">## [1] 35</span></span>
+<span><span class="co">## [1] 29</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## [[4]]</span></span>
@@ -1178,38 +1162,38 @@ function.</p>
 <span><span class="co">##    topN  cost Balanced Accuracy</span></span>
 <span><span class="co">## 1    10  0.01         0.8356204</span></span>
 <span><span class="co">## 2    20  0.01         0.8167524</span></span>
-<span><span class="co">## 3    30  0.01         0.8117019</span></span>
-<span><span class="co">## 4    40  0.01         0.8117019</span></span>
-<span><span class="co">## 5    50  0.01         0.8117019</span></span>
-<span><span class="co">## 6    60  0.01         0.8167524</span></span>
-<span><span class="co">## 7    70  0.01         0.8073185</span></span>
-<span><span class="co">## 8    80  0.01         0.8073185</span></span>
-<span><span class="co">## 9    90  0.01         0.7978845</span></span>
-<span><span class="co">## 10  100  0.01         0.8413379</span></span>
-<span><span class="co">## 11   10  0.10         0.8878407</span></span>
-<span><span class="co">## 12   20  0.10         0.8790738</span></span>
-<span><span class="co">## 13   30  0.10         0.8942253</span></span>
-<span><span class="co">## 14   40  0.10         0.8891748</span></span>
-<span><span class="co">## 15   50  0.10         0.8942253</span></span>
-<span><span class="co">## 16   60  0.10         0.8942253</span></span>
-<span><span class="co">## 17   70  0.10         0.9181437</span></span>
-<span><span class="co">## 18   80  0.10         0.9231942</span></span>
-<span><span class="co">## 19   90  0.10         0.9188107</span></span>
-<span><span class="co">## 20  100  0.10         0.9521631</span></span>
-<span><span class="co">## 21   10  1.00         0.8558224</span></span>
-<span><span class="co">## 22   20  1.00         0.8790738</span></span>
-<span><span class="co">## 23   30  1.00         0.9036592</span></span>
-<span><span class="co">## 24   40  1.00         0.8905089</span></span>
-<span><span class="co">## 25   50  1.00         0.9332952</span></span>
-<span><span class="co">## 26   60  1.00         0.9332952</span></span>
-<span><span class="co">## 27   70  1.00         0.9572136</span></span>
-<span><span class="co">## 28   80  1.00         0.9666476</span></span>
-<span><span class="co">## 29   90  1.00         0.9811321</span></span>
+<span><span class="co">## 3    30  0.01         0.8740233</span></span>
+<span><span class="co">## 4    40  0.01         0.8885077</span></span>
+<span><span class="co">## 5    50  0.01         0.8979417</span></span>
+<span><span class="co">## 6    60  0.01         0.8790738</span></span>
+<span><span class="co">## 7    70  0.01         0.8891748</span></span>
+<span><span class="co">## 8    80  0.01         0.8986087</span></span>
+<span><span class="co">## 9    90  0.01         0.9225272</span></span>
+<span><span class="co">## 10  100  0.01         0.9225272</span></span>
+<span><span class="co">## 11   10  0.10         0.8689727</span></span>
+<span><span class="co">## 12   20  0.10         0.8928912</span></span>
+<span><span class="co">## 13   30  0.10         0.9269106</span></span>
+<span><span class="co">## 14   40  0.10         0.9124261</span></span>
+<span><span class="co">## 15   50  0.10         0.9225272</span></span>
+<span><span class="co">## 16   60  0.10         0.9130932</span></span>
+<span><span class="co">## 17   70  0.10         0.9174767</span></span>
+<span><span class="co">## 18   80  0.10         0.9332952</span></span>
+<span><span class="co">## 19   90  0.10         0.9332952</span></span>
+<span><span class="co">## 20  100  0.10         0.9376787</span></span>
+<span><span class="co">## 21   10  1.00         0.8746903</span></span>
+<span><span class="co">## 22   20  1.00         0.9029922</span></span>
+<span><span class="co">## 23   30  1.00         0.9407280</span></span>
+<span><span class="co">## 24   40  1.00         0.9370116</span></span>
+<span><span class="co">## 25   50  1.00         0.9565466</span></span>
+<span><span class="co">## 26   60  1.00         0.9514961</span></span>
+<span><span class="co">## 27   70  1.00         0.9659806</span></span>
+<span><span class="co">## 28   80  1.00         0.9811321</span></span>
+<span><span class="co">## 29   90  1.00         1.0000000</span></span>
 <span><span class="co">## 30  100  1.00         1.0000000</span></span>
-<span><span class="co">## 31   10 10.00         0.8564894</span></span>
-<span><span class="co">## 32   20 10.00         0.8847913</span></span>
-<span><span class="co">## 33   30 10.00         0.8665904</span></span>
-<span><span class="co">## 34   40 10.00         0.9666476</span></span>
+<span><span class="co">## 31   10 10.00         0.8841243</span></span>
+<span><span class="co">## 32   20 10.00         0.9319611</span></span>
+<span><span class="co">## 33   30 10.00         0.9797980</span></span>
+<span><span class="co">## 34   40 10.00         0.9848485</span></span>
 <span><span class="co">## 35   50 10.00         1.0000000</span></span>
 <span><span class="co">## 36   60 10.00         1.0000000</span></span>
 <span><span class="co">## 37   70 10.00         1.0000000</span></span>
@@ -1218,47 +1202,47 @@ function.</p>
 <span><span class="co">## 40  100 10.00         1.0000000</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## [[4]]$bestIndex</span></span>
-<span><span class="co">## [1] 30</span></span>
+<span><span class="co">## [1] 29</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## [[5]]</span></span>
 <span><span class="co">## [[5]]$tuneCombinations</span></span>
 <span><span class="co">##    topN  cost Balanced Accuracy</span></span>
-<span><span class="co">## 1    10  0.01         0.7857692</span></span>
-<span><span class="co">## 2    20  0.01         0.8003846</span></span>
-<span><span class="co">## 3    30  0.01         0.8150000</span></span>
-<span><span class="co">## 4    40  0.01         0.8103846</span></span>
-<span><span class="co">## 5    50  0.01         0.8350000</span></span>
-<span><span class="co">## 6    60  0.01         0.8588462</span></span>
-<span><span class="co">## 7    70  0.01         0.8492308</span></span>
-<span><span class="co">## 8    80  0.01         0.8446154</span></span>
-<span><span class="co">## 9    90  0.01         0.8638462</span></span>
-<span><span class="co">## 10  100  0.01         0.8830769</span></span>
-<span><span class="co">## 11   10  0.10         0.7861538</span></span>
-<span><span class="co">## 12   20  0.10         0.8400000</span></span>
-<span><span class="co">## 13   30  0.10         0.8596154</span></span>
-<span><span class="co">## 14   40  0.10         0.8692308</span></span>
-<span><span class="co">## 15   50  0.10         0.9223077</span></span>
-<span><span class="co">## 16   60  0.10         0.9126923</span></span>
-<span><span class="co">## 17   70  0.10         0.9126923</span></span>
-<span><span class="co">## 18   80  0.10         0.9173077</span></span>
-<span><span class="co">## 19   90  0.10         0.9176923</span></span>
-<span><span class="co">## 20  100  0.10         0.9176923</span></span>
-<span><span class="co">## 21   10  1.00         0.8061538</span></span>
-<span><span class="co">## 22   20  1.00         0.8596154</span></span>
-<span><span class="co">## 23   30  1.00         0.8603846</span></span>
-<span><span class="co">## 24   40  1.00         0.9034615</span></span>
-<span><span class="co">## 25   50  1.00         0.9515385</span></span>
-<span><span class="co">## 26   60  1.00         0.9611538</span></span>
-<span><span class="co">## 27   70  1.00         0.9707692</span></span>
-<span><span class="co">## 28   80  1.00         0.9853846</span></span>
-<span><span class="co">## 29   90  1.00         0.9903846</span></span>
+<span><span class="co">## 1    10  0.01         0.8153846</span></span>
+<span><span class="co">## 2    20  0.01         0.8107692</span></span>
+<span><span class="co">## 3    30  0.01         0.8446154</span></span>
+<span><span class="co">## 4    40  0.01         0.8788462</span></span>
+<span><span class="co">## 5    50  0.01         0.8834615</span></span>
+<span><span class="co">## 6    60  0.01         0.8784615</span></span>
+<span><span class="co">## 7    70  0.01         0.8976923</span></span>
+<span><span class="co">## 8    80  0.01         0.9126923</span></span>
+<span><span class="co">## 9    90  0.01         0.9223077</span></span>
+<span><span class="co">## 10  100  0.01         0.9223077</span></span>
+<span><span class="co">## 11   10  0.10         0.8492308</span></span>
+<span><span class="co">## 12   20  0.10         0.8880769</span></span>
+<span><span class="co">## 13   30  0.10         0.9126923</span></span>
+<span><span class="co">## 14   40  0.10         0.9319231</span></span>
+<span><span class="co">## 15   50  0.10         0.9369231</span></span>
+<span><span class="co">## 16   60  0.10         0.9565385</span></span>
+<span><span class="co">## 17   70  0.10         0.9469231</span></span>
+<span><span class="co">## 18   80  0.10         0.9419231</span></span>
+<span><span class="co">## 19   90  0.10         0.9515385</span></span>
+<span><span class="co">## 20  100  0.10         0.9615385</span></span>
+<span><span class="co">## 21   10  1.00         0.8830769</span></span>
+<span><span class="co">## 22   20  1.00         0.9030769</span></span>
+<span><span class="co">## 23   30  1.00         0.9515385</span></span>
+<span><span class="co">## 24   40  1.00         0.9807692</span></span>
+<span><span class="co">## 25   50  1.00         0.9807692</span></span>
+<span><span class="co">## 26   60  1.00         0.9807692</span></span>
+<span><span class="co">## 27   70  1.00         0.9903846</span></span>
+<span><span class="co">## 28   80  1.00         1.0000000</span></span>
+<span><span class="co">## 29   90  1.00         1.0000000</span></span>
 <span><span class="co">## 30  100  1.00         1.0000000</span></span>
-<span><span class="co">## 31   10 10.00         0.7919231</span></span>
-<span><span class="co">## 32   20 10.00         0.8503846</span></span>
-<span><span class="co">## 33   30 10.00         0.8026923</span></span>
-<span><span class="co">## 34   40 10.00         0.7884615</span></span>
-<span><span class="co">## 35   50 10.00         0.9903846</span></span>
+<span><span class="co">## 31   10 10.00         0.8638462</span></span>
+<span><span class="co">## 32   20 10.00         0.9273077</span></span>
+<span><span class="co">## 33   30 10.00         0.9853846</span></span>
+<span><span class="co">## 34   40 10.00         1.0000000</span></span>
+<span><span class="co">## 35   50 10.00         1.0000000</span></span>
 <span><span class="co">## 36   60 10.00         1.0000000</span></span>
 <span><span class="co">## 37   70 10.00         1.0000000</span></span>
 <span><span class="co">## 38   80 10.00         1.0000000</span></span>
@@ -1266,7 +1250,7 @@ function.</p>
 <span><span class="co">## 40  100 10.00         1.0000000</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## [[5]]$bestIndex</span></span>
-<span><span class="co">## [1] 30</span></span></code></pre>
+<span><span class="co">## [1] 28</span></span></code></pre>
 <p>The cost value of 1 or 10 appears to often be chosen.</p>
 </div>
 </div>
@@ -1291,7 +1275,7 @@ distribution improves gene selection stability and has competitive
 classification performance for patient survival</a>, <em>Nucleic Acids
 Research</em>, 44(13):e119</p>
 </div>
-  </main><aside class="col-md-3"><nav id="toc"><h2>On this page</h2>
+  </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
 </div>
 
@@ -1302,15 +1286,15 @@ Research</em>, 44(13):e119</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.0.9.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.1.</p>
 </div>
 
     </footer>
 </div>
 
-  
 
-  
+
+
 
   </body>
 </html>

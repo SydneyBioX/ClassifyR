@@ -8,7 +8,7 @@ classifyInterface <- function(countsTrain, classesTrain, countsTest, ...,
   returnType <- match.arg(returnType)
   
   if(verbose == 3)
-    message("Fitting Poisson LDA classifier to training data and making predictions on test data.")
+    message(Sys.time(), ": Fitting Poisson LDA classifier to training data and making predictions on test data.")
 
   predicted <- PoiClaClu::Classify(trainingMatrix, classesTrain, testingMatrix, ...)
   classPredictions <- predicted[["ytehat"]]

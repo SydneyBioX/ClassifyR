@@ -3,8 +3,11 @@
 \name{calcCostsAndPerformance}
 \alias{calcCostsAndPerformance}
 \alias{summary.PrecisionPathways}
+\alias{bubblePlot}
 \alias{bubblePlot.PrecisionPathways}
+\alias{flowchart}
 \alias{flowchart.PrecisionPathways}
+\alias{strataPlot}
 \alias{strataPlot.PrecisionPathways}
 \title{Various Functions for Evaluating Precision Pathways}
 \usage{
@@ -12,7 +15,11 @@ calcCostsAndPerformance(precisionPathways, costs = NULL)
 
 \method{summary}{PrecisionPathways}(object, weights = c(accuracy = 0.5, cost = 0.5), ...)
 
+bubblePlot(precisionPathways, ...)
+
 \method{bubblePlot}{PrecisionPathways}(precisionPathways, pathwayColours = NULL, ...)
+
+flowchart(precisionPathways, ...)
 
 \method{flowchart}{PrecisionPathways}(
   precisionPathways,
@@ -20,6 +27,8 @@ calcCostsAndPerformance(precisionPathways, costs = NULL)
   nodeColours = c(assay = "#86C57C", class1 = "#ACCEE0", class2 = "#F47F72"),
   ...
 )
+
+strataPlot(precisionPathways, ...)
 
 \method{strataPlot}{PrecisionPathways}(
   precisionPathways,
@@ -43,7 +52,7 @@ and the cost during ranking. Must sum to 1.}
 \item{pathwayColours}{A named vector of colours with names being the names of pathways. If none is specified,
 a default colour scheme will automatically be chosen.}
 
-\item{pathway}{A chracter vector of length 1 specifying which pathway to plot, e.g. "clinical-mRNA".}
+\item{pathway}{A character vector of length 1 specifying which pathway to plot, e.g. "clinical-mRNA".}
 
 \item{nodeColours}{A named vector of colours with names being \code{"assay"}, \code{"class1"},\code{"class2"}.
 a default colour scheme will automatically be chosen.}

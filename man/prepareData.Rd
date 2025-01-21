@@ -18,6 +18,7 @@
   outcome,
   useFeatures = NULL,
   maxMissingProp = 0,
+  maxSimilarity = 1,
   topNvariance = NULL
 )
 
@@ -47,6 +48,10 @@ This allows for the avoidance of variables such spike-in RNAs, sample IDs, sampl
 
 \item{maxMissingProp}{Default: 0.0. A proportion less than 1 which is the maximum
 tolerated proportion of missingness for a feature to be retained for modelling.}
+
+\item{maxSimilarity}{Default: 1. A number between 0 and 1 which is the maximum similarity between a pair of
+variables to be both kept in the data set. For numerical variables, the Pearson correlation is used and for categorical variables,
+the Chi-squared test p-value is used. For a pair that is too similar, the second variable will be excluded from the data set.}
 
 \item{topNvariance}{Default: NULL. If \code{measurements} is a \code{MultiAssayExperiment} or list of tabular data, a named integer vector of most variable 
 features per assay to subset to. If the input data is a single table, then simply a single integer.

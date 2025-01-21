@@ -3,7 +3,7 @@ DMDranking <- function(measurementsTrain, classesTrain, differences = c("both", 
                    ..., verbose = 3)
 {
   if(verbose == 3)
-    message("Selecting features by DMD.")
+    message(Sys.time(), ": Selecting features by DMD.")
   differences <- match.arg(differences)
   
   allClassesLocationsScales <- lapply(levels(classesTrain), function(class)

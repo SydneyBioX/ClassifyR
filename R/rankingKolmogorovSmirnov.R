@@ -2,7 +2,7 @@
 KolmogorovSmirnovRanking <- function(measurementsTrain, classesTrain, ..., verbose = 3)
 {
   if(verbose == 3)
-    message("Ranking features by Kolmogorov Smirnov distance between classes.")
+    message(Sys.time(), ": Ranking features by Kolmogorov Smirnov distance between classes.")
 
   oneClass <- classesTrain == levels(classesTrain)[1]
   otherClass <- classesTrain == levels(classesTrain)[2]

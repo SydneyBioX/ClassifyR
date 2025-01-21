@@ -1,18 +1,25 @@
 setClass("pcaModel", slots = "fullModel")
 
-pcaTrainInterface <- function(measurements, classes, params, nFeatures, ...)
+pcaTrainInterface <- function(measurementsTrain, outcomeTrain, params, nFeatures, ...)
           {
               
               ###
-              # Splitting measurements into a list of each of the datasets
+              # Splitting measurementsTrain into a list of each of the datasets
               ###
-              assayTrain <- sapply(unique(S4Vectors::mcols(measurements)[["assay"]]), function(assay) measurements[, S4Vectors::mcols(measurements)[["assay"]] %in% assay], simplify = FALSE)
+              assayTrain <- sapply(unique(S4Vectors::mcols(measurementsTrain)[["assay"]]), function(assay) measurementsTrain[, S4Vectors::mcols(measurementsTrain)[["assay"]] %in% assay], simplify = FALSE)
               
               if(!"clinical" %in% names(assayTrain)) stop("Must have an assay called \"clinical\".")
               
-              # Create generic crossValParams just to get things working, might be used for optimising features in runTest later???
-              CVparams <- CrossValParams(permutations = 1, folds = 10, parallelParams = SerialParam(RNGseed = .Random.seed[1]), tuneMode = "Resubstitution") 
+              tuneMode <- "none"
+              performanceType <- "N/A"
+              if(!is.null(params[[1]]@selectParams@tuneParams))
+              {
+                  tuneMode <- "Resubstitution"
+                  if(is(outcomeTrain, "Surv")) performanceType <- "C-index" else performanceType <- "Balanced Accuracy"
+              }
               
+              # Create generic crossValParams just to get things working, might be used for optimising features in runTest later???
+              CVparams <- CrossValParams(permutations = 1, folds = 10, parallelParams = SerialParam(RNGseed = .Random.seed[1]), tuneMode = tuneMode, performanceType = performanceType) 
               ###
               # Run PCA for all assays except clinical
               ###
@@ -56,9 +63,9 @@ pcaTrainInterface <- function(measurements, classes, params, nFeatures, ...)
               
               runTestOutput = runTest(
                   fullTrain,
-                  classes,
+                  outcomeTrain,
                   fullTrain,
-                  classes,
+                  outcomeTrain,
                   modellingParams = finalModParam,
                   crossValParams = CVparams,
                   .iteration = 1,

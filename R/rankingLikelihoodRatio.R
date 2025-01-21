@@ -3,7 +3,7 @@ likelihoodRatioRanking <- function(measurementsTrain, classesTrain, alternative 
                    ..., verbose = 3)
 {
   if(verbose == 3)
-    message("Ranking features by likelihood ratio test statistic.")
+    message(Sys.time(), ": Ranking features by likelihood ratio test statistic.")
 
   allDistribution <- getLocationsAndScales(measurementsTrain, ...)
   logLikelihoodRatios <- unlist(mapply(function(featureMeasurements, scale, location)

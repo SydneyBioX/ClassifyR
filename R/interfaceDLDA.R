@@ -4,7 +4,7 @@ DLDAtrainInterface <- function(measurementsTrain, classesTrain, verbose = 3)
   #if(!requireNamespace("sparsediscrim", quietly = TRUE))
   #stop("The package 'sparsediscrim' could not be found. Please install it.")
   if(verbose == 3)
-    message("Fitting DLDA classifier to data.")
+    message(Sys.time(), ": Fitting DLDA classifier to data.")
   
   # sparsediscrim::dlda(as.matrix(measurements), classes)
   .dlda(as.matrix(measurementsTrain), classesTrain)

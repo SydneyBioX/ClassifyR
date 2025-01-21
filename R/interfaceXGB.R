@@ -4,7 +4,7 @@ extremeGradientBoostingTrainInterface <- function(measurementsTrain, outcomeTrai
   if(!requireNamespace("xgboost", quietly = TRUE))
     stop("The package 'xgboost' could not be found. Please install it.")
   if(verbose == 3)
-    message("Fitting extreme gradient boosting classifier to training data and making predictions on test
+    message(Sys.time(), ": Fitting extreme gradient boosting classifier to training data and making predictions on test
             data.")
   measurementsTrain <- as(measurementsTrain, "data.frame")
   # Convert to one-hot encoding as xgboost doesn't understand factors. Need to get rid of intercept afterwards.

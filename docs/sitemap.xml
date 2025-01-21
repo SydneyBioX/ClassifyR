@@ -1,144 +1,51 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>/404.html</loc>
-  </url>
-  <url>
-    <loc>/articles/ClassifyR.html</loc>
-  </url>
-  <url>
-    <loc>/articles/DevelopersGuide.html</loc>
-  </url>
-  <url>
-    <loc>/articles/incorporateNew.html</loc>
-  </url>
-  <url>
-    <loc>/articles/index.html</loc>
-  </url>
-  <url>
-    <loc>/articles/introduction.html</loc>
-  </url>
-  <url>
-    <loc>/articles/multiViewMethods.html</loc>
-  </url>
-  <url>
-    <loc>/articles/performanceEvaluation.html</loc>
-  </url>
-  <url>
-    <loc>/articles/presets.html</loc>
-  </url>
-  <url>
-    <loc>/articles/survival.html</loc>
-  </url>
-  <url>
-    <loc>/authors.html</loc>
-  </url>
-  <url>
-    <loc>/index.html</loc>
-  </url>
-  <url>
-    <loc>/reference/ClassifyResult-class.html</loc>
-  </url>
-  <url>
-    <loc>/reference/CrossValParams-class.html</loc>
-  </url>
-  <url>
-    <loc>/reference/FeatureSetCollection.html</loc>
-  </url>
-  <url>
-    <loc>/reference/HuRI.html</loc>
-  </url>
-  <url>
-    <loc>/reference/METABRICclinical.html</loc>
-  </url>
-  <url>
-    <loc>/reference/ModellingParams-class.html</loc>
-  </url>
-  <url>
-    <loc>/reference/PredictParams-class.html</loc>
-  </url>
-  <url>
-    <loc>/reference/ROCplot.html</loc>
-  </url>
-  <url>
-    <loc>/reference/SelectParams-class.html</loc>
-  </url>
-  <url>
-    <loc>/reference/TrainParams-class.html</loc>
-  </url>
-  <url>
-    <loc>/reference/TransformParams-class.html</loc>
-  </url>
-  <url>
-    <loc>/reference/asthma.html</loc>
-  </url>
-  <url>
-    <loc>/reference/available.html</loc>
-  </url>
-  <url>
-    <loc>/reference/calcPerformance.html</loc>
-  </url>
-  <url>
-    <loc>/reference/colCoxTests.html</loc>
-  </url>
-  <url>
-    <loc>/reference/crissCrossPlot.html</loc>
-  </url>
-  <url>
-    <loc>/reference/crissCrossValidate.html</loc>
-  </url>
-  <url>
-    <loc>/reference/crossValidate.html</loc>
-  </url>
-  <url>
-    <loc>/reference/distribution.html</loc>
-  </url>
-  <url>
-    <loc>/reference/edgesToHubNetworks.html</loc>
-  </url>
-  <url>
-    <loc>/reference/featureSetSummary.html</loc>
-  </url>
-  <url>
-    <loc>/reference/generateCrossValParams.html</loc>
-  </url>
-  <url>
-    <loc>/reference/generateModellingParams.html</loc>
-  </url>
-  <url>
-    <loc>/reference/index.html</loc>
-  </url>
-  <url>
-    <loc>/reference/interactorDifferences.html</loc>
-  </url>
-  <url>
-    <loc>/reference/performancePlot.html</loc>
-  </url>
-  <url>
-    <loc>/reference/plotFeatureClasses.html</loc>
-  </url>
-  <url>
-    <loc>/reference/precisionPathways.html</loc>
-  </url>
-  <url>
-    <loc>/reference/precisionPathwaysEvaluations.html</loc>
-  </url>
-  <url>
-    <loc>/reference/prepareData.html</loc>
-  </url>
-  <url>
-    <loc>/reference/rankingPlot.html</loc>
-  </url>
-  <url>
-    <loc>/reference/runTest.html</loc>
-  </url>
-  <url>
-    <loc>/reference/runTests.html</loc>
-  </url>
-  <url>
-    <loc>/reference/samplesMetricMap.html</loc>
-  </url>
-  <url>
-    <loc>/reference/selectionPlot.html</loc>
-  </url>
+<urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
+<url><loc>/404.html</loc></url>
+<url><loc>/articles/ClassifyR.html</loc></url>
+<url><loc>/articles/DevelopersGuide.html</loc></url>
+<url><loc>/articles/incorporateNew.html</loc></url>
+<url><loc>/articles/index.html</loc></url>
+<url><loc>/articles/introduction.html</loc></url>
+<url><loc>/articles/multiViewMethods.html</loc></url>
+<url><loc>/articles/performanceEvaluation.html</loc></url>
+<url><loc>/articles/presets.html</loc></url>
+<url><loc>/articles/survival.html</loc></url>
+<url><loc>/authors.html</loc></url>
+<url><loc>/index.html</loc></url>
+<url><loc>/reference/ClassifyResult-class.html</loc></url>
+<url><loc>/reference/CrossValParams-class.html</loc></url>
+<url><loc>/reference/FeatureSetCollection.html</loc></url>
+<url><loc>/reference/HuRI.html</loc></url>
+<url><loc>/reference/METABRICclinical.html</loc></url>
+<url><loc>/reference/ModellingParams-class.html</loc></url>
+<url><loc>/reference/PredictParams-class.html</loc></url>
+<url><loc>/reference/ROCplot.html</loc></url>
+<url><loc>/reference/SelectParams-class.html</loc></url>
+<url><loc>/reference/TrainParams-class.html</loc></url>
+<url><loc>/reference/TransformParams-class.html</loc></url>
+<url><loc>/reference/asthma.html</loc></url>
+<url><loc>/reference/available.html</loc></url>
+<url><loc>/reference/calcPerformance.html</loc></url>
+<url><loc>/reference/colCoxTests.html</loc></url>
+<url><loc>/reference/crissCrossPlot.html</loc></url>
+<url><loc>/reference/crissCrossValidate.html</loc></url>
+<url><loc>/reference/crossValidate.html</loc></url>
+<url><loc>/reference/distribution.html</loc></url>
+<url><loc>/reference/edgesToHubNetworks.html</loc></url>
+<url><loc>/reference/featureSetSummary.html</loc></url>
+<url><loc>/reference/generateCrossValParams.html</loc></url>
+<url><loc>/reference/generateModellingParams.html</loc></url>
+<url><loc>/reference/index.html</loc></url>
+<url><loc>/reference/interactorDifferences.html</loc></url>
+<url><loc>/reference/performancePlot.html</loc></url>
+<url><loc>/reference/plotFeatureClasses.html</loc></url>
+<url><loc>/reference/precisionPathways.html</loc></url>
+<url><loc>/reference/precisionPathwaysEvaluations.html</loc></url>
+<url><loc>/reference/prepareData.html</loc></url>
+<url><loc>/reference/rankingPlot.html</loc></url>
+<url><loc>/reference/runTest.html</loc></url>
+<url><loc>/reference/runTests.html</loc></url>
+<url><loc>/reference/samplesMetricMap.html</loc></url>
+<url><loc>/reference/samplesSplitting.html</loc></url>
+<url><loc>/reference/selectionPlot.html</loc></url>
 </urlset>
+

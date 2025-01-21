@@ -13,7 +13,8 @@ CrossValParams(
   percentTest = 25,
   folds = 5,
   leave = 2,
-  tuneMode = c("Resubstitution", "Nested CV", "none"),
+  tuneMode = c("none", "Resubstitution", "Nested CV"),
+  performanceType = "auto",
   adaptiveResamplingDelta = NULL,
   parallelParams = bpparam()
 )
@@ -41,7 +42,10 @@ combination of and use as the test set.  Only relevant if \code{samplesSplits} i
 \code{"Leave-k-Out"}. If set to 1, it is the traditional leave-one-out cross-validation,
 sometimes written as LOOCV.}
 
-\item{tuneMode}{Default: Resubstitution. The scheme to use for selecting any tuning parameters.}
+\item{tuneMode}{Default: None. The cross-validation scheme to use for selecting any tuning parameters. Valid values
+are \code{"Resubstitution"}, \code{"Nested CV"}, \code{"none"}.}
+
+\item{performanceType}{Default: \code{"auto"}. The performance metric to use if \code{tuneMode} is not \code{"none"}.}
 
 \item{adaptiveResamplingDelta}{Default: \code{NULL}. If not null, adaptive resampling of training
 samples is performed and this number is the difference in consecutive iterations that the

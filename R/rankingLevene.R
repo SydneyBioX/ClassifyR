@@ -4,7 +4,7 @@ leveneRanking <- function(measurementsTrain, classesTrain, verbose = 3)
   if(!requireNamespace("car", quietly = TRUE))
     stop("The package 'car' could not be found. Please install it.")            
   if(verbose == 3)
-    message("Calculating Levene statistic.")
+    message(Sys.time(), ": Calculating Levene statistic.")
 
   pValues <- apply(measurementsTrain, 2, function(featureColumn)
              car::leveneTest(featureColumn, classesTrain)[["Pr(>F)"]][1])

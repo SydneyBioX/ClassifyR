@@ -8,7 +8,7 @@ NSCtrainInterface <- function(measurementsTrain, classesTrain, ..., verbose = 3)
   trainedModel <- pamr::pamr.train(list(x = t(as.matrix(measurementsTrain)), y = classesTrain), ...)
   
   if(verbose == 3)
-    message("Nearest shrunken centroid training completed.")
+    message(Sys.time(), ": Nearest shrunken centroid training completed.")
   
   trainedModel  
 }

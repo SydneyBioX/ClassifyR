@@ -1,17 +1,38 @@
-# Creates two lists of lists. First has training samples, second has test samples for a range
-# of different cross-validation schemes.
-#' @import utils
-.samplesSplits <- function(crossValParams, outcome)
+#' Split Sample Indexes into Training and Test Partitions for Cross-validation Taking Into Account Classes.
+#'
+#' \code{samplesSplits} Creates two lists of lists. First has training samples, second has test samples for a range
+#'  of different cross-validation schemes.
+#'  
+#' @aliases samplesSplits samplesSplits,CrossValParams-method samplesSplits,numeric-method
+#' @param samplesSplits Default: \code{"k-Fold"}. One of \code{"k-Fold"}, \code{"Permute k-Fold"}, \code{"Permute Percentage Split"}, \code{"Leave-k-Out"}.
+#' @param permutations Default: \code{100}. An integer. The number of times the samples are permuted before splitting (repetitions).
+#' @param folds Default: \code{5}. An integer. The number of folds to which the samples are partitioned to. Only relevant if \code{samplesSplits} is \code{"k-Fold"} or \code{"Permute k-Fold"}.
+#' @param leave Default: \code{2}. An integer. The number of samples to keep for the test set in leave-k-out cross-validation. Only relevant if \code{samplesSplits} is \code{"Leave-k-Out"}.
+#' @param percentTest Default: \code{25}. A positive number between 0 and 100. The percentage of samples to keep for the test partition. Only relevant if \code{samplesSplits} is \code{"Permute Percentage Split"}.
+#' @param outcome A \code{factor} vector or \code{\link{Surv}} object containing the samples to be partitioned.
+#' 
+#' @return For \code{samplesSplits}, two lists of the same length. First is training partitions. Second is test partitions.
+#' @export
+#' @rdname samplesSplitting
+#'
+#' @examples
+#' 
+#' classes <- factor(rep(c('A', 'B'), c(15, 5)))
+#' splitsList <-samplesSplits(permutations = 1, outcome = classes)
+#' splitsList
+
+samplesSplits <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permute Percentage Split", "Leave-k-Out"),
+                          permutations = 100, folds = 5, percentTest = 25, leave = 2, outcome)
 {
-  if(crossValParams@samplesSplits %in% c("k-Fold", "Permute k-Fold"))
+  samplesSplits <- match.arg(samplesSplits)
+  if(samplesSplits %in% c("k-Fold", "Permute k-Fold"))
   {
-    nPermutations <- ifelse(crossValParams@samplesSplits == "k-Fold", 1, crossValParams@permutations)
-    nFolds <- crossValParams@folds
+    nPermutations <- ifelse(samplesSplits == "k-Fold", 1, permutations)
+    nFolds <- folds
     samplesFolds <- lapply(1:nPermutations, function(permutation)
     {
       # Create maximally-balanced folds, so class balance is about the same in all.
       allFolds <- vector(mode = "list", length = nFolds)
-      foldsIndexes <- rep(1:nFolds, length.out = length(outcome))
       
       foldsIndex = 1
       # Balance the non-censored observations across folds.
@@ -20,15 +41,14 @@
       {
         # Permute the indexes of samples in the class.
         whichSamples <- sample(which(outcome == outcomeName))
-        whichFolds <- foldsIndexes[foldsIndex:(foldsIndex + length(whichSamples) - 1)]
+        whichFolds <- rep(1:nFolds, length.out = length(whichSamples))
+        samplesByFolds <- split(whichSamples, whichFolds)
         
         # Put each sample into its fold.
-        for(sampleIndex in 1:length(whichSamples))
+        for(foldIndex in 1:length(samplesByFolds))
         {
-          allFolds[[whichFolds[sampleIndex]]] <- c(allFolds[[whichFolds[sampleIndex]]], whichSamples[sampleIndex])
+          allFolds[[foldIndex]] <- c(allFolds[[foldIndex]], samplesByFolds[[foldIndex]])
         }
-        # Move the beginning index to the first new index.
-        foldsIndex <- foldsIndex + length(whichSamples)
       }
       
       list(train = lapply(1:nFolds, function(index) unlist(allFolds[setdiff(1:nFolds, index)])),
@@ -38,12 +58,12 @@
     # Reorganise into two separate lists, no more nesting.
     list(train = unlist(lapply(samplesFolds, '[[', 1), recursive = FALSE),
          test = unlist(lapply(samplesFolds, '[[', 2), recursive = FALSE))
-  } else if(crossValParams@samplesSplits == "Permute Percentage Split") {
+  } else if(samplesSplits == "Permute Percentage Split") {
     # Take the same percentage of samples from each class to be in training set.
-    percent <- crossValParams@percentTest
+    percent <- percentTest
     samplesTrain <- round((100 - percent) / 100 * table(outcome))
     samplesTest <- round(percent / 100 * table(outcome))
-    samplesLists <- lapply(1:crossValParams@permutations, function(permutation)
+    samplesLists <- lapply(1:permutations, function(permutation)
     {
       trainSet <- unlist(mapply(function(outcomeName, number)
       {
@@ -54,36 +74,55 @@
     })
     # Reorganise into two lists: training, testing.
     list(train = lapply(samplesLists, "[[", 1), test = lapply(samplesLists, "[[", 2))
-  } else if(crossValParams@samplesSplits == "Leave-k-Out") { # leave k out. 
-    testSamples <- as.data.frame(utils::combn(length(outcome), crossValParams@leave))
+  } else if(samplesSplits == "Leave-k-Out") { # leave k out. 
+    testSamples <- as.data.frame(utils::combn(length(outcome), leave))
     trainingSamples <- lapply(testSamples, function(sample) setdiff(1:length(outcome), sample))
     list(train = as.list(trainingSamples), test = as.list(testSamples))
   }
 }
 
-# Creates a two-column table for tracking the permutation, fold number, or subset of each set
-# of test samples (i.e. for leave-k-out scheme).
-.splitsTestInfo <- function(crossValParams, samplesSplits)
+#' Create a Tabular Representation of Test Set Samples.
+#' 
+#' \code{splitsTestInfo} creates a table for tracking the permutation, fold number, or subset of each set
+#' of test samples. Useful for column-binding to the predictions, once they are unlisted into a vector.
+#' 
+#' @param samplesSplits Default: \code{"k-Fold"}. One of \code{"k-Fold"}, \code{"Permute k-Fold"}, \code{"Permute Percentage Split"}, \code{"Leave-k-Out"}.
+#' @param permutations Default: \code{100}. An integer. The number of times the samples are permuted before splitting (repetitions).
+#' @param folds Default: \code{5}. An integer. The number of folds to which the samples are partitioned to. Only relevant if \code{samplesSplits} is \code{"k-Fold"} or \code{"Permute k-Fold"}.
+#' @param leave Default: \code{2}. An integer. The number of samples to keep for the test set in leave-k-out cross-validation. Only relevant if \code{samplesSplits} is \code{"Leave-k-Out"}.
+#' @param percentTest Default: \code{25}. A positive number between 0 and 100. The percentage of samples to keep for the test partition. Only relevant if \code{samplesSplits} is \code{"Permute Percentage Split"}.
+#' @param splitsList The return value of the function \code{samplesSplits}.
+#' 
+#' @return For \code{splitsTestInfoTable}, a table with a subset of columns \code{"permutation"}, \code{"fold"} and \code{"subset"}, depending on the cross-validation scheme specified.
+#' @export
+#' @rdname samplesSplitting
+#'
+#' @examples
+#' splitsTestInfo(permutations = 1, splitsList = splitsList)
+
+splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permute Percentage Split", "Leave-k-Out"),
+                                permutations = 100, folds = 5, percentTest = 25, leave = 2, splitsList)
 {
   permutationIDs <- NULL
   foldIDs <- NULL
   subsetIDs <- NULL
-  if(crossValParams@samplesSplits %in% c("k-Fold", "Permute k-Fold"))
+  samplesSplits <- match.arg(samplesSplits)
+  if(samplesSplits %in% c("k-Fold", "Permute k-Fold"))
   {
-    foldsSamples <- lengths(samplesSplits[[2]][1:crossValParams@folds])
+    foldsSamples <- lengths(splitsList[[2]][1:folds])
     totalSamples <- sum(foldsSamples) 
-    if(crossValParams@samplesSplits == "Permute k-Fold")
-      permutationIDs <- rep(1:crossValParams@permutations, each = totalSamples)
-    times <- ifelse(is.null(crossValParams@permutations), 1, crossValParams@permutations)
-    foldIDs <- rep(rep(1:crossValParams@folds, foldsSamples), times = times)
-  } else if(crossValParams@samplesSplits == "Permute Percentage Split") {
-    permutationIDs <- rep(1:crossValParams@permutations, each = length(samplesSplits[[2]][[1]]))
+    if(samplesSplits == "Permute k-Fold")
+      permutationIDs <- rep(1:permutations, each = totalSamples)
+    times <- ifelse(is.null(permutations), 1, permutations)
+    foldIDs <- rep(rep(1:folds, foldsSamples), times = times)
+  } else if(samplesSplits == "Permute Percentage Split") {
+    permutationIDs <- rep(1:permutations, each = length(splitsList[[2]][[1]]))
   } else { # Leave-k-out
-    totalSamples <- length(unique(unlist(samplesSplits[[2]])))
-    subsetIDs <- rep(1:choose(totalSamples, crossValParams@leave), each = crossValParams@leave)
+    totalSamples <- length(unique(unlist(splitsList[[2]])))
+    subsetIDs <- rep(1:choose(totalSamples, leave), each = leave)
   } 
-  
   summaryTable <- cbind(permutation = permutationIDs, fold = foldIDs, subset = subsetIDs)
+  summaryTable
 }
 
 # Add extra variables from within runTest functions to function specified by a params object.
@@ -104,9 +143,9 @@
 .doSelection <- function(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
 {
   tuneParams <- modellingParams@selectParams@tuneParams
-  performanceType <- tuneParams[["performanceType"]]
-  topNfeatures <- tuneParams[["nFeatures"]]
-  tuneParams <- tuneParams[-match(c("performanceType", "nFeatures"), names(tuneParams))] # Only used as evaluation metric.
+  performanceType <- crossValParams@performanceType
+  if(!is.null(tuneParams[["nFeatures"]])) topNfeatures <- tuneParams[["nFeatures"]] else topNfeatures <- modellingParams@selectParams@nFeatures
+  tuneParams <- tuneParams[-match("nFeatures", names(tuneParams))] # Only used as evaluation metric.
   
   # Make selectParams NULL, since we are currently doing selection and it shouldn't call
   # itself infinitely, but save the parameters of the ranking function for calling the ranking
@@ -136,17 +175,11 @@
 
     if(attr(featureRanking, "name") %in% c("randomSelection", "previousSelection", "Union Selection")) # Actually selection not ranking.
       return(list(NULL, rankings[[1]], NULL))
-    
+
     if(crossValParams@tuneMode == "none") # No parameters to choose between.
-        return(list(NULL, rankings[[1]], NULL))
-    
+        return(list(rankings[[1]], rankings[[1]][1:topNfeatures], NULL))
+
     tuneParamsTrain <- list(topN = topNfeatures)
-    performanceIndex <- match("performanceType", names(modellingParams@trainParams@tuneParams))
-    if(!is.na(performanceIndex))
-    {
-      performanceType <- modellingParams@trainParams@tuneParams[["performanceType"]]
-      modellingParams@trainParams@tuneParams <- modellingParams@trainParams@tuneParams[-performanceIndex]
-    }
     tuneParamsTrain <- append(tuneParamsTrain, modellingParams@trainParams@tuneParams)
     tuneCombosTrain <- expand.grid(tuneParamsTrain, stringsAsFactors = FALSE)  
     modellingParams@trainParams@tuneParams <- NULL
@@ -202,7 +235,7 @@
       
       if(verbose == 3)
          message("Features selected.")
-      
+
       tuneDetails <- allPerformanceTables[[tunePick]] # List of length 2.
       
       rankingUse <- rankings[[tunePick]]
@@ -249,10 +282,10 @@
         }
       })
       bestOne <- ifelse(betterValues == "lower", which.min(performances)[1], which.max(performances)[1])
-      
+
       selectionIndices <- unlist(lapply(featuresLists, function(featuresList) featuresList[1:topNfeatures[bestOne]]))
       names(table(selectionIndices))[table(selectionIndices) >= modellingParams@selectParams@minPresence]
-      
+
       list(NULL, selectionIndices, NULL)
     } else { # Previous selection
       selectedFeatures <- list(NULL, selectionIndices, NULL)
@@ -276,8 +309,7 @@
   tuneDetails <- NULL
   if(!is.null(modellingParams@trainParams@tuneParams) && is.null(modellingParams@selectParams))
   {
-    performanceType <- modellingParams@trainParams@tuneParams[["performanceType"]]
-    modellingParams@trainParams@tuneParams <- modellingParams@trainParams@tuneParams[-match("performanceType", names(modellingParams@trainParams@tuneParams))]
+    performanceType <- crossValParams@performanceType
     tuneCombos <- expand.grid(modellingParams@trainParams@tuneParams, stringsAsFactors = FALSE)
     modellingParams@trainParams@tuneParams <- NULL
     
@@ -530,21 +562,21 @@
     )
 }
 
-.classifierKeywordToParams <- function(keyword)
+.classifierKeywordToParams <- function(keyword, tuneParams)
 {
     switch(
         keyword,
-        "randomForest" = RFparams(),
-        "randomSurvivalForest" = RSFparams(),
-        "XGB" = XGBparams(),
+        "randomForest" = RFparams(tuneParams = tuneParams),
+        "randomSurvivalForest" = RSFparams(tuneParams = tuneParams),
+        "XGB" = XGBparams(tuneParams = tuneParams),
         "GLM" = GLMparams(),
         "ridgeGLM" = ridgeGLMparams(),
         "elasticNetGLM" = elasticNetGLMparams(),
         "LASSOGLM" = LASSOGLMparams(),
-        "SVM" = SVMparams(),
+        "SVM" = SVMparams(tuneParams = tuneParams),
         "NSC" = NSCparams(),
         "DLDA" = DLDAparams(),
-        "naiveBayes" = naiveBayesParams(),
+        "naiveBayes" = naiveBayesParams(tuneParams = tuneParams),
         "mixturesNormals" = mixModelsParams(),
         "kNN" = kNNparams(),
         "CoxPH" = coxphParams(),

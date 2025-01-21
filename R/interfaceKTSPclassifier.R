@@ -8,7 +8,7 @@ kTSPclassifier <- function(measurementsTrain, classesTrain, measurementsTest, fe
   if(!"Pairs" %in% class(featurePairs))
     stop("'featurePairs' must be of type Pairs.")            
   if(verbose == 3)
-    message("Determining inequalities of feature pairs.")              
+    message(Sys.time(), ": Determining inequalities of feature pairs.")              
   
   difference <- match.arg(difference)
   returnType <- match.arg(returnType)

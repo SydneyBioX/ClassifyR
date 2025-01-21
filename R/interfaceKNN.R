@@ -8,7 +8,7 @@ kNNinterface <- function(measurementsTrain, classesTrain, measurementsTest, ...,
   if(!requireNamespace("class", quietly = TRUE))
     stop("The package 'class' could not be found. Please install it.")
   if(verbose == 3)
-    message("Fitting k Nearest Neighbours classifier to data and predicting classes.")
+    message(Sys.time(), ":Fitting k Nearest Neighbours classifier to data and predicting classes.")
   
   setNames(class::knn(as.matrix(measurementsTrain), as.matrix(measurementsTest), classesTrain, ...), rownames(measurementsTest))
 }

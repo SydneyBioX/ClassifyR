@@ -88,7 +88,7 @@ The type of classifier used can be changed with the *classifier* argument. The d
 
 ```{r}
 result <- crossValidate(measurements, classes, classifier = "SVM",
-                        nFeatures = 20, nFolds = 5, nRepeats = 2, nCores = 1)
+                        nFolds = 5, nRepeats = 2, nCores = 1)
 performancePlot(result)
 ```
 
@@ -198,7 +198,7 @@ Function | Description | Before&nbsp;CV | During&nbsp;CV
  
 ### Fine-grained Cross-validation and Modelling Using *runTests*
 
-For more control over the finer aspects of cross-validation of a single data set, *runTests* may be employed in place of *crossValidate*. For the variety of cross-validation, the parameters are specified by a *CrossValParams* object. The default setting is for 100 permutations and five folds and parameter tuning is done by resubstitution. It is also recommended to specify a *parallelParams* setting. On Linux and MacOS operating systems, it should be *MulticoreParam* and on Windows computers it should be *SnowParam*. Note that each of these have an option *RNGseed* and this **needs to be set by the user** because some classifiers or feature selection functions will have some element of randomisation. One example that works on all operating systems, but is best-suited to Windows is:
+For more control over the finer aspects of cross-validation of a single data set, *runTests* may be employed in place of *crossValidate*. For the variety of cross-validation, the parameters are specified by a *CrossValParams* object. The default setting is for 100 permutations and five folds and no parameter tuning is done; top 20 features are selected. It is recommended to specify a *parallelParams* setting. On Linux and MacOS operating systems, it should be *MulticoreParam* and on Windows computers it should be *SnowParam*. Note that each of these have an option *RNGseed* and this **needs to be set by the user** because some classifiers or feature selection functions will have some element of randomisation. One example that works on all operating systems, but is best-suited to Windows is:
 
 ```{r, eval = FALSE}
 CVparams <- CrossValParams(parallelParams = SnowParam(16, RNGseed = 123))
@@ -213,7 +213,7 @@ ModellingParams()
 
 ### runTests Driver Function of Cross-validated Classification
 
-*runTests* is the main function in **ClassifyR** which handles the sample splitting and parallelisation, if used, of cross-validation. To begin with, a simple classifier will be demonstrated. It uses a t-test or ANOVA ranking (depending on the number of classes) for feature ranking and DLDA for classification. This classifier relies on differences in means between classes. No parameters need to be specified, because this is the default classification of *runTests*. By default, the number of features is tuned by resubstitution on the training set.
+*runTests* is the main function in **ClassifyR** which handles the sample splitting and parallelisation, if used, of cross-validation. To begin with, a simple classifier will be demonstrated. It uses a t-test or ANOVA ranking (depending on the number of classes) for feature ranking and DLDA for classification. This classifier relies on differences in means between classes. No parameters need to be specified, because this is the default classification of *runTests*. By default, the number of features chosen is 20.
 
 ```{r, tidy = FALSE}
 crossValParams <- CrossValParams(permutations = 5)
@@ -227,6 +227,7 @@ Here, 5 permutations (non-default) and 5 folds cross-validation (default) is spe
 The most frequently selected gene can be identified using the *distribution* function and its relative abundance values for all samples can be displayed visually by *plotFeatureClasses*.
 
 ```{r, fig.height = 8, fig.width = 8, results = "hold", message = FALSE}
+library(grid)
 selectionPercentages <- distribution(DMresults, plot = FALSE)
 head(selectionPercentages)
 sortedPercentages <- head(selectionPercentages[order(selectionPercentages, decreasing = TRUE)])
@@ -234,6 +235,7 @@ head(sortedPercentages)
 mostChosen <- sortedPercentages[1]
 bestGenePlot <- plotFeatureClasses(measurements, classes, names(mostChosen), dotBinWidth = 0.1,
                                    xAxisLabel = "Normalised Expression")
+grid.draw(bestGenePlot[[1]])
 ```
 
 The means of the abundance levels of `r names(sortedPercentages)[1]` are substantially different between the people with and without asthma. *plotFeatureClasses* can also plot categorical data, such as may be found in a clinical data table, as a bar chart.
@@ -323,6 +325,7 @@ Tuning is achieved in ClassifyR by providing a variable called *tuneParams* to t
 
 ```{r}
 tuneList <- list(cost = c(0.01, 0.1, 1, 10))
+crossValParams <- CrossValParams(permutations = 5, tuneMode = "Resubstitution")
 SVMparams <- ModellingParams(trainParams = TrainParams("SVM", kernel = "linear", tuneParams = tuneList),
                              predictParams = PredictParams("SVM"))
 SVMresults <- runTests(measurements, classes, crossValParams, SVMparams)

@@ -6,7 +6,7 @@
 #' is used to evaluate overall prediction performance and sample-specific accuracy for individual-level evaluation.
 #'
 #' @param measurements Either a \code{\link{MultiAssayExperiment}} or a list of the basic tabular objects containing the data.
-#' @param class Same as \code{measurements} but only training samples. IF \code{measurements} is a \code{list}, may also be
+#' @param class If a \code{\link{MultiAssayExperiment}}, a column name in \code{colData(measurements)} with the classes. If \code{measurements} is a \code{list} of tabular data, may also be
 #' a vector of classes.
 #' @param useFeatures Default: \code{NULL} (i.e. use all provided features). A named list of features to use. Otherwise, the input data is a single table and this can just be a vector of feature names.
 #' For any assays not in the named list, all of their features are used. \code{"clinical"} is also a valid assay name and refers to the clinical data table.
@@ -54,6 +54,13 @@ setMethod("precisionPathwaysTrain", "MultiAssayExperimentOrList",
               if (!any(names(measurements) == "clinical"))
                 stop("One of the tables must be named \"clinical\".")
             }
+            if(is.null(useFeatures) && fixedAssays == "clinical")
+            {
+              warning("No 'useFeatures' named list element for clincal data is specified. Clinical data often has\n", 
+    "lots of uninformative variables. Please consider specifying useful features.")        
+              useFeatures <- list(clinical = colnames(MultiAssayExperiment::colData(measurements)))
+            }
+              
             prepArgs <- list(measurements, outcomeColumns = class, useFeatures = useFeatures,
                              maxMissingProp = maxMissingProp, topNvariance = topNvariance)
             measurementsAndClass <- do.call(prepareData, prepArgs)
@@ -142,6 +149,7 @@ setMethod("precisionPathwaysTrain", "MultiAssayExperimentOrList",
                   individuals = individualsTableAll, tiers = tierTableAll)
             })
             names(precisionPathways) <- sapply(precisionPathways, "[[", "pathway")
+            precisionPathways <- precisionPathways[unique(names(precisionPathways))] # In case early termination causes duplicates.
             result <- list(models = modelsList, assaysPermutations = assaysPermutations,
                            parameters = list(confidenceCutoff = confidenceCutoff, minAssaySamples = minAssaySamples),
                            useFeatures = useFeatures, pathways = precisionPathways)
@@ -152,7 +160,8 @@ setMethod("precisionPathwaysTrain", "MultiAssayExperimentOrList",
 
 # A nice print method to avoid flooding the screen with lots of tables
 # when result is shown in console.
-print.PrecisionPathways <- function(x)
+#' @export
+print.PrecisionPathways <- function(x, ...)
 {
   cat("An object of class 'PrecisionPathways'.\n")
   cat("Pathways:\n")
@@ -250,7 +259,7 @@ setMethod("precisionPathwaysPredict", c("PrecisionPathways", "MultiAssayExperime
   names(precisionPathways) <- sapply(precisionPathways, "[[", "pathway")
   result <- list(models = modelsList, assaysPermutations = assaysPermutations,
                  parameters = list(confidenceCutoff = confidenceCutoff, minAssaySamples = minAssaySamples),
-                 useFeatures = useFeatures, pathways = precisionPathways)
+                 pathways = precisionPathways)
   class(result) <- "PrecisionPathways"
             
   result
@@ -269,7 +278,7 @@ setMethod("precisionPathwaysPredict", c("PrecisionPathways", "MultiAssayExperime
 calcCostsAndPerformance <- function(precisionPathways, costs = NULL)
 {
   if(is.null(costs))
-    stop("'costs' of each assay must be specified.")      
+    stop("'costs' of each assay must be specified.")
   pathwayIDs <- names(precisionPathways[["pathways"]])
   accuraciesCosts <- do.call(rbind, lapply(precisionPathways[["pathways"]], function(pathway)
   {
@@ -278,8 +287,9 @@ calcCostsAndPerformance <- function(precisionPathways, costs = NULL)
     allNames <- sampleNames(precisionPathways$models[[1]])
     knownClasses <- knownClasses[match(pathway[["individuals"]][, "Sample ID"], allNames)]
     balancedAccuracy <- calcExternalPerformance(knownClasses, predictions)
-    
-    costTotal <- sum(costs[match(pathway[["individuals"]][, "Tier"], names(costs))])
+    costTotal <- sum(costs[na.omit(match(pathway[["individuals"]][, "Tier"], names(costs)))])
+    if(is.na(costTotal)) # Only clinical used.
+      costTotal <- 0
     
     data.frame(accuracy = round(balancedAccuracy, 2), cost = costTotal)
   }))
@@ -298,19 +308,27 @@ calcCostsAndPerformance <- function(precisionPathways, costs = NULL)
 #' @export
 summary.PrecisionPathways <- function(object, weights = c(accuracy = 0.5, cost = 0.5), ...)
 {
+  if(!"performance" %in% names(object))
+    stop("Nothing to summarise. Please run function 'calcCostsAndPerformance' first.")
+  hasCost <- "cost" %in% names(object[["performance"]])   
   summaryTable <- data.frame(Pathway = rownames(object[["performance"]]),
                              `Balanced Accuracy` = object[["performance"]][, "accuracy"],
-                             `Total Cost` = object[["performance"]][, "cost"],
                               check.names = FALSE)
-  rankingScores <- list(rank(object[["performance"]][, "accuracy"]), rank(-object[["performance"]][, "cost"]))
-  finalScores <- rowSums(mapply(function(scores, weight)
-               {
-                 scores * weight
-               }, rankingScores, as.list(weights)))
+  if(hasCost) summaryTable[, "Total Cost"] <- object[["performance"]][, "cost"]
+  
+  if(hasCost)
+    rankingScores <- list(rank(object[["performance"]][, "accuracy"]), rank(-object[["performance"]][, "cost"]))
+  else
+    rankingScores <- list(rank(object[["performance"]][, "accuracy"]))  
+  finalScores <- mapply(function(scores, weight) scores * weight, rankingScores, as.list(weights))
+  if(!is(finalScores, "tabular")) finalScores <- matrix(finalScores, nrow = 1)
+  finalScores <- rowSums(finalScores)
   summaryTable <- cbind(summaryTable, Score = finalScores)
   summaryTable
 }
 
+#' @export
+#' @rdname precisionPathwaysEvaluations
 bubblePlot <- function (precisionPathways, ...) {
    UseMethod("bubblePlot", precisionPathways)
  }
@@ -327,15 +345,17 @@ bubblePlot.PrecisionPathways <- function(precisionPathways, pathwayColours = NUL
   performance <- precisionPathways[["performance"]]
   performance <- cbind(Sequence = rownames(performance), performance)
   ggplot2::ggplot(performance, aes(x = accuracy, y = cost, colour = Sequence, size = 4)) + ggplot2::geom_point() +
-    ggplot2::scale_color_manual(values = pathwayColours) + ggplot2::labs(x = "Balanced Accuracy", y = "Total Cost") + ggplot2::guides(size = FALSE)
+    ggplot2::scale_color_manual(values = pathwayColours) + ggplot2::labs(x = "Balanced Accuracy", y = "Total Cost") + ggplot2::guides(size = "none")
 }
 
+#' @export
+#' @rdname precisionPathwaysEvaluations
 flowchart <- function (precisionPathways, ...) {
    UseMethod("flowchart", precisionPathways)
  }
 
 #' @param precisionPathways A pathway of class \code{PrecisionPathways}.
-#' @param pathway A chracter vector of length 1 specifying which pathway to plot, e.g. "clinical-mRNA".
+#' @param pathway A character vector of length 1 specifying which pathway to plot, e.g. "clinical-mRNA".
 #' @param nodeColours A named vector of colours with names being \code{"assay"}, \code{"class1"},\code{"class2"}.
 #' a default colour scheme will automatically be chosen.
 #' @rdname precisionPathwaysEvaluations
@@ -350,7 +370,7 @@ flowchart.PrecisionPathways <- function(precisionPathways, pathway, nodeColours 
   possibleClasses <- levels(precisionPathways$models[[1]]@actualOutcome)
   samplesTiers <- pathwayUse$individuals
       
-  pathwayTree <- Node$new(assayIDs[1])
+  pathwayTree <- data.tree::Node$new(assayIDs[1])
   currentNode <- pathwayTree
   for(assay in assayIDs)
   {
@@ -364,24 +384,37 @@ flowchart.PrecisionPathways <- function(precisionPathways, pathway, nodeColours 
       currentNode <- currentNode$AddChild(assayIDs[match(assay, assayIDs) + 1], nodeType = "Platform")
     }
   }
-          
-  SetGraphStyle(pathwayTree, rankdir = "LR")
-  SetEdgeStyle(pathwayTree, fontname = 'helvetica', label = .getEdgeLabel)
-  SetNodeStyle(pathwayTree, style = "filled", shape = .getNodeShape, fontcolor = "black", fillcolor = .getFillColour, fontname = 'helvetica')
-  plot(pathwayTree)
-}
-
-.getEdgeLabel <- function(node)
-{
-  nSamples <<- nrow(samplesTiers)
-  if(node$isRoot || node$nodeType == "Platform")
-  {
-    label <- NULL
-  } else {
-    value <- round((node$counter / nSamples) * 100)
-    label <- paste(value,  "% (", node$counter, ")", sep = '')
+  
+  .getFillColour <- function(node) {
+    if(node$isRoot || node$nodeType == "Platform"){
+      colour <- nodeColours[["assay"]]
+    } else if(node$nodeType == "Class1"){
+      colour <- nodeColours[["class1"]]
+    } else if(node$nodeType == "Class2"){
+      colour <- nodeColours[["class2"]]
+    } else {
+      colour <- "snow3"
+    }
+    return(colour)
   }
-  return(label)
+  
+  .getEdgeLabel <- function(node)
+  {
+    nSamples <- nrow(samplesTiers)
+    if(node$isRoot || node$nodeType == "Platform")
+    {
+      label <- NULL
+    } else {
+      value <- round((node$counter / nSamples) * 100)
+      label <- paste(value,  "% (", node$counter, ")", sep = '')
+    }
+    return(label)
+  }
+          
+  data.tree::SetGraphStyle(pathwayTree, rankdir = "LR")
+  data.tree::SetEdgeStyle(pathwayTree, fontname = 'helvetica', label = .getEdgeLabel)
+  data.tree::SetNodeStyle(pathwayTree, style = "filled", shape = .getNodeShape, fontcolor = "black", fillcolor = .getFillColour, fontname = 'helvetica')
+  plot(pathwayTree)
 }
 
 .getNodeShape <- function(node){
@@ -392,19 +425,8 @@ flowchart.PrecisionPathways <- function(precisionPathways, pathway, nodeColours 
   }
 }
 
-.getFillColour <- function(node) {
-  if(node$isRoot || node$nodeType == "Platform"){
-    colour <<- nodeColours[["assay"]]
-  } else if(node$nodeType == "Class1"){
-    colour <<- nodeColours[["class1"]]
-  } else if(node$nodeType == "Class2"){
-    colour <<- nodeColours[["class2"]]
-  } else {
-    colour = "snow3"
-  }
-  return(colour)
-}
-
+#' @export
+#' @rdname precisionPathwaysEvaluations
 strataPlot <- function (precisionPathways, ...) {
    UseMethod("strataPlot", precisionPathways)
  }
@@ -415,6 +437,7 @@ strataPlot <- function (precisionPathways, ...) {
 #' @export
 strataPlot.PrecisionPathways <- function(precisionPathways, pathway, classColours = c(class1 = "#4DAF4A", class2 = "#984EA3"), ...)
 {
+  if(missing(pathway)) stop("'pathway' is not specified. Please specify one of the ones shown by printing the trained object.")    
   pathwayUse <- precisionPathways[["pathways"]][[pathway]]
   assayIDs <- pathwayUse[["tiers"]][, 1]
   possibleClasses <- levels(precisionPathways$models[[1]]@actualOutcome)
@@ -423,17 +446,17 @@ strataPlot.PrecisionPathways <- function(precisionPathways, pathway, classColour
   samplesTiers <- dplyr::arrange(as.data.frame(samplesTiers), Tier, trueClass, Accuracy)
   samplesTiers$ID = 1:nrow(samplesTiers)
   samplesTiers$colour = ifelse(samplesTiers$trueClass == levels(samplesTiers[, "Predicted"])[1], classColours["class1"], classColours["class2"])
-
+  samplesTiers$Tier <- droplevels(samplesTiers$Tier)
   strataPlot <- ggplot2::ggplot(mapping = ggplot2::aes(x = ID, y = Tier), data = samplesTiers) +
-                ggplot2::geom_tile(aes(fill = trueClass)) +
+                ggplot2::geom_tile(ggplot2::aes(fill = trueClass)) +
     ggplot2::scale_fill_manual(values = unname(classColours))  +
     ggplot2::labs(title = paste("Pathway:", pathway), fill = "True Class", x = "", y = "") +
-    ggplot2::guides(fill = guide_legend(title.position = "top")) +
+    ggplot2::guides(fill = ggplot2::guide_legend(title.position = "top")) +
     ggnewscale::new_scale_fill() +
-    geom_tile(aes(fill = Accuracy)) +
+    ggplot2::geom_tile(ggplot2::aes(fill = Accuracy)) +
     ggplot2::scale_fill_gradient(low = "#377EB8", high = "#E41A1C") +
     ggplot2::labs(fill = "Accuracy") +
-    ggplot2::guides(fill = guide_colorbar(title.position = "top")) +
+    ggplot2::guides(fill = ggplot2::guide_colorbar(title.position = "top")) +
     ggplot2::theme(panel.background = ggplot2::element_blank(),
           axis.text.x = ggplot2::element_blank(),
           aspect.ratio = 1/4, 
@@ -442,7 +465,7 @@ strataPlot.PrecisionPathways <- function(precisionPathways, pathway, classColour
           legend.text = ggplot2::element_text(size = 10),
           legend.position = "bottom",
           axis.text = ggplot2::element_text(size = 15)) +
-    annotate("tile",
+    ggplot2::annotate("tile",
                x = samplesTiers$ID,
                y = length(levels(samplesTiers[, "Tier"])) + 0.8,
                height = 0.6,

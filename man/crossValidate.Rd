@@ -20,8 +20,6 @@
   outcome,
   nFeatures = 20,
   selectionMethod = "auto",
-  selectionOptimisation = "Resubstitution",
-  performanceType = "auto",
   classifier = "auto",
   multiViewMethod = "none",
   assayCombinations = "all",
@@ -38,8 +36,6 @@
   outcome,
   nFeatures = 20,
   selectionMethod = "auto",
-  selectionOptimisation = "Resubstitution",
-  performanceType = "auto",
   classifier = "auto",
   multiViewMethod = "none",
   assayCombinations = "all",
@@ -56,8 +52,6 @@
   outcome,
   nFeatures = 20,
   selectionMethod = "auto",
-  selectionOptimisation = "Resubstitution",
-  performanceType = "auto",
   classifier = "auto",
   multiViewMethod = "none",
   assayCombinations = "all",
@@ -74,8 +68,6 @@
   outcome,
   nFeatures = 20,
   selectionMethod = "auto",
-  selectionOptimisation = "Resubstitution",
-  performanceType = "auto",
   classifier = "auto",
   multiViewMethod = "none",
   assayCombinations = "all",
@@ -97,7 +89,6 @@
   selectionMethod = "auto",
   nFeatures = 20,
   classifier = "auto",
-  performanceType = "auto",
   multiViewMethod = "none",
   assayIDs = "all",
   extraParams = NULL,
@@ -124,19 +115,14 @@ of survival information, time must be in first column and event status in the se
 
 \item{...}{For \code{train} and \code{predict} functions, parameters not used by the non-DataFrame signature functions but passed into the DataFrame signature function.}
 
-\item{nFeatures}{The number of features to be used for classification. If this is a single number, the same number of features will be used for all comparisons
-or assays. If a numeric vector these will be optimised over using \code{selectionOptimisation}. If a named vector with the same names of multiple assays, 
-a different number of features will be used for each assay. If a named list of vectors, the respective number of features will be optimised over. 
-Set to NULL or "all" if all features should be used.}
+\item{nFeatures}{The number of features to be used for classification. If a named vector with the same names of multiple assays, 
+a different number of features will be used for each assay. Set to \code{"all"} if all features should be used. To tune it, specify a vector or \code{list} of named vectors to \code{"tuneParams"} list of
+\code{"select"} element list of \code{extraParams} list.}
 
 \item{selectionMethod}{Default: \code{"auto"}. A character vector of feature selection methods to compare. If a named character vector with names corresponding to different assays, 
 and performing multiview classification, the respective selection methods will be used on each assay. If \code{"auto"}, t-test (two categories) / F-test (three or more categories) ranking
 and top \code{nFeatures} optimisation is done. Otherwise, the ranking method is per-feature Cox proportional hazards p-value. \code{"none"} is also a valid value, meaning that no
-indepedent feature selection will be performed (but implicit selection might still happen with the classifier).}
-
-\item{selectionOptimisation}{A character of "Resubstitution", "Nested CV" or "none" specifying the approach used to optimise \code{nFeatures}.}
-
-\item{performanceType}{Performance metric to optimise if classifier has any tuning parameters.}
+feature selection prior to model building will be performed (but implicit selection might still happen with the classifier).}
 
 \item{classifier}{Default: \code{"auto"}. A character vector of classification methods to compare. If a named character vector with names corresponding to different assays, 
 and performing multiview classification, the respective classification methods will be used on each assay. If \code{"auto"}, then a random forest is used for a classification
@@ -156,9 +142,10 @@ with each element being a vector of assays to combine. Special value \code{"all"
 \item{characteristicsLabel}{A character specifying an additional label for the cross-validation run.}
 
 \item{extraParams}{A list of parameters that will be used to overwrite default settings of transformation, selection, or model-building functions or
-parameters which will be passed into the data cleaning function. The names of the list must be one of \code{"prepare"},
-\code{"select"}, \code{"train"}, \code{"predict"}. To remove one of the defaults (see the article titled Parameter Tuning Presets for crossValidate and Their Customisation on
-the website), specify the list element to be \code{NULL}. For the valid element names in the \code{"prepare"} list, see \code{?prepareData}.}
+parameters which will be passed into the data cleaning function or cross-validation mode used for parameter tuning. Each name of a list element is a list and must be one of \code{"prepare"},
+\code{"select"}, \code{"train"}, \code{"predict"}, \code{tuneCross}. By default, no parameter tuning is done. To use the a default parameter range for tuning (see the article titled Parameter Tuning Presets for crossValidate and Their Customisation on
+the website), specify a list element of \code{"select"} or \code{"train"} lists named \code{"tuneParams"} with value \code{"auto"}. To specify your own range of values, specify a \code{list} with names being the parameters in the functions
+described in the same article on the website. For the valid element names in the \code{"prepare"} list, see \code{?prepareData} for its parameter names. The list \code{"tuneCross"} can have elements named \code{"tuneMode"} and \code{"performanceType"}. Valid values for \code{"tuneMode"} are \code{"Resubstitution"} or \code{"Nested CV"}. For \code{"performanceType"}, it is any of the metrics which can be specified to \code{\link{calcPerformance}}.}
 
 \item{verbose}{Default: 0. A number between 0 and 3 for the amount of
 progress messages to give.  A higher number will produce more messages as
@@ -209,7 +196,7 @@ performancePlot(result)
 # First make a toy example assay with multiple data types. We'll randomly assign different features to be clinical, gene or protein.
 # set.seed(51773)
 # measurements <- DataFrame(measurements, check.names = FALSE)
-# mcols(measurements)$assay <- c(rep("clinical",20),sample(c("gene", "protein"), ncol(measurements)-20, replace = TRUE))
+# mcols(measurements)$assay <- c(rep("clinical", 20), sample(c("gene", "protein"), ncol(measurements) - 20, replace = TRUE))
 # mcols(measurements)$feature <- colnames(measurements)
 
 # We'll use different nFeatures for each assay. We'll also use repeated cross-validation with 5 repeats for speed in the example.

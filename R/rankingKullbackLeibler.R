@@ -2,7 +2,7 @@
 KullbackLeiblerRanking <- function(measurementsTrain, classesTrain, ..., verbose = 3)
 {
   if(verbose == 3)
-    message("Selecting features by Kullback-Leibler divergence.")
+    message(Sys.time(), ": Selecting features by Kullback-Leibler divergence.")
 
   oneClassMeasurements <- measurementsTrain[classesTrain == levels(classesTrain)[1], ]
   otherClassMeasurements <- measurementsTrain[classesTrain == levels(classesTrain)[2], ]

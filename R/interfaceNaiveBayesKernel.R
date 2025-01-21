@@ -16,7 +16,7 @@ naiveBayesKernel <- function(measurementsTrain, classesTrain, measurementsTest,
   largestClass <- names(classesSizes)[which.max(classesSizes)[1]]
   
   if(verbose == 3)
-    message("Fitting densities.")
+    message(Sys.time(), ": Fitting densities.")
   
   featuresDensities <- lapply(measurementsTrain, function(featureValues)
   {
@@ -38,7 +38,7 @@ naiveBayesKernel <- function(measurementsTrain, classesTrain, measurementsTest,
              })
   
   if(verbose == 3)
-    message("Calculating vertical distances between class densities.")
+    message(Sys.time(), ": Calculating vertical distances between class densities.")
 
   # Needed even if horizontal distance weighting is used to determine the predicted class.
   posteriorsVertical <- mapply(function(featureSplines, testSamples)
@@ -70,7 +70,7 @@ naiveBayesKernel <- function(measurementsTrain, classesTrain, measurementsTest,
   if(difference == "weighted" && weighting == "crossover distance")
   {
     if(verbose == 3)
-      message("Calculating horizontal distances to crossover points of class densities.")
+      message(Sys.time(), ": Calculating horizontal distances to crossover points of class densities.")
  
     classesVerticalIndices <- matrix(match(classesVertical, levels(classesTrain)),
                                      nrow = nrow(classesVertical), ncol = ncol(classesVertical))

@@ -1,6 +1,7 @@
 # Random Forest
-RFparams <- function() {
-    trainParams <- TrainParams(randomForestTrainInterface, tuneParams = list(mTryProportion = c(0.10, 0.25, 0.33), num.trees = c(10, 100)),
+RFparams <- function(tuneParams) {
+    if(is.character(tuneParams) && tuneParams == "auto") tuneParams <- list(mTryProportion = c(0.10, 0.25, 0.33, 0.5), num.trees = c(1, 10, 100))
+    trainParams <- TrainParams(randomForestTrainInterface, tuneParams = tuneParams,
                                getFeatures = forestFeatures)
     predictParams <- PredictParams(randomForestPredictInterface)
     
@@ -8,16 +9,18 @@ RFparams <- function() {
 }
 
 # Random Survival Forest
-RSFparams <- function() {
-    trainParams <- TrainParams(rfsrcTrainInterface, tuneParams = list(mTryProportion = c(0.10, 0.25, 0.33), ntree = c(10, 100)),
+RSFparams <- function(tuneParams) {
+    if(is.character(tuneParams) && tuneParams == "auto") tuneParams <- list(mTryProportion = c(0.10, 0.25, 0.33, 0.5), ntree = c(1, 10, 100))
+    trainParams <- TrainParams(rfsrcTrainInterface, tuneParams = tuneParams,
                                getFeatures = rfsrcFeatures)
     predictParams <- PredictParams(rfsrcPredictInterface)
     
     return(list(trainParams = trainParams, predictParams = predictParams))
 }
 
-XGBparams <- function() {
-    trainParams <- TrainParams(extremeGradientBoostingTrainInterface, tuneParams = list(mTryProportion = c(0.10, 0.25, 0.33), nrounds = c(5, 10)),
+XGBparams <- function(tuneParams) {
+    if(is.character(tuneParams) && tuneParams == "auto") tuneParams <- list(mTryProportion = c(0.10, 0.25, 0.33, 0.5), nrounds = c(5, 10))
+    trainParams <- TrainParams(extremeGradientBoostingTrainInterface, tuneParams = tuneParams,
                                getFeatures = XGBfeatures)
     predictParams <- PredictParams(extremeGradientBoostingPredictInterface)
     
@@ -26,7 +29,7 @@ XGBparams <- function() {
 
 # k Nearest Neighbours
 kNNparams <- function() {
-    trainParams <- TrainParams(kNNinterface, tuneParams = list(k = 1:5))
+    trainParams <- TrainParams(kNNinterface)
     predictParams <- NULL
     return(list(trainParams = trainParams, predictParams = predictParams))
 }
@@ -64,10 +67,10 @@ LASSOGLMparams <- function() {
 }
 
 # Support Vector Machine
-SVMparams = function() {
-    trainParams <- TrainParams(SVMtrainInterface,
-                   tuneParams = list(kernel = c("linear", "polynomial", "radial", "sigmoid"),
-                                     cost = 10^(-3:3)))
+SVMparams = function(tuneParams) {
+    if(is.character(tuneParams) && tuneParams == "auto")
+        tuneParams <- list(kernel = c("linear", "polynomial", "radial", "sigmoid"), cost = 10^(-3:3))
+    trainParams <- TrainParams(SVMtrainInterface, tuneParams = tuneParams)
     predictParams <- PredictParams(SVMpredictInterface)
     
     return(list(trainParams = trainParams, predictParams = predictParams))
@@ -90,8 +93,9 @@ DLDAparams = function() {
 }
 
 # naive Bayes Kernel
-naiveBayesParams <- function() {
-    trainParams <- TrainParams(naiveBayesKernel, tuneParams = list(difference = c("unweighted", "weighted")))
+naiveBayesParams <- function(tuneParams) {
+    if(is.character(tuneParams) && tuneParams == "auto") tuneParams <- list(difference = c("unweighted", "weighted")) 
+    trainParams <- TrainParams(naiveBayesKernel, tuneParams = tuneParams)
     predictParams <- NULL
     return(list(trainParams = trainParams, predictParams = predictParams))
 }
@@ -114,7 +118,7 @@ coxphParams <- function() {
 
 # Cox Proportional Hazards Model with Elastic Net for Survival
 coxnetParams <- function() {
-    trainParams <- TrainParams(coxnetTrainInterface)
+    trainParams <- TrainParams(coxnetTrainInterface, getFeatures = penalisedFeatures)
     predictParams <- PredictParams(coxnetPredictInterface)
     
     return(list(trainParams = trainParams, predictParams = predictParams))
