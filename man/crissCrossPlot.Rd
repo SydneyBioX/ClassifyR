@@ -4,16 +4,22 @@
 \alias{crissCrossPlot}
 \title{A function to plot the output of the crissCrossValidate function.}
 \usage{
-crissCrossPlot(crissCrossResult, includeValues = FALSE)
+crissCrossPlot(
+  crissCrossResult,
+  includeValues = FALSE,
+  showResubMetric = FALSE
+)
 }
 \arguments{
-\item{crissCrossResult}{The output of the crissCrossValidate function.}
+\item{crissCrossResult}{The output of the \code{\link{crissCrossValidate}} function.}
 
-\item{includeValues}{If TRUE, then the values of the matrix will be included in the plot.}
+\item{includeValues}{Logical. If \code{TRUE}, numeric values are printed on each tile.}
+
+\item{showResubMetric}{Logical. If \code{FALSE}, the diagonal (resubstitution) cells
+are set to \code{NA} and appear grayed-out or blank. Defaults to \code{FALSE}.}
 }
 \description{
-This function has been designed to give a heatmap output of the crissCrossValidate function.
-}
-\author{
-Harry Robertson
+This function generates a heatmap of the cross-validation results from
+\code{\link{crissCrossValidate}}. By default, it hides the "resubstitution" diagonal
+(where the training == test set) unless \code{showResubMetric = TRUE}.
 }

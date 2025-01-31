@@ -93,7 +93,12 @@ there are two classes.}
 \item{aggregate}{Default: \code{"median"}. Can also be \code{"mean"}. If there are multiple values, such as for repeated
 cross-validation, then they are summarised to a single number using either mean or median.}
 
+\item{measurements}{For \code{easyHard} only. Either a \code{\link{DataFrame}}, \code{\link{data.frame}}, \code{\link{matrix}}, \code{\link{MultiAssayExperiment}} 
+or a list of the basic tabular objects containing the data.}
+
 \item{assay}{For \code{easyHard} only. The assay to use to look for associations to the per-sample metric.}
+
+\item{performanceType}{For \code{easyHard} only. One of the valid values shown for \code{performanceType} parameter of \code{\link{calcCVperformance}}.}
 
 \item{useFeatures}{For \code{easyHard} only. Default: \code{NULL} (i.e. use all provided features). A vector of features to consider of the assay specified.
 This allows for the avoidance of variables such spike-in RNAs, sample IDs, sample acquisition dates, etc. which are not relevant for outcome prediction.}
