@@ -13,6 +13,7 @@ crissCrossValidate(
   trainType = c("modelTrain", "modelTest"),
   performanceType = "auto",
   doRandomFeatures = FALSE,
+  runTOP = FALSE,
   classifier = "auto",
   nFolds = 5,
   nRepeats = 20,
@@ -23,7 +24,8 @@ crissCrossValidate(
 \arguments{
 \item{measurements}{A \code{list} of either \code{\link{DataFrame}}, \code{\link{data.frame}} or \code{\link{matrix}} class measurements.}
 
-\item{outcomes}{A \code{list} of vectors that respectively correspond to outcomes of the samples in \code{measurements} list.}
+\item{outcomes}{A \code{list} of vectors that respectively correspond to outcomes of the samples in \code{measurements} list. /
+Factors should be coded such that the control class is the first level.}
 
 \item{nFeatures}{The number of features to be used for modelling.}
 
@@ -43,22 +45,23 @@ options described in \code{\link{calcPerformance}} may otherwise be specified.}
 \item{doRandomFeatures}{Default: \code{FALSE}. Whether to perform random feature selection to establish a baseline performance. Either \code{FALSE} or \code{TRUE}
 are permitted values.}
 
+\item{runTOP}{Default: \code{FALSE}. If \code{TRUE}, perform the Transferable Omics Prediction (TOP) procedure in a leave-one-dataset-out manner.}
+
 \item{classifier}{Default: \code{"auto"}. A character keyword of the modelling algorithm to be used. If \code{"auto"}, then a random forest is used
 for a classification task or Cox proportional hazards model for a survival task.}
 
 \item{nFolds}{A numeric specifying the number of folds to use for cross-validation.}
 
-\item{nRepeats}{A numeric specifying the the number of repeats or permutations to use for cross-validation.}
+\item{nRepeats}{A numeric specifying the number of repeats or permutations to use for cross-validation.}
 
 \item{nCores}{A numeric specifying the number of cores used if the user wants to use parallelisation.}
 
-\item{verbose}{Default: 0. A number between 0 and 3 for the amount of progress messages to give.  A higher number will produce more messages as
-more lower-level functions print messages.}
+\item{verbose}{Default: 0. A number between 0 and 3 for the amount of progress messages to give.  A higher number will produce more messages.}
 }
 \value{
 A list with elements \code{"real"} for the matrix of pairwise performance metrics using real
-feature selection, \code{"random"} if \code{doRandomFeatures} is \code{TRUE} for metrics of random selection and
-\code{"params"} for a list of parameters used during the execution of this function.
+feature selection, \code{"random"} if \code{doRandomFeatures} is \code{TRUE} for metrics of random selection, 
+\code{"top"} if \code{runTOP} is \code{TRUE}, and \code{"params"} for a list of parameters used.
 }
 \description{
 This function has been designed to perform cross-validation and model prediction on datasets in a pairwise manner.

@@ -444,11 +444,14 @@ setGeneric("easyHard", function(measurements, result, assay, performanceType, ..
 #' @rdname calcPerformance
 #' @exportMethod easyHard
 #' @importFrom broom tidy
+#' @param measurements For \code{easyHard} only. Either a \code{\link{DataFrame}}, \code{\link{data.frame}}, \code{\link{matrix}}, \code{\link{MultiAssayExperiment}} 
+#' or a list of the basic tabular objects containing the data.
 #' @param assay For \code{easyHard} only. The assay to use to look for associations to the per-sample metric.
 #' @param useFeatures For \code{easyHard} only. Default: \code{NULL} (i.e. use all provided features). A vector of features to consider of the assay specified.
 #' This allows for the avoidance of variables such spike-in RNAs, sample IDs, sample acquisition dates, etc. which are not relevant for outcome prediction.
 #' @param fitMode For \code{easyHard} only. Default:\code{"single"}. Either \code{"single"} or \code{"full"}. If \code{"single"},
 #' an ordinary GLM model is fitted for each covariate separately. If \code{"full"}, elastic net is used to automatically tune the non-zero model coefficients.
+#' @param performanceType For \code{easyHard} only. One of the valid values shown for \code{performanceType} parameter of \code{\link{calcCVperformance}}.
 #' @return For \code{easyHard}, a \code{\link{DataFrame}} of logistic regression model summary.
 
 setMethod("easyHard", "MultiAssayExperimentOrList",
