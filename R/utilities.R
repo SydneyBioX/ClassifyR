@@ -329,13 +329,15 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
         else
           predictedOutcome <- predictions
         calcExternalPerformance(outcomeTrain, predictedOutcome, performanceType)
-      } else {
+      } else if(crossValParams@tuneMode == "Nested CV") {
         result <- runTests(measurementsTrain, outcomeTrain,
                            crossValParams, modellingParams,
-                           verbose = verbose, .iteration = "internal")
+                           verbose = verbose)
         if(is.character(result[[1]])) stop(result)
         result <- calcCVperformance(result, performanceType)
         median(performances(result)[[performanceType]])
+      } else {
+        stop("Tuning parameter(s) are specified but 'tuneMode' is 'none'. Please see ?CrossValParams for options.") 
       }
     })
     allPerformanceTable <- data.frame(tuneCombos, performances)
