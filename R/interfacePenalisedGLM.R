@@ -9,10 +9,11 @@ penalisedGLMtrainInterface <- function(measurementsTrain, classesTrain, lambda =
 
   # One-hot encoding needed.    
   measurementsTrain <- MatrixModels::model.Matrix(~ 0 + ., data = measurementsTrain)
-  fitted <- glmnet::glmnet(measurementsTrain, classesTrain, family = "multinomial", weights = as.numeric(1 / (table(classesTrain)[classesTrain] / length(classesTrain))), ...)
+  fitted <- glmnet::glmnet(measurementsTrain, classesTrain, family = "multinomial", lambda = lambda,
+                           weights = as.numeric(1 / (table(classesTrain)[classesTrain] / length(classesTrain))), ...)
   # Inverse class size weighting needed to give decent predictions when class imbalance.
   
-  if(is.null(lambda)) # fitted has numerous models for automatically chosen lambda values.
+  if(is.null(lambda) || length(lambda) > 1) # fitted has numerous models for a range of lambda values.
   { # Pick one lambda based on resubstitution performance. But not the one that makes all variables excluded from model.
     lambdaConsider <- colSums(as.matrix(fitted[["beta"]][[1]])) != 0
     bestLambda <- fitted[["lambda"]][lambdaConsider][which.min(sapply(fitted[["lambda"]][lambdaConsider], function(lambda) # Largest Lambda with minimum balanced error rate.
@@ -21,6 +22,8 @@ penalisedGLMtrainInterface <- function(measurementsTrain, classesTrain, lambda =
       calcExternalPerformance(classesTrain, classPredictions, "Balanced Error")
     }))[1]]
     attr(fitted, "tune") <- list(lambda = bestLambda)
+  } else { # The user specified exactly one lambda value. Record it.
+    attr(fitted, "tune") <- list(lambda = lambda)
   }
   
   attr(fitted, "featureNames") <- colnames(measurementsTrain)

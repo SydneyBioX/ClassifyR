@@ -28,7 +28,8 @@ XGBparams <- function(tuneParams) {
 }
 
 # k Nearest Neighbours
-kNNparams <- function() {
+kNNparams <- function(tuneParams) {
+    if(is.character(tuneParams) && tuneParams == "auto") tuneParams <- list(k = 1:5)
     trainParams <- TrainParams(kNNinterface)
     predictParams <- NULL
     return(list(trainParams = trainParams, predictParams = predictParams))

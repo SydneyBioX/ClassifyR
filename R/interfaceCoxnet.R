@@ -11,7 +11,7 @@ coxnetTrainInterface <- function(measurementsTrain, survivalTrain, lambda = NULL
   measurementsMatrix <- MatrixModels::model.Matrix(~ 0 + ., data = measurementsTrain)
   
   # The response variable is a Surv class of object.
-  fit <- glmnet::cv.glmnet(measurementsMatrix, survivalTrain, family = "cox", type = "C", ...)
+  fit <- glmnet::cv.glmnet(measurementsMatrix, survivalTrain, family = "cox", type = "C", lambda = lambda, ...)
   fitted <- fit$glmnet.fit
   
   offset <- -mean(predict(fitted, measurementsMatrix, s = fit$lambda.min, type = "link"))
