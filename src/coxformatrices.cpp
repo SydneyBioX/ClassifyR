@@ -525,8 +525,8 @@ int cholesky2(double **matrix, int n, double toler)
 
 void chsolve2(double **matrix, int n, double *y)
 {
-    register int i,j;
-    register double temp;
+    int i,j;
+    double temp;
     
     /*
      ** solve Fb =y
@@ -566,8 +566,8 @@ void chsolve2(double **matrix, int n, double *y)
 
 void chinv2(double **matrix , int n)
 {
-    register double temp;
-    register int i,j,k;
+    double temp;
+    int i,j,k;
     
     /*
      ** invert the cholesky in the lower triangle
@@ -653,8 +653,8 @@ double coxsafe(double x) {
 double **dmatrix(double *array, int ncol, int nrow)
 {
     S_EVALUATOR
-    register int i;
-    register double **pointer;
+    int i;
+    double **pointer;
     
     pointer = (double **) ALLOC(nrow, sizeof(double *));
     for (i=0; i<nrow; i++) {
