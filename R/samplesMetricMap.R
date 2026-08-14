@@ -174,6 +174,9 @@ setMethod("samplesMetricMap", "list",
   clasification result is distinctive for the comparison type specified by
   'comparison'.")
   
+  if(length(unique(lengths(lapply(results, function(result) unique(predictions(result)[, "sample"]))))) > 1)
+      stop("Cross-validation results contain different sets of samples.")
+  
   nColours <- if(is.list(metricColours)) length(metricColours[[1]]) else length(metricColours)
   metricBinEnds <- seq(0, 1, 1/nColours)
 
