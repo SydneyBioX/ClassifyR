@@ -1,5 +1,5 @@
 # Random Forest
-RFparams <- function(tuneParams) {
+RFparams <- function(tuneParams = NULL) {
     if(is.character(tuneParams) && tuneParams == "auto") tuneParams <- list(mTryProportion = c(0.10, 0.25, 0.33, 0.5), num.trees = c(1, 10, 100))
     trainParams <- TrainParams(randomForestTrainInterface, tuneParams = tuneParams,
                                getFeatures = forestFeatures)
@@ -9,7 +9,7 @@ RFparams <- function(tuneParams) {
 }
 
 # Random Survival Forest
-RSFparams <- function(tuneParams) {
+RSFparams <- function(tuneParams = NULL) {
     if(is.character(tuneParams) && tuneParams == "auto") tuneParams <- list(mTryProportion = c(0.10, 0.25, 0.33, 0.5), ntree = c(1, 10, 100))
     trainParams <- TrainParams(rfsrcTrainInterface, tuneParams = tuneParams,
                                getFeatures = rfsrcFeatures)
@@ -18,7 +18,7 @@ RSFparams <- function(tuneParams) {
     return(list(trainParams = trainParams, predictParams = predictParams))
 }
 
-XGBparams <- function(tuneParams) {
+XGBparams <- function(tuneParams = NULL) {
     if(is.character(tuneParams) && tuneParams == "auto") tuneParams <- list(mTryProportion = c(0.10, 0.25, 0.33, 0.5), nrounds = c(5, 10))
     trainParams <- TrainParams(extremeGradientBoostingTrainInterface, tuneParams = tuneParams,
                                getFeatures = XGBfeatures)
@@ -28,9 +28,9 @@ XGBparams <- function(tuneParams) {
 }
 
 # k Nearest Neighbours
-kNNparams <- function(tuneParams) {
+kNNparams <- function(tuneParams = NULL) {
     if(is.character(tuneParams) && tuneParams == "auto") tuneParams <- list(k = 1:5)
-    trainParams <- TrainParams(kNNinterface)
+    trainParams <- TrainParams(kNNinterface, tuneParams = tuneParams)
     predictParams <- NULL
     return(list(trainParams = trainParams, predictParams = predictParams))
 }
@@ -68,7 +68,7 @@ LASSOGLMparams <- function() {
 }
 
 # Support Vector Machine
-SVMparams = function(tuneParams) {
+SVMparams = function(tuneParams = NULL) {
     if(is.character(tuneParams) && tuneParams == "auto")
         tuneParams <- list(kernel = c("linear", "polynomial", "radial", "sigmoid"), cost = 10^(-3:3))
     trainParams <- TrainParams(SVMtrainInterface, tuneParams = tuneParams)
@@ -94,7 +94,7 @@ DLDAparams = function() {
 }
 
 # naive Bayes Kernel
-naiveBayesParams <- function(tuneParams) {
+naiveBayesParams <- function(tuneParams = NULL) {
     if(is.character(tuneParams) && tuneParams == "auto") tuneParams <- list(difference = c("unweighted", "weighted")) 
     trainParams <- TrainParams(naiveBayesKernel, tuneParams = tuneParams)
     predictParams <- NULL
