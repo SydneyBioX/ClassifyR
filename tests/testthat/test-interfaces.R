@@ -328,3 +328,14 @@ test_that("two-class rankings stop for more than two classes", {
   expect_error(ClassifyR:::pairsDifferencesRanking(train, threeClasses, featurePairs = pairs, verbose = 0), "two classes")
   expect_length(ClassifyR:::pairsDifferencesRanking(train, data$classes, featurePairs = pairs, verbose = 0), 2)
 })
+
+test_that("Levene ranking agrees with car::leveneTest", {
+  skip_if_not_installed("car")
+  set.seed(13)
+  classes <- factor(rep(c("A", "B", "C"), length.out = 45))
+  measurements <- matrix(rnorm(45 * 30, sd = rep(c(1, 2, 3), length.out = 45)), 45, 30, dimnames = list(NULL, paste0("g", 1:30)))
+  measurements[, 1:10] <- rnorm(45 * 10)
+  pValues <- apply(measurements, 2, function(featureColumn) car::leveneTest(featureColumn, classes)[["Pr(>F)"]][1])
+  expect_equal(ClassifyR:::leveneRanking(asDataFrame(measurements), classes, verbose = 0), order(pValues))
+  expect_equal(ClassifyR:::leveneRanking(asDataFrame(measurements[, 1, drop = FALSE]), classes, verbose = 0), 1)
+})
