@@ -13,7 +13,11 @@ coxnetTrainInterface <- function(measurementsTrain, survivalTrain, lambda = NULL
   # cv.glmnet's settings for the cross-validation itself are only understood by cv.glmnet.
   cvOnlyNames <- c("type.measure", "foldid", "alignment", "grouped", "keep", "parallel", "relax", "gamma", "trace.it", "weights", "offset")
   if(any(names(list(...)) %in% cvOnlyNames))
-    fit <- glmnet::cv.glmnet(measurementsMatrix, survivalTrain, family = "cox", type = "C", lambda = lambda, ...)
+  {
+    cvArguments <- list(...)
+    if(is.null(cvArguments[["type.measure"]])) cvArguments[["type.measure"]] <- "C" # C-index unless another measure is given.
+    fit <- do.call(glmnet::cv.glmnet, c(list(measurementsMatrix, survivalTrain, family = "cox", lambda = lambda), cvArguments))
+  }
   else
     fit <- .cvCoxnetC(measurementsMatrix, survivalTrain, lambda = lambda, ...)
   fitted <- fit$glmnet.fit

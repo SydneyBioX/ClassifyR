@@ -64,3 +64,13 @@ test_that("random forest fold models don't keep the forest grown for feature ran
   expect_false(is.null(attr(result@finalModel, "forImportance")))
   expect_true(all(lengths(chosenFeatureNames(result)) > 0))
 })
+
+test_that("Cox elastic net can be tuned by partial likelihood deviance", {
+  skip_if_not_installed("glmnet")
+  data <- makeSurvival(nSamples = 100, nFeatures = 15)
+  set.seed(1)
+  result <- crossValidate(data$measurements, data$outcome, classifier = "CoxNet", nFeatures = 10, nRepeats = 1, nFolds = 3,
+                          extraParams = list(train = list(type.measure = "deviance")))
+  expect_s4_class(result, "ClassifyResult")
+  expect_true(all(is.finite(predictions(result)[, "risk"])))
+})
