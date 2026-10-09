@@ -24,7 +24,8 @@ Imports: grid, genefilter, utils, dplyr, tidyr, rlang, ranger, ggplot2 (>= 3.5.0
 Suggests: limma, edgeR, car, Rmixmod, gridExtra (>= 2.0.0), cowplot,
         BiocStyle, pamr, PoiClaClu, knitr, htmltools, gtable,
         scales, e1071, rmarkdown, IRanges, robustbase, glmnet, class, randomForestSRC,
-        MatrixModels, xgboost, data.tree, ggnewscale, TOP, BiocNeighbors
+        MatrixModels, xgboost, data.tree, ggnewscale, TOP, BiocNeighbors,
+        testthat (>= 3.0.0)
 Description: The software formalises a framework for classification and survival model evaluation
              in R. There are four stages; Data transformation, feature selection, model training,
              and prediction. The requirements of variable types and variable order are
@@ -34,7 +35,6 @@ Description: The software formalises a framework for classification and survival
              and differential distribution are included. Additional functions
              may be developed by the user, by creating an interface to the framework.
 License: GPL-3
-Packaged: 2014-10-18 11:16:55 UTC; dario
 RoxygenNote: 7.3.3
 NeedsCompilation: yes
 Collate:
@@ -98,3 +98,4 @@ Collate:
     'subtractFromLocation.R'
     'utilities.R'
 URL: https://sydneybiox.github.io/ClassifyR/
+Config/testthat/edition: 3
