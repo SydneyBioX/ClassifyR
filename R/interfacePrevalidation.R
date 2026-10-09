@@ -18,15 +18,19 @@ extractPrevalidation = function(assayPreval){ #}, startingCol) {
     use <- which(names(assayPreval)!="clinical")
     
     assayPreval <- sapply(assayPreval[use], function(x){
-        if(is.null(ncol(x)))x <- data.frame(sample = names(x), x)
-        if(!"sample"%in%colnames(x))x <- data.frame(sample = rownames(x), x)
+        if(is.null(ncol(x)))x <- data.frame(sample = names(x), x, check.names = FALSE)
+        if(!"sample"%in%colnames(x))x <- data.frame(sample = rownames(x), x, check.names = FALSE)
         x[order(x$sample),]}, simplify = FALSE)
     
-    vec <- sapply(assayPreval, function(x){
+    # For two classes, the score of the second class. For more classes, the scores of all classes
+    # except the first. For survival, the risk score.
+    vec <- do.call(cbind, mapply(function(x, assay){
         x <- x[,!colnames(x) %in% c("sample", "permutation", "fold", "class"), drop = FALSE]
-        if(ncol(x)>1)return(as.matrix(x[,-1, drop = FALSE]))
-        as.matrix(x)
-    }, simplify = TRUE)
+        if(ncol(x)>1) x <- x[,-1, drop = FALSE]
+        x <- as.matrix(x)
+        if(ncol(x)==1) colnames(x) <- assay else colnames(x) <- paste(assay, colnames(x), sep = "_")
+        x
+    }, assayPreval, names(assayPreval), SIMPLIFY = FALSE))
     rownames(vec) <- assayPreval[[1]]$sample
     vec
 }
@@ -38,19 +42,19 @@ prevalTrainInterface <- function(measurements, outcomeTrain, params, verbose)
               ###
               # Splitting measurements into a list of each of the assays
               ###
-              assayTrain <- sapply(unique(S4Vectors::mcols(measurements)[["assay"]]), function(assay) measurements[, S4Vectors::mcols(measurements)[["assay"]] %in% assay], simplify = FALSE)
+              assayTrain <- sapply(unique(S4Vectors::mcols(measurements)[["assay"]]), function(assay) measurements[, S4Vectors::mcols(measurements)[["assay"]] %in% assay, drop = FALSE], simplify = FALSE)
               
               if(!"clinical" %in% names(assayTrain)) stop("Must have an assay called \"clinical\"")
               
               tuneMode <- "none"
               performanceType <- "N/A"
-              if(!is.null(params[[1]]@selectParams@tuneParams))
+              if(!is.null(params[[1]]@selectParams) && !is.null(params[[1]]@selectParams@tuneParams))
               {
                   tuneMode <- "Resubstitution"
                   if(is(outcomeTrain, "Surv")) performanceType <- "C-index" else performanceType <- "Balanced Accuracy"
               }
               
-              crossValParams <- CrossValParams(permutations = 1, folds = 10, parallelParams = SerialParam(RNGseed = .Random.seed[1]), tuneMode = tuneMode, performanceType = performanceType)
+              crossValParams <- CrossValParams(permutations = 1, folds = 10, parallelParams = SerialParam(RNGseed = sample.int(.Machine$integer.max, 1)), tuneMode = tuneMode, performanceType = performanceType)
               if(is(outcomeTrain, "Surv")) crossValParams@performanceType <- "C-index" else crossValParams@performanceType <- "Balanced Accuracy"
               ###
               # Fit a classification model for each non-clinical data set, pulling models from "params"
@@ -114,26 +118,27 @@ prevalTrainInterface <- function(measurements, outcomeTrain, params, verbose)
               fullModel = runTestOutput$models
               fullModel$fullFeatures = colnames(fullTrain)
               
-              # Fit models with each datatype for use in prevalidated prediction later..
+              # Fit models with each non-clinical datatype for use in prevalidated prediction later.
+              # The clinical model is the one fitted above.
               prevalidationModels =  mapply(
                   runTest,
-                  measurementsTrain = assayTrain,
-                  measurementsTest = assayTrain,               
-                  modellingParams = params,
+                  measurementsTrain = assayTrain[usePreval],
+                  measurementsTest = assayTrain[usePreval],
+                  modellingParams = params[usePreval],
                   MoreArgs = list(
                       crossValParams = crossValParams,
                       outcomeTrain = outcomeTrain,
                       outcomeTest = outcomeTrain,
                       .iteration = 1,
                       verbose = 0
-                  )
+                  ),
+                  SIMPLIFY = FALSE
               )
               
               # Add prevalidated models and classification params for each datatype to the fullModel object
-              fullModel$prevalidationModels <- prevalidationModels["models",]
-              names(fullModel$prevalidationModels) <- colnames(prevalidationModels)
+              fullModel$prevalidationModels <- lapply(prevalidationModels, "[[", "models")
               fullModel$modellingParams <- params
-              fullModel$prevalFeatures <- prevalidationModels["selected",]
+              fullModel$prevalFeatures <- lapply(prevalidationModels, "[[", "selected")
               fullModel$prevalFeaturesRanked <- runTestOutput$ranked$feature
               fullModel$prevalFeaturesSelected <- runTestOutput$selected$feature
               
@@ -149,7 +154,7 @@ prevalFeatures <- function(prevalModel)
 prevalPredictInterface <- function(fullModel, test, returnType = "both", verbose)
           {
               fullModel <- fullModel@fullModel
-              assayTest <- sapply(unique(S4Vectors::mcols(test)[["assay"]]), function(assay) test[, S4Vectors::mcols(test)[["assay"]] %in% assay], simplify = FALSE)
+              assayTest <- sapply(unique(S4Vectors::mcols(test)[["assay"]]), function(assay) test[, S4Vectors::mcols(test)[["assay"]] %in% assay, drop = FALSE], simplify = FALSE)
               
               prevalidationModels <- fullModel$prevalidationModels
               modelPredictionFunctions <- fullModel$modellingParams
