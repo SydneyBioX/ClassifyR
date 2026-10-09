@@ -58,3 +58,39 @@ test_that("CoxNet feature ranking uses the size of protective coefficients", {
   ranked <- ClassifyR:::penalisedFeatures(model)[[1]]
   expect_equal(ranked[1], 1)
 })
+
+# Training data with a categorical feature, and a test set in which one of its levels is absent.
+makeCategorical <- function(seed = 6)
+{
+  set.seed(seed)
+  classes <- factor(rep(c("A", "B"), each = 40))
+  measurements <- data.frame(`g-1` = rnorm(80) + (classes == "B"), g2 = rnorm(80),
+                             grade = factor(sample(c("low", "mid", "high"), 80, replace = TRUE), levels = c("low", "mid", "high")),
+                             site = sample(c("x", "y"), 80, replace = TRUE), check.names = FALSE)
+  rownames(measurements) <- paste0("s", 1:80)
+  testSamples <- which(measurements[["grade"]] != "mid")[1:10]
+  test <- measurements[testSamples, ]
+  test[["grade"]] <- droplevels(test[["grade"]])
+  list(train = asDataFrame(measurements), classes = classes, test = asDataFrame(test), testSamples = testSamples)
+}
+
+test_that("penalised GLM encodes test data with the training columns", {
+  data <- makeCategorical()
+  model <- ClassifyR:::penalisedGLMtrainInterface(data$train, data$classes, verbose = 0)
+  allScores <- ClassifyR:::penalisedGLMpredictInterface(model, data$train, returnType = "score", verbose = 0)
+  testScores <- ClassifyR:::penalisedGLMpredictInterface(model, data$test, returnType = "score", verbose = 0)
+  expect_equal(testScores, allScores[data$testSamples, ], ignore_attr = TRUE)
+  # Columns of the test data in a different order give the same predictions.
+  reordered <- ClassifyR:::penalisedGLMpredictInterface(model, data$test[, 4:1], returnType = "score", verbose = 0)
+  expect_equal(reordered, testScores)
+})
+
+test_that("CoxNet encodes test data with the training columns", {
+  data <- makeCategorical()
+  set.seed(7)
+  outcome <- survival::Surv(rexp(80, exp(as.numeric(data$classes))), rep(1, 80))
+  model <- suppressWarnings(ClassifyR:::coxnetTrainInterface(data$train, outcome, verbose = 0))
+  allRisks <- ClassifyR:::coxnetPredictInterface(model, data$train, verbose = 0)
+  testRisks <- ClassifyR:::coxnetPredictInterface(model, data$test, verbose = 0)
+  expect_equal(unname(testRisks), unname(allRisks[data$testSamples]))
+})
