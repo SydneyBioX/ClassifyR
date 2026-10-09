@@ -303,3 +303,17 @@ test_that("edgesToHubNetworks accepts a matrix", {
   hubs <- edgesToHubNetworks(edges, minCardinality = 3)
   expect_equal(names(hubs@sets), "MITF")
 })
+
+test_that("previousSelection warns when few previous features are in the current data", {
+  data <- makeTwoClass()
+  set.seed(12)
+  result <- crossValidate(data$measurements, data$classes, classifier = "DLDA", nFeatures = 5,
+                          nFolds = 2, nRepeats = 1, verbose = 0)
+  previous <- chosenFeatureNames(result)[[1]]
+  current <- data$measurements
+  colnames(current)[match(previous[1:3], colnames(current))] <- paste0("new", 1:3)
+  expect_warning(selected <- ClassifyR:::previousSelection(asDataFrame(current), data$classes, result, .iteration = 1, verbose = 0),
+                 "40% of the previously selected features")
+  expect_equal(colnames(current)[selected], previous[4:5])
+  expect_no_warning(ClassifyR:::previousSelection(asDataFrame(data$measurements), data$classes, result, .iteration = 1, verbose = 0))
+})
