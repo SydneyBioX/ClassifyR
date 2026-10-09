@@ -13,20 +13,22 @@ subtractFromLocation <- function(measurementsTrain, measurementsTest, location =
             "the columns containing numeric data.")
   
   location <- match.arg(location)
-  measurementsTrain <- measurementsTrain[, isNumeric]
-  measurementsTest <- measurementsTest[, isNumeric]
+  measurementsTrain <- as.matrix(measurementsTrain[, isNumeric, drop = FALSE])
+  measurementsTest <- as.matrix(measurementsTest[, colnames(measurementsTrain), drop = FALSE])
   if(location == "mean")
     locations <- apply(measurementsTrain, 2, mean, na.rm = TRUE)
   else # median.
     locations <- apply(measurementsTrain, 2, median, na.rm = TRUE)
   
-  transformedTrain <- S4Vectors::DataFrame(t(apply(measurementsTrain, 1, '-', locations)))
-  transformedTest <- S4Vectors::DataFrame(t(apply(measurementsTest, 1, '-', locations)))
+  transformedTrain <- sweep(measurementsTrain, 2, locations)
+  transformedTest <- sweep(measurementsTest, 2, locations)
   if(absolute == TRUE)
   {
-    transformedTrain <- S4Vectors::DataFrame(lapply(transformedTrain, abs))
-    transformedTest <- S4Vectors::DataFrame(lapply(transformedTest, abs))
+    transformedTrain <- abs(transformedTrain)
+    transformedTest <- abs(transformedTest)
   }
+  transformedTrain <- S4Vectors::DataFrame(transformedTrain, check.names = FALSE)
+  transformedTest <- S4Vectors::DataFrame(transformedTest, check.names = FALSE)
   
   if(verbose == 3)
     message("Subtraction from ", location,
