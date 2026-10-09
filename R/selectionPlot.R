@@ -94,8 +94,9 @@
 #' @param parallelParams An object of class \code{\link{MulticoreParam}} or
 #' \code{\link{SnowParam}}.
 #' @param ... Not used by end user.
-#' @return An object of class \code{ggplot} and a plot on the current graphics
-#' device, if \code{plot} is \code{TRUE}.
+#' @return An object of class \code{ggplot}. If \code{comparison} is \code{"importance"} and
+#' \code{characteristicsList} has \code{"row"} or \code{"column"}, a grob of one plot for each
+#' group, which can be drawn with \code{grid::grid.draw}.
 #' @author Dario Strbenac
 #' @examples
 #' 
@@ -167,7 +168,6 @@ setMethod("selectionPlot", "list",
   densityStyle <- match.arg(densityStyle)
   densityStyle <- ifelse(densityStyle == "box", ggplot2::geom_boxplot, ggplot2::geom_violin)
             
-  ggplot2::theme_set(ggplot2::theme_classic() + ggplot2::theme(panel.border = ggplot2::element_rect(fill = NA)))            
   if(characteristicsList[["x"]] == "auto")
   {
     characteristicsCounts <- table(unlist(lapply(results, function(result) result@characteristics[["characteristic"]])))
@@ -319,17 +319,17 @@ setMethod("selectionPlot", "list",
         {
           characteristicsOrder <- match(allCharacteristics, aDataset@characteristics[["characteristic"]])
           characteristicsList <- as.list(aDataset@characteristics[["value"]])[characteristicsOrder]
-          summaryTable <- data.frame(characteristicsList, overlap = overlapToOther)
+          summaryTable <- data.frame(characteristicsList, check.names = FALSE)
           colnames(summaryTable)[1:length(allCharacteristics)] <- allCharacteristics
         } else { # Each other level has been compared to the reference level of the factor.
           otherSelections <- sapply(otherResults, length)
           
-          summaryTable <- do.call(rbind, lapply(otherResults, function(otherResult)
+          summaryTable <- do.call(rbind, mapply(function(otherResult, otherIndex)
           {
-            selectTimes <- length(otherResults)
+            selectTimes <- length(featuresList) * length(allFeaturesList[[otherIndex]]) # Number of overlaps calculated.
             do.call(cbind, lapply(allCharacteristics, function(characteristic)
-              rep(otherResult@characteristics[otherResult@characteristics == characteristic, "value"], selectTimes)))
-          }))
+              rep(otherResult@characteristics[otherResult@characteristics[, "characteristic"] == characteristic, "value"], selectTimes)))
+          }, otherResults, otherResultIndices, SIMPLIFY = FALSE))
           colnames(summaryTable)[1:length(allCharacteristics)] <- allCharacteristics
         }      
         
@@ -358,23 +358,25 @@ setMethod("selectionPlot", "list",
   if(comparison == "importance")
   {
       xLabel <- "Feature"
-      xData <- plotData[, "feature"]
+      xColumn <- "feature"
   } else {
       xLabel <- characteristicsList[['x']]
-      xData <- plotData[, xLabel]
+      xColumn <- xLabel
   }
+  xData <- plotData[, xColumn]
   
-  if(rotate90 == TRUE) plotData[, xLabel] <- factor(plotData[, xLabel], levels = rev(levels(plotData[, xLabel])))
+  if(rotate90 == TRUE) plotData[, xColumn] <- factor(plotData[, xColumn], levels = rev(levels(factor(plotData[, xColumn]))))
   if(length(orderingList) > 0) plotData <- .addUserLevels(plotData, orderingList, "overlap")
   
   if(!comparison %in% c("size", "importance"))
   {
     characteristicsList <- lapply(characteristicsList, rlang::sym)
     legendPosition <- ifelse(showLegend == TRUE, "right", "none")
-    selectionPlot <- ggplot2::ggplot(plotData, ggplot2::aes(x = !!characteristicsList[['x']], y = overlap, fill = !!fillVariable, colour = !!lineVariable), alpha = alpha) +
+    selectionPlot <- ggplot2::ggplot(plotData, ggplot2::aes(x = !!characteristicsList[['x']], y = overlap, fill = !!fillVariable, colour = !!lineVariable)) +
+                            ggplot2::theme_classic() + ggplot2::theme(panel.border = ggplot2::element_rect(fill = NA)) +
                             ggplot2::coord_cartesian(ylim = c(0, yMax)) + ggplot2::xlab(xLabel) + ggplot2::ylab(yLabel) +
                             ggplot2::ggtitle(title) + ggplot2::theme(legend.position = legendPosition, axis.title = ggplot2::element_text(size = fontSizes[2]), axis.text = ggplot2::element_text(colour = "black", size = fontSizes[3]), plot.title = ggplot2::element_text(size = fontSizes[1], hjust = 0.5), plot.margin = margin)
-    if(max(table(xData)) == 1) selectionPlot <- selectionPlot + ggplot2::geom_bar(stat = "identity") else selectionPlot <- selectionPlot + densityStyle()
+    if(max(table(xData)) == 1) selectionPlot <- selectionPlot + ggplot2::geom_bar(stat = "identity", alpha = alpha) else selectionPlot <- selectionPlot + densityStyle(alpha = alpha)
   } else if(comparison == "importance") {
     changeName <- tail(colnames(plotData), 1)
     performanceName <- gsub("Change in ", '', changeName)
@@ -386,26 +388,27 @@ setMethod("selectionPlot", "list",
       plotDataList <- list()
       for(groupIndex in 1:nrow(grouping))
       {
+        inGroup <- rep(TRUE, nrow(plotData)) # Rows with every characteristic of the group.
         for(characteristic in colnames(grouping))
-        {
-          plotDataGroup <- plotData[plotData[, characteristic] == grouping[groupIndex, characteristic], ]
-          featureCounts <- table(plotDataGroup[, "feature"])
-          keepFeatures <- names(featureCounts)[featureCounts >= 3]
-          plotDataGroup <- plotDataGroup[plotDataGroup[, "feature"] %in% keepFeatures, ]
-          featuresRanked <- sort(by(plotDataGroup[, ncol(plotDataGroup)], plotDataGroup[, "feature"], median), decreasing = ifelse(better == "lower", TRUE, FALSE))
-          featuresTop <- names(featuresRanked)[1:min(length(featuresRanked), 10)]
-          plotDataGroup <- plotDataGroup[plotDataGroup[, "feature"] %in% featuresTop, ]
-          plotDataGroup[, "feature"] <- factor(plotDataGroup[, "feature"], levels = featuresTop)
-          plotDataList <- append(plotDataList, list(plotDataGroup))
-        }
+          inGroup <- inGroup & plotData[, characteristic] == grouping[groupIndex, characteristic]
+        plotDataGroup <- plotData[inGroup, ]
+        featureCounts <- table(plotDataGroup[, "feature"])
+        keepFeatures <- names(featureCounts)[featureCounts >= 3]
+        plotDataGroup <- plotDataGroup[plotDataGroup[, "feature"] %in% keepFeatures, ]
+        featuresRanked <- sort(by(plotDataGroup[, ncol(plotDataGroup)], plotDataGroup[, "feature"], median), decreasing = ifelse(better == "lower", TRUE, FALSE))
+        featuresTop <- names(featuresRanked)[1:min(length(featuresRanked), 10)]
+        plotDataGroup <- plotDataGroup[plotDataGroup[, "feature"] %in% featuresTop, ]
+        plotDataGroup[, "feature"] <- factor(plotDataGroup[, "feature"], levels = featuresTop)
+        plotDataList <- append(plotDataList, list(plotDataGroup))
       }
       
       characteristicsListSym <- lapply(characteristicsList, rlang::sym)
       plotList <- lapply(plotDataList, function(plotDataGroup)
       {
         aPlot <- ggplot2::ggplot(plotDataGroup, ggplot2::aes(x = feature, y = !!rlang::sym(changeName), fill = !!fillVariable, colour = !!lineVariable)) + ggplot2::labs(x = NULL, y = NULL) +
+                 ggplot2::theme_classic() + ggplot2::theme(panel.border = ggplot2::element_rect(fill = NA)) +
                  ggplot2::theme(axis.text = ggplot2::element_text(colour = "black", size = fontSizes[3]), axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
-        aPlot <- aPlot + ggplot2::geom_hline(yintercept = 0, colour = "red", linetype = "dashed") + densityStyle()
+        aPlot <- aPlot + ggplot2::geom_hline(yintercept = 0, colour = "red", linetype = "dashed") + densityStyle(alpha = alpha)
         if("row" %in% names(characteristicsList))
           aPlot <- aPlot + ggplot2::facet_grid(rows = ggplot2::vars(!!rowVariable))
         if("column" %in% names(characteristicsList))
@@ -419,21 +422,21 @@ setMethod("selectionPlot", "list",
                                   left = textGrob(yLabel, rot = 90),
                                   bottom = textGrob("Feature"))
       
-      if(plot == TRUE)
-        grid::grid.draw(g)
       return(g)
     } else {
     legendPosition <- ifelse(showLegend == TRUE, "right", "none")
     featureCounts <- table(plotData[, "feature"])
-    keepFeatures <- featureCounts[featureCounts >= 2]
+    keepFeatures <- names(featureCounts)[featureCounts >= 2]
     plotData <- plotData[plotData[, "feature"] %in% keepFeatures, ]
-    selectionPlot <- ggplot2::ggplot(plotData, ggplot2::aes(x = feature, y = !!changeName, fill = !!fillVariable, colour = !!colourVariable), alpha = alpha) +
+    selectionPlot <- ggplot2::ggplot(plotData, ggplot2::aes(x = feature, y = !!rlang::sym(changeName), fill = !!fillVariable, colour = !!lineVariable)) +
+      ggplot2::theme_classic() + ggplot2::theme(panel.border = ggplot2::element_rect(fill = NA)) +
       ggplot2::xlab(xLabel) + ggplot2::ylab(yLabel) +
-      ggplot2::ggtitle(title) + ggplot2::theme(legend.position = legendPosition, axis.title = ggplot2::element_text(size = fontSizes[2]), axis.text = ggplot2::element_text(colour = "black", size = fontSizes[3]), axis.text.x = ggplot2::element_text(angle = 45, hjust = 1), plot.title = ggplot2::element_text(size = fontSizes[1], hjust = 0.5), plot.margin = margin) + densityStyle()
+      ggplot2::ggtitle(title) + ggplot2::theme(legend.position = legendPosition, axis.title = ggplot2::element_text(size = fontSizes[2]), axis.text = ggplot2::element_text(colour = "black", size = fontSizes[3]), axis.text.x = ggplot2::element_text(angle = 45, hjust = 1), plot.title = ggplot2::element_text(size = fontSizes[1], hjust = 0.5), plot.margin = margin) + densityStyle(alpha = alpha)
     }
   } else {
-    selectionPlot <- ggplot2::ggplot(plotData, ggplot2::aes(x = !!rlang::sym(characteristicsList[['x']]), y = size), alpha = alpha) +
-                     ggplot2::geom_tile(ggplot2::aes(fill = Freq)) + ggplot2::ggtitle(title) + ggplot2::labs(x = xLabel, y = yLabel) + ggplot2::scale_x_discrete(expand = c(0, 0)) + ggplot2::scale_y_discrete(expand = c(0, 0)) + ggplot2::theme(axis.title = ggplot2::element_text(size = fontSizes[2]), axis.text = ggplot2::element_text(colour = "black", size = fontSizes[3]), plot.title = ggplot2::element_text(size = fontSizes[1], hjust = 0.5)) + ggplot2::guides(fill = ggplot2::guide_legend(title = "Frequency (%)"))
+    selectionPlot <- ggplot2::ggplot(plotData, ggplot2::aes(x = !!rlang::sym(characteristicsList[['x']]), y = size)) +
+                     ggplot2::theme_classic() + ggplot2::theme(panel.border = ggplot2::element_rect(fill = NA)) +
+                     ggplot2::geom_tile(ggplot2::aes(fill = Freq), alpha = alpha) + ggplot2::ggtitle(title) + ggplot2::labs(x = xLabel, y = yLabel) + ggplot2::scale_x_discrete(expand = c(0, 0)) + ggplot2::scale_y_discrete(expand = c(0, 0)) + ggplot2::theme(axis.title = ggplot2::element_text(size = fontSizes[2]), axis.text = ggplot2::element_text(colour = "black", size = fontSizes[3]), plot.title = ggplot2::element_text(size = fontSizes[1], hjust = 0.5)) + ggplot2::guides(fill = ggplot2::guide_legend(title = "Frequency (%)"))
   }
   
   if(length(coloursList[["fillColours"]]) > 0)
