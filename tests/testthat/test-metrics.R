@@ -130,3 +130,51 @@ test_that("AUC of a realistic result takes well under a second per hundred permu
   result <- makeScoresResult(nSamples = 165, nPermutations = 100, nFolds = 5)
   expect_lt(system.time(calcCVperformance(result, "AUC"))[["elapsed"]], 3)
 })
+
+test_that("calcExternalPerformance matches predicted classes to actual classes by name", {
+  actual <- factor(c("A", "A", "B", "B"), levels = c("A", "B"))
+  predicted <- factor(c("A", "A", "B", "B"), levels = c("B", "A"))
+  expect_equal(unname(calcExternalPerformance(actual, predicted, "Accuracy")), 1)
+  onlyB <- factor(c("B", "B", "B", "B"))
+  expect_equal(unname(calcExternalPerformance(actual, onlyB, "Accuracy")), 0.5)
+  expect_error(calcExternalPerformance(actual, factor(c("A", "C", "B", "B")), "Accuracy"), "C")
+})
+
+test_that("calcExternalPerformance calculates several metrics at once", {
+  actual <- factor(c("A", "A", "B", "B"), levels = c("A", "B"))
+  predicted <- factor(c("A", "B", "B", "B"), levels = c("A", "B"))
+  values <- calcExternalPerformance(actual, predicted, c("Accuracy", "Balanced Accuracy", "Matthews Correlation Coefficient"))
+  expect_equal(values[["Accuracy"]], 0.75)
+  expect_equal(values[["Balanced Accuracy"]], 0.75)
+  expect_equal(values[["Matthews Correlation Coefficient"]], (2 * 1 - 1 * 0) / sqrt(3 * 2 * 1 * 2))
+})
+
+test_that("grouping by fold gives a numeric vector with permutations in numerical order", {
+  result <- makeScoresResult(nPermutations = 12)
+  byFold <- performance(calcCVperformance(result, "AUC", grouping = "fold"))[["AUC"]]
+  expect_true(is.numeric(byFold) && is.null(dim(byFold)))
+  expect_identical(names(byFold), as.character(1:12))
+  predictions <- as.data.frame(predictions(result))
+  classes <- actualOutcome(result)[match(predictions[, "sample"], sampleNames(result))]
+  rows <- which(predictions[, "permutation"] == 10)
+  foldAUCs <- sapply(split(rows, predictions[rows, "fold"]), function(foldRows)
+    unname(calcExternalPerformance(classes[foldRows], predictions[foldRows, c("No", "Yes")], "AUC")))
+  expect_equal(byFold[["10"]], mean(foldAUCs))
+
+  risks <- makeRiskResult(nPermutations = 11)
+  CbyFold <- performance(calcCVperformance(risks, "C-index", grouping = "fold"))[["C-index"]]
+  expect_true(is.numeric(CbyFold) && is.null(dim(CbyFold)))
+  expect_identical(names(CbyFold), as.character(1:11))
+})
+
+test_that("easyHard matches samples by name when the assay rows are in another order", {
+  skip_if_not_installed("glmnet")
+  result <- makeScoresResult(nSamples = 30, nPermutations = 4)
+  result@predictions <- result@predictions[result@predictions[, "sample"] != "s3", ] # Its sample accuracy is NaN.
+  result <- calcCVperformance(result, "Sample Accuracy")
+  set.seed(5)
+  clinical <- S4Vectors::DataFrame(age = rnorm(30), row.names = sampleNames(result))
+  inOrder <- suppressWarnings(easyHard(list(clinical = clinical), result, "clinical", performanceType = "Sample Accuracy"))
+  reversed <- suppressWarnings(easyHard(list(clinical = clinical[30:1, , drop = FALSE]), result, "clinical", performanceType = "Sample Accuracy"))
+  expect_equal(reversed, inOrder)
+})
