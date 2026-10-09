@@ -123,3 +123,19 @@ test_that("SVM predicts with categorical features and non-syntactic feature name
   expect_equal(nrow(predictions), 10)
   expect_equal(colnames(predictions), c("class", "A", "B"))
 })
+
+test_that("kNN returns a factor with the training levels, also for one test sample", {
+  data <- makeTwoClass(shift = 5)
+  train <- asDataFrame(data$measurements[1:50, ])
+  test <- asDataFrame(data$measurements[51:60, ])
+  for(mode in c("unweighted", "weighted"))
+  {
+    predicted <- ClassifyR:::kNNinterface(train, data$classes[1:50], test, k = 3, mode = mode, verbose = 0)
+    expect_s3_class(predicted[, "class"], "factor")
+    expect_equal(levels(predicted[, "class"]), c("A", "B"))
+    expect_equal(as.character(predicted[, "class"]), c("A", "B")[apply(predicted[, c("A", "B")], 1, which.max)])
+    expect_gt(mean(predicted[, "class"] == data$classes[51:60]), 0.5)
+    one <- ClassifyR:::kNNinterface(train, data$classes[1:50], test[1, , drop = FALSE], k = 3, mode = mode, verbose = 0)
+    expect_equal(nrow(one), 1)
+  }
+})
