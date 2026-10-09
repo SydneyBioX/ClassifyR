@@ -38,13 +38,16 @@ NULL
 
 #' METABRIC Clinical Data
 #' 
-#' 470 patients with eight features.
+#' 470 patients with six clinical features and their relapse-free survival.
 #' 
 #' @name METABRICclinical
 #' @aliases clinical
 #' @docType data
-#' @format \code{clinical} A \code{\link{DataFrame}} containing clinical data.
+#' @format \code{clinical} A \code{\link{DataFrame}} with a row for each patient. The six features are
+#' \code{Breast.Tumour.Laterality}, \code{ER.Status}, \code{Inferred.Menopausal.State}, \code{Lymph.Nodes.Positive},
+#' \code{Grade} and \code{Size}. The outcome is relapse-free survival: \code{timeRFS} is the time and
+#' \code{eventRFS} is the event indicator (1 for relapse). Use them as the outcome, not as features.
 #' @source Dynamics of Breast Cancer Relapse Reveal Late-recurring ER-positive Genomic Subgroups, \emph{Nature},
-#' 2019.  Webpage: \url{https://www.nature.com/articles/s43018-020-0026-6}
+#' 2019.  Webpage: \url{https://www.nature.com/articles/s41586-019-1007-8}
 #' @keywords datasets
 NULL

@@ -17,6 +17,8 @@ attr(randomForestTrainInterface, "name") <- "randomForestTrainInterface"
 # forest is of class ranger
 randomForestPredictInterface <- function(forest, measurementsTest, ..., returnType = c("both", "class", "score"), verbose = 3)
 {
+  if(!requireNamespace("ranger", quietly = TRUE))
+    stop("The package 'ranger' could not be found. Please install it.")
   returnType <- match.arg(returnType)
   classes <- forest$forest$levels
   if(verbose == 3)
