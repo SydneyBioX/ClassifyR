@@ -37,3 +37,14 @@ test_that("DLDA ignores non-numeric features in training and orders posterior co
   expect_equal(colnames(score), c("B", "A"))
   expect_equal(as.matrix(both[, -1]), score, ignore_attr = TRUE)
 })
+
+test_that("GLM is fitted with an intercept", {
+  set.seed(4)
+  classes <- factor(rep(c("A", "B"), each = 50))
+  train <- asDataFrame(matrix(rnorm(100), ncol = 1, dimnames = list(NULL, "g1")))
+  train[["g1"]] <- train[["g1"]] + 10 + 2 * (classes == "B")
+  model <- ClassifyR:::GLMtrainInterface(train, classes, verbose = 0)
+  expect_true("(Intercept)" %in% names(coef(model)))
+  predicted <- ClassifyR:::GLMpredictInterface(model, train, returnType = "class", verbose = 0)
+  expect_gt(mean(predicted == classes), 0.75)
+})
