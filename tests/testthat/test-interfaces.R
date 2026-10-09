@@ -210,3 +210,18 @@ test_that("naive Bayes and mixtures of normals run with crossover distance weigh
     expect_gt(mean(predicted[, "class"] == data$classes[41:60]), 0.7)
   }
 })
+
+test_that("colCoxTests handles one feature, and the slow option agrees with the fast one", {
+  data <- makeSurvival()
+  one <- colCoxTests(data$measurements[, 1, drop = FALSE], data$outcome)
+  expect_equal(dim(one), c(1, 3))
+  expect_equal(rownames(one), "g1")
+  fast <- colCoxTests(data$measurements[, 1:5], data$outcome, "fast")
+  slow <- colCoxTests(data$measurements[, 1:5], data$outcome, "slow")
+  expect_equal(rownames(slow), paste0("g", 1:5))
+  expect_equal(slow, fast, tolerance = 1e-4)
+  # A two-column matrix of time and event is also accepted.
+  expect_equal(colCoxTests(data$measurements[, 1:5], as.matrix(data$outcome)[, 1:2], "slow"), slow)
+  # CoxPH ranking with one feature.
+  expect_equal(ClassifyR:::coxphRanking(asDataFrame(data$measurements[, 1, drop = FALSE]), data$outcome, verbose = 0), 1)
+})
