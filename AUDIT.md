@@ -75,8 +75,7 @@ The merge pays the per-call costs once for every combination. The paper's Proced
 - *Fix:* send the full fit to the workers as one more task; skip it (and `ClassifyResult` construction) when `runTests` is called internally for tuning.
 
 **M5. Merge, prevalidation and PCA redo the per-assay feature selection in every combination.**
-- Fold splits come from the same seed (`crossValidate.R:471`), so assay A's ranking in repeat r, fold f is the same in every combination that contains A.
-- For k assays, each ranking is computed 2^(k−1) times instead of once.
+- Each combination is cross-validated on its own folds (Q-C9). With shared folds, assay A's ranking in repeat r, fold f would be the same in every combination that contains A, and could be computed once instead of 2^(k−1) times.
 - The single-assay combinations are also the same runs as `multiViewMethod = "none"`.
 - *Fix:* compute each (assay, repeat, fold) ranking once and cache it. Then each combination only trains (merge), or trains the meta-model (prevalidation). In the DLDA run selection was 30% of the time; with CoxPH ranking plus CoxNet it is 4%, so the gain depends on the model.
 
@@ -235,7 +234,15 @@ known when choosing defaults.
   - `performancePlot` overrides user `yLimits` when `rotate90 = TRUE`, and draws a chance line at 0.5 whatever the metric or number of classes.
   - `bubblePlot` silently drops pathways below 0.5 accuracy.
 - **Q-C8. Two-class-only methods.** KS, KL, pairs-differences, Fisher and kTSP silently use only the first two classes. Prevalidation fails for more than two classes.
-- **Q-C9. Seed handling.** `crossValidate` refuses to run without `set.seed`. It derives the BiocParallel seed by reading `.Random.seed` directly (`crossValidate.R:471`), which assumes Mersenne-Twister and does not advance the stream. Every assay, classifier and combination therefore gets the same folds; that is good for paired comparison, but it is not documented.
+- **Q-C9. Seed handling, and folds that differ between assays [confirmed].**
+  - `crossValidate` refuses to run without `set.seed`. It derives the BiocParallel seed by reading `.Random.seed`
+    directly (`crossValidate.R:471`), which assumes Mersenne-Twister.
+  - Each assay, classifier and combination is cross-validated on **different folds**: the splits are drawn from the
+    global random stream, which earlier cross-validations have already advanced. In the harness, two assays'
+    fold assignments agreed for 19% of samples, which is chance for 5 folds.
+  - So comparisons between assays or combinations (`performancePlot`, `samplesMetricMap`) are not paired by fold, and
+    they include split-to-split noise. With shared folds, the comparisons would be paired, and the per-assay
+    rankings in merge, prevalidation and PCA could be computed once and reused (M5).
 
 ### 2D. Packaging and documentation
 
