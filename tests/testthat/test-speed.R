@@ -74,3 +74,15 @@ test_that("Cox elastic net can be tuned by partial likelihood deviance", {
   expect_s4_class(result, "ClassifyResult")
   expect_true(all(is.finite(predictions(result)[, "risk"])))
 })
+
+test_that("Cox elastic net ends its path of lambda at 0.05 of the largest value unless told otherwise", {
+  skip_if_not_installed("glmnet")
+  data <- makeSurvival(nSamples = 100, nFeatures = 15)
+  measurements <- S4Vectors::DataFrame(data$measurements)
+  set.seed(1)
+  byDefault <- ClassifyR:::coxnetTrainInterface(measurements, data$outcome, verbose = 0)
+  expect_gte(min(byDefault$lambda) / max(byDefault$lambda), 0.05 - 1e-8) # glmnet may also stop the path earlier.
+  set.seed(1)
+  longer <- ClassifyR:::coxnetTrainInterface(measurements, data$outcome, lambda.min.ratio = 0.001, verbose = 0)
+  expect_lt(min(longer$lambda) / max(longer$lambda), 0.05)
+})

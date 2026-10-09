@@ -4,6 +4,9 @@
 
 \section{Version 3.17.2}{\itemize{
   \item
+  The Cox elastic net's path of lambda ends at 0.05 of its largest value by default (\code{lambda.min.ratio}; glmnet's
+  default is 0.0001 or 0.01). Its results change slightly and it is about six times as fast.
+  \item
   All assays, classifiers, selection methods and combinations of assays in one \code{crossValidate} call are evaluated
   on the same training and test splits, so their results can be compared sample by sample. Results of every
   cross-validation after the first in a call differ from earlier versions.
