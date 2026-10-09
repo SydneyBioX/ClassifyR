@@ -3,7 +3,7 @@
 test_that("each classification keyword runs in crossValidate", {
   data <- makeTwoClass()
   classifiers <- c("randomForest", "GLM", "ridgeGLM", "elasticNetGLM", "LASSOGLM", "SVM", "NSC", "DLDA",
-                   "naiveBayes", "mixturesNormals", "kNN") # XGB needs the xgboost 3 interface (interface fixes).
+                   "naiveBayes", "mixturesNormals", "kNN", "XGB")
   for(classifier in classifiers)
   {
     set.seed(1)
@@ -29,7 +29,7 @@ test_that("each selection keyword runs in crossValidate", {
 
 test_that("each survival keyword runs in crossValidate", {
   data <- makeSurvival()
-  for(classifier in c("CoxPH", "CoxNet", "randomSurvivalForest")) # XGB: see above.
+  for(classifier in c("CoxPH", "CoxNet", "randomSurvivalForest", "XGB"))
   {
     set.seed(1)
     result <- suppressWarnings(crossValidate(data$measurements, data$outcome, classifier = classifier,
