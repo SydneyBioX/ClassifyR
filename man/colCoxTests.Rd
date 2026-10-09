@@ -16,7 +16,8 @@ colCoxTests(measurements, outcome, option = c("fast", "slow"), ...)
 \item{...}{Not currently used.}
 }
 \value{
-CrossValParams object
+A data frame with columns \code{coef}, \code{se.coef} and \code{p.value}, and a row for each
+column of \code{measurements}.
 }
 \description{
 A function to perform fast or standard Cox proportional hazard model tests.

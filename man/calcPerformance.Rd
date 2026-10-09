@@ -69,17 +69,17 @@ Must be one of the following options:
 \item{\code{"Balanced Accuracy"}: Balanced accuracy.}
 \item{\code{"Sample Error"}: Error rate for each sample in the data set.}
 \item{\code{"Sample Accuracy"}: Accuracy for each sample in the data set.}
-\item{\code{"Micro Precision"}: Sum of the number of correct predictions in
-        each class, divided by the sum of number of samples in each class.}
-\item{\code{"Micro Recall"}: Sum of the number of correct predictions in each 
+\item{\code{"Micro Precision"}: Sum of the number of correct predictions in each 
         class, divided by the sum of number of samples predicted as
         belonging to each class.}
+\item{\code{"Micro Recall"}: Sum of the number of correct predictions in
+        each class, divided by the sum of number of samples in each class.}
 \item{\code{"Micro F1"}: F1 score obtained by calculating the
 harmonic mean of micro precision and micro recall.}
-\item{\code{"Macro Precision"}: Sum of the ratios of the number of correct predictions
-in each class to the number of samples in each class, divided by the number of classes.}
-\item{\code{"Macro Recall"}: Sum of the ratios of the number of correct predictions in each
+\item{\code{"Macro Precision"}: Sum of the ratios of the number of correct predictions in each
 class to the number of samples predicted to be in each class, divided by the number of classes.}
+\item{\code{"Macro Recall"}: Sum of the ratios of the number of correct predictions
+in each class to the number of samples in each class, divided by the number of classes.}
 \item{\code{"Macro F1"}: F1 score obtained by calculating the harmonic mean of macro precision
 and macro recall.}
 \item{\code{"Matthews Correlation Coefficient"}: Matthews Correlation Coefficient (MCC). A score
@@ -107,10 +107,10 @@ or a list of the basic tabular objects containing the data.}
 
 \item{assay}{For \code{easyHard} only. The assay to use to look for associations to the per-sample metric.}
 
-\item{performanceType}{For \code{easyHard} only. One of the valid values shown for \code{performanceType} parameter of \code{\link{calcCVperformance}}.}
-
 \item{useFeatures}{For \code{easyHard} only. Default: \code{NULL} (i.e. use all provided features). A vector of features to consider of the assay specified.
 This allows for the avoidance of variables such spike-in RNAs, sample IDs, sample acquisition dates, etc. which are not relevant for outcome prediction.}
+
+\item{performanceType}{For \code{easyHard} only. One of the valid values shown for \code{performanceType} parameter of \code{\link{calcCVperformance}}.}
 
 \item{fitMode}{For \code{easyHard} only. Default:\code{"single"}. Either \code{"single"} or \code{"full"}. If \code{"single"},
 an ordinary GLM model is fitted for each covariate separately. If \code{"full"}, elastic net is used to automatically tune the non-zero model coefficients.}
