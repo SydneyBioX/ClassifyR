@@ -225,3 +225,16 @@ test_that("colCoxTests handles one feature, and the slow option agrees with the 
   # CoxPH ranking with one feature.
   expect_equal(ClassifyR:::coxphRanking(asDataFrame(data$measurements[, 1, drop = FALSE]), data$outcome, verbose = 0), 1)
 })
+
+test_that("subtractFromLocation works for one numeric feature and keeps feature names", {
+  train <- asDataFrame(matrix(c(1, 2, 6), ncol = 1, dimnames = list(NULL, "g-1")))
+  train[["sex"]] <- factor(c("F", "M", "F"))
+  test <- asDataFrame(matrix(c(0, 10), ncol = 1, dimnames = list(NULL, "g-1")))
+  test[["sex"]] <- factor(c("F", "M"))
+  transformed <- ClassifyR:::subtractFromLocation(train, test, verbose = 0)
+  expect_equal(colnames(transformed[[1]]), "g-1")
+  expect_equal(transformed[[1]][["g-1"]], c(2, 1, 3))
+  expect_equal(transformed[[2]][["g-1"]], c(3, 7))
+  medians <- ClassifyR:::subtractFromLocation(train, test, location = "median", absolute = FALSE, verbose = 0)
+  expect_equal(medians[[2]][["g-1"]], c(-2, 8))
+})
