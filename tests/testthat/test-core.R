@@ -15,8 +15,9 @@ test_that("crossValidate uses the requested selection method for list input", {
 test_that("parallel workers honour nCores on Unix-alikes", {
   skip_on_os("windows")
   pool <- ClassifyR:::.makeWorkerPool(nCores = 2, nTasks = 10)
-  expect_s4_class(pool, "MulticoreParam")
-  expect_equal(BiocParallel::bpnworkers(pool), 2)
+  expect_s3_class(pool, "forkPool")
+  expect_equal(pool[["workers"]], 2)
+  expect_equal(ClassifyR:::.forkApply(1:5, function(x) x^2, pool), as.list((1:5)^2))
 })
 
 test_that("results don't depend on the number of cores", {

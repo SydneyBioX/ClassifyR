@@ -548,25 +548,37 @@ generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams, seed =
        shared = function() shared)
 }
 
-# Parallel workers for nCores cores. Making a MulticoreParam or SnowParam counts the free connections, which takes
-# about half a second on servers allowing many open files, so each pool is made once per session and reused.
+# Parallel workers for nCores cores. On Linux and macOS, workers are forked once per call by .forkApply, after the
+# data are prepared, so they share the data without copying and each is forked only once. (BiocParallel's
+# MulticoreParam forks a process for every chunk of tasks, and each forked process copies much of the main R
+# session's memory when it first collects garbage.) Windows uses SnowParam, made once per session.
 .makeWorkerPool <- function(nCores, nTasks)
 {
   if(nCores == 1) return(BiocParallel::SerialParam())
+  if(.Platform$OS.type != "windows")
+    return(structure(list(workers = as.integer(min(nCores, parallel::detectCores(), nTasks))), class = "forkPool"))
   poolName <- paste0("workerPool", nCores)
   pool <- .ClassifyRenvir[[poolName]]
   if(is.null(pool))
   {
-    if(.Platform$OS.type == "windows") # Only SnowParam suits Windows.
-      pool <- BiocParallel::SnowParam(min(nCores, BiocParallel::snowWorkers("SOCK")))
-    else # Multicore is faster than SNOW.
-      pool <- BiocParallel::MulticoreParam(min(nCores, BiocParallel::multicoreWorkers()))
+    pool <- BiocParallel::SnowParam(min(nCores, BiocParallel::snowWorkers("SOCK")))
     assign(poolName, pool, envir = .ClassifyRenvir)
   }
-  # MulticoreParam forks a process for each chunk of tasks, so tasks are given in a few chunks per worker: enough
-  # for workers finishing quick chunks to take more, few enough that forking costs little.
-  if(is(pool, "MulticoreParam")) BiocParallel::bptasks(pool) <- min(nTasks, 4L * BiocParallel::bpnworkers(pool))
   pool
+}
+
+# lapply(X, FUN) on forked workers made once for this call. FUN is left in .ClassifyRenvir before forking, so the
+# workers have it, and its data, already; only the elements of X and the results are sent between processes.
+.forkApply <- function(X, FUN, pool)
+{
+  assign("currentTask", FUN, envir = .ClassifyRenvir)
+  on.exit(rm("currentTask", envir = .ClassifyRenvir))
+  workers <- parallel::makeForkCluster(pool[["workers"]])
+  on.exit(parallel::stopCluster(workers), add = TRUE)
+  runTask <- function(element) get("currentTask", envir = .ClassifyRenvir)(element)
+  environment(runTask) <- asNamespace("ClassifyR") # Sent to workers as a reference, not with this call's data.
+  # Tasks are handed out two at a time as workers become free, so that quick and slow tasks balance out.
+  parallel::parLapplyLB(workers, X, runTask, chunk.size = 2)
 }
 
 # Runs the splits of every queued cross-validation in one pool of workers and replaces each queue position in

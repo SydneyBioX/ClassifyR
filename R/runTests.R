@@ -186,7 +186,7 @@ input data. Autmomatically reducing to smaller number.")
   # tasks given to a worker has a similar amount of work. Each task sets its own random number stream, so the order
   # doesn't change the results.
   taskOrder <- order(tasks[, "split"], tasks[, "crossValidation"])
-  results <- bplapply(taskOrder, function(taskIndex)
+  runTask <- function(taskIndex)
   {
     if(!is.null(streams[[taskIndex]])) assign(".Random.seed", streams[[taskIndex]], envir = globalenv())
     crossValidation <- crossValidations[[tasks[taskIndex, "crossValidation"]]]
@@ -209,7 +209,9 @@ input data. Autmomatically reducing to smaller number.")
     if(is.list(result) && !is.null(attr(result[["models"]], "forImportance")))
       attr(result[["models"]], "forImportance") <- NULL
     result
-  }, BPPARAM = parallelParams)
+  }
+  results <- if(inherits(parallelParams, "forkPool")) .forkApply(taskOrder, runTask, parallelParams) else
+               bplapply(taskOrder, runTask, BPPARAM = parallelParams)
   results[taskOrder] <- results
   lapply(unname(split(seq_len(nrow(tasks)), tasks[, "crossValidation"])), function(taskIndices)
   {
