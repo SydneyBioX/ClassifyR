@@ -94,3 +94,24 @@ test_that("CoxNet encodes test data with the training columns", {
   testRisks <- ClassifyR:::coxnetPredictInterface(model, data$test, verbose = 0)
   expect_equal(unname(testRisks), unname(allRisks[data$testSamples]))
 })
+
+test_that("XGB trains and predicts with xgboost 3 and encodes test data with the training columns", {
+  data <- makeCategorical()
+  set.seed(8)
+  model <- ClassifyR:::extremeGradientBoostingTrainInterface(data$train, data$classes, verbose = 0)
+  allScores <- ClassifyR:::extremeGradientBoostingPredictInterface(model, data$train, returnType = "score", verbose = 0)
+  testPredictions <- ClassifyR:::extremeGradientBoostingPredictInterface(model, data$test, verbose = 0)
+  expect_equal(colnames(testPredictions), c("class", "A", "B"))
+  expect_equal(as.matrix(testPredictions[, c("A", "B")]), allScores[data$testSamples, ], ignore_attr = TRUE)
+  expect_s3_class(testPredictions[, "class"], "factor")
+  expect_gt(length(ClassifyR:::XGBfeatures(model)[[2]]), 0)
+
+  # A user-specified number of threads replaces the default of one.
+  expect_no_error(ClassifyR:::extremeGradientBoostingTrainInterface(data$train, data$classes, nthread = 2, verbose = 0))
+
+  outcome <- survival::Surv(rexp(80, exp(as.numeric(data$classes))), rep(1, 80))
+  survivalModel <- ClassifyR:::extremeGradientBoostingTrainInterface(data$train, outcome, verbose = 0)
+  risks <- ClassifyR:::extremeGradientBoostingPredictInterface(survivalModel, data$test, verbose = 0)
+  expect_true(is.numeric(risks))
+  expect_length(risks, 10)
+})
