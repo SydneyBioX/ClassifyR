@@ -238,3 +238,54 @@ test_that("subtractFromLocation works for one numeric feature and keeps feature 
   medians <- ClassifyR:::subtractFromLocation(train, test, location = "median", absolute = FALSE, verbose = 0)
   expect_equal(medians[[2]][["g-1"]], c(-2, 8))
 })
+
+# A clinical table and an RNA table, as prevalidation expects them.
+makeMultiView <- function(nClasses, clinicalSelection = "none", seed = 11)
+{
+  set.seed(seed)
+  classes <- factor(rep(LETTERS[seq_len(nClasses)], length.out = 60))
+  clinical <- S4Vectors::DataFrame(age = rnorm(60) + as.numeric(classes), bmi = rnorm(60), row.names = paste0("s", 1:60))
+  rna <- asDataFrame(matrix(rnorm(60 * 20), 60, 20, dimnames = list(paste0("s", 1:60), paste0("g", 1:20))))
+  rna[, 1] <- rna[, 1] + 2 * as.numeric(classes)
+  measurements <- cbind(clinical, rna)
+  S4Vectors::mcols(measurements) <- S4Vectors::DataFrame(assay = rep(c("clinical", "rna"), c(2, 20)), feature = colnames(measurements))
+  params <- list(clinical = ClassifyR:::generateModellingParams("clinical", clinical, 2, clinicalSelection, "DLDA", extraParams = NULL),
+                 rna = ClassifyR:::generateModellingParams("rna", rna, 3, "t-test", "DLDA", extraParams = NULL))
+  list(measurements = measurements, classes = classes, params = params)
+}
+
+test_that("prevalidation works for two and three classes and fits only the needed models", {
+  for(nClasses in 2:3)
+  {
+    data <- makeMultiView(nClasses)
+    model <- ClassifyR:::prevalTrainInterface(data$measurements, data$classes, data$params, verbose = 0)
+    expect_equal(names(model@fullModel$prevalidationModels), "rna")
+    prevalidationColumns <- if(nClasses == 2) "rna" else c("rna_B", "rna_C")
+    expect_equal(model@fullModel$fullFeatures, c("age", "bmi", prevalidationColumns))
+    predicted <- ClassifyR:::prevalPredictInterface(model, data$measurements, verbose = 0)
+    expect_equal(nrow(predicted), 60)
+    expect_gt(mean(predicted[, "class"] == data$classes), 1 / nClasses)
+  }
+  # A clinical table with one feature.
+  data <- makeMultiView(2)
+  data$measurements <- data$measurements[, -2]
+  model <- ClassifyR:::prevalTrainInterface(data$measurements, data$classes, data$params, verbose = 0)
+  expect_equal(model@fullModel$fullFeatures, c("age", "rna"))
+})
+
+test_that("prevalidation and PCA draw their inner cross-validation seed from the random number stream", {
+  data <- makeMultiView(2, clinicalSelection = "t-test")
+  seeds <- integer()
+  local_mocked_bindings(SerialParam = function(...)
+  {
+    seeds <<- c(seeds, list(...)[["RNGseed"]])
+    BiocParallel::SerialParam(...)
+  }, .package = "ClassifyR")
+  set.seed(2)
+  ClassifyR:::prevalTrainInterface(data$measurements, data$classes, data$params, verbose = 0)
+  ClassifyR:::prevalTrainInterface(data$measurements, data$classes, data$params, verbose = 0)
+  ClassifyR:::pcaTrainInterface(data$measurements, data$classes, data$params["clinical"], nFeatures = c(rna = 2))
+  ClassifyR:::pcaTrainInterface(data$measurements, data$classes, data$params["clinical"], nFeatures = c(rna = 2))
+  expect_length(seeds, 4)
+  expect_length(unique(seeds), 4)
+})
