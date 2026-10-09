@@ -55,3 +55,12 @@ test_that("an SVM fitted to a matrix of numeric features predicts as one fitted 
   expect_identical(as.character(predicted[, "class"]), as.character(expected))
   expect_identical(unname(as.matrix(predicted[, levels(data$classes)])), unname(attr(expected, "probabilities")[, levels(data$classes)]))
 })
+
+test_that("random forest fold models don't keep the forest grown for feature ranking", {
+  data <- makeTwoClass()
+  set.seed(1)
+  result <- crossValidate(data$measurements, data$classes, classifier = "randomForest", nFeatures = 5, nRepeats = 1, nFolds = 3)
+  expect_true(all(sapply(models(result), function(model) is.null(attr(model, "forImportance")))))
+  expect_false(is.null(attr(result@finalModel, "forImportance")))
+  expect_true(all(lengths(chosenFeatureNames(result)) > 0))
+})
