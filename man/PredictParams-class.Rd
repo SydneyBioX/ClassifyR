@@ -27,7 +27,8 @@ which will do the class prediction, if required, and parameters that the
 function will use. If the training function also makes predictions, this
 must be set to \code{NULL}.}
 \describe{ \item{\code{predictor}}{A character keyword referring to a registered classifier. See \code{\link{available}}
-for valid keywords.}
+for valid keywords. Classifiers which train and predict in one function (\code{"kNN"} and \code{"naiveBayes"}) have no
+separate predictor; for them, use \code{predictParams = NULL} in \code{\link{ModellingParams}}.}
 \item{\code{characteristics}}{A \code{\link{DataFrame}} describing
 the characteristics of the predictor function used. First column must be
 named \code{"charateristic"} and second column must be named \code{"value"}.}

@@ -112,8 +112,9 @@ FALSE, it is hidden.}
 \code{\link{SnowParam}}.}
 }
 \value{
-An object of class \code{ggplot} and a plot on the current graphics
-device, if \code{plot} is \code{TRUE}.
+An object of class \code{ggplot}. If \code{comparison} is \code{"importance"} and
+\code{characteristicsList} has \code{"row"} or \code{"column"}, a grob of one plot for each
+group, which can be drawn with \code{grid::grid.draw}.
 }
 \description{
 Pair-wise overlaps can be done for two types of analyses. Firstly, each
