@@ -128,7 +128,7 @@ setMethod("featureSetSummary", "DataFrame", # Possibly mixed data types.
   if(any(keepSets == FALSE)) # Filter out those sets without adequate identifier overlap.
   {
     if(verbose == 3)
-      message("Based on", paste(minimumOverlapPercent, "% overlap rule, reducing", sep = ''), length(featureSets), "feature sets to", sum(keepSets), "feature sets.")
+      message("Based on ", paste(minimumOverlapPercent, "% overlap rule, reducing ", sep = ''), length(featureSets), " feature sets to ", sum(keepSets), " feature sets.")
     featureSets <- featureSets[keepSets]
   }
   
@@ -177,7 +177,7 @@ setMethod("featureSetSummary", "MultiAssayExperiment", # Pick one numeric table 
   if(any(keepSets == FALSE)) # Filter out those sets without adequate identifier overlap.
   {
     if(verbose == 3)
-      message("Based on", paste(minimumOverlapPercent, "% overlap rule, reducing", sep = ''), length(featureSets), "feature sets to", sum(keepSets), "feature sets.")
+      message("Based on ", paste(minimumOverlapPercent, "% overlap rule, reducing ", sep = ''), length(featureSets), " feature sets to ", sum(keepSets), " feature sets.")
     featureSets <- featureSets[keepSets]
   }
   
