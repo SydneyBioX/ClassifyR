@@ -250,7 +250,7 @@ DMresults
 performance(DMresults)
 ```
 
-The error rate is about 20%. If only a vector of predictions and a vector of actual classes is available, such as from an old study which did not use **ClassifyR** for cross-validation, then *calcExternalPerformance* can be used on a pair of factor vectors which have the same length.
+The balanced accuracy is `r round(mean(performance(DMresults)[["Balanced Accuracy"]]), 2)`. If only a vector of predictions and a vector of actual classes is available, such as from an old study which did not use **ClassifyR** for cross-validation, then *calcExternalPerformance* can be used on a pair of factor vectors which have the same length.
 
 ### Comparison of Different Classifications
 
