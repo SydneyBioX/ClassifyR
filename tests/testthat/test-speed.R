@@ -35,3 +35,23 @@ test_that("DataFrames are converted to the same data.frame as by as.data.frame",
   colnames(measurements)[1] <- "unsafe name-1"
   expect_identical(ClassifyR:::.asDataFrame(measurements), as.data.frame(measurements))
 })
+
+test_that("numeric design matrices equal model.matrix", {
+  data <- makeTwoClass()
+  measurements <- as.data.frame(data$measurements)
+  colnames(measurements)[1] <- "unsafe name-1"
+  expect_identical(ClassifyR:::.numericDesignMatrix(measurements), model.matrix(~ 0 + ., data = measurements))
+})
+
+test_that("an SVM fitted to a matrix of numeric features predicts as one fitted with a formula", {
+  data <- makeTwoClass()
+  measurements <- S4Vectors::DataFrame(data$measurements, check.names = FALSE)
+  set.seed(1)
+  fromMatrix <- ClassifyR:::SVMtrainInterface(measurements[1:40, ], data$classes[1:40], verbose = 0)
+  set.seed(1)
+  fromFormula <- e1071::svm(classes ~ ., data = data.frame(data$measurements[1:40, ], classes = data$classes[1:40]), probability = TRUE)
+  expected <- predict(fromFormula, as.data.frame(data$measurements[41:60, ]), probability = TRUE)
+  predicted <- ClassifyR:::SVMpredictInterface(fromMatrix, measurements[41:60, ], verbose = 0)
+  expect_identical(as.character(predicted[, "class"]), as.character(expected))
+  expect_identical(unname(as.matrix(predicted[, levels(data$classes)])), unname(attr(expected, "probabilities")[, levels(data$classes)]))
+})

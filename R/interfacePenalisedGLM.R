@@ -81,7 +81,10 @@ penalisedGLMpredictInterface <- function(model, measurementsTest, lambda, ..., r
   measurementsTrain <- .asDataFrame(measurementsTrain)
   isCategorical <- sapply(measurementsTrain, function(featureValues) is.factor(featureValues) || is.character(featureValues))
   featuresLevels <- lapply(measurementsTrain[isCategorical], function(featureValues) levels(factor(featureValues)))
-  trainMatrix <- model.matrix(~ 0 + ., data = measurementsTrain, xlev = featuresLevels)
+  if(any(isCategorical))
+    trainMatrix <- model.matrix(~ 0 + ., data = measurementsTrain, xlev = featuresLevels)
+  else # Numeric features only: the same matrix as model.matrix makes, built directly.
+    trainMatrix <- .numericDesignMatrix(measurementsTrain)
   attr(trainMatrix, "encoding") <- list(features = colnames(measurementsTrain), levels = featuresLevels,
                                         columns = colnames(trainMatrix))
   trainMatrix
@@ -93,6 +96,8 @@ penalisedGLMpredictInterface <- function(model, measurementsTest, lambda, ..., r
   encoding <- attr(model, "encoding")
   # The features in the training order, so that each factor is encoded with the same contrasts.
   measurementsTest <- .asDataFrame(measurementsTest)[, encoding[["features"]], drop = FALSE]
+  if(length(encoding[["levels"]]) == 0 && all(vapply(measurementsTest, is.numeric, logical(1))))
+    return(.numericDesignMatrix(measurementsTest))
   # Keep samples with missing values, so that each prediction stays with its sample.
   testFrame <- model.frame(~ 0 + ., data = measurementsTest, xlev = encoding[["levels"]], na.action = na.pass)
   testMatrix <- model.matrix(attr(testFrame, "terms"), testFrame)
@@ -128,3 +133,13 @@ penalisedFeatures <- function(model)
                         selectedFeaturesIndices <- which(groupScores != 0)
                         list(rankedFeaturesIndices, selectedFeaturesIndices)
                       }
+
+# model.matrix(~ 0 + ., data) of a data.frame of numeric features, without building a model frame.
+.numericDesignMatrix <- function(measurements)
+{
+  designMatrix <- as.matrix(measurements)
+  colnames(designMatrix) <- vapply(colnames(measurements), function(feature) deparse(as.name(feature), backtick = TRUE),
+                                   character(1), USE.NAMES = FALSE)
+  attr(designMatrix, "assign") <- seq_len(ncol(measurements))
+  designMatrix
+}
