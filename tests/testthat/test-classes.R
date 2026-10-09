@@ -3,7 +3,7 @@
 test_that("one-step classifiers give an informative error for PredictParams", {
   expect_error(PredictParams("naiveBayes"), "trains and predicts in one function")
   expect_error(PredictParams("notAClassifier"), "not a classifier keyword")
-  expect_output(show(PredictParams("DLDA")), "Predictor Function: DLDApredictInterface.")
+  expect_output(show(PredictParams("DLDA")), "An object of class 'PredictParams'.", fixed = TRUE)
 })
 
 test_that("SelectParams accepts 'none' and plain functions", {

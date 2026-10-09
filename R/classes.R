@@ -537,7 +537,7 @@ setMethod("SelectParams", c("functionOrCharacterOrList"),
             {
               if(is.function(ranking))
               { # Feature selection identifies functions by their name.
-                if(is.null(attr(ranking, "name"))) attr(ranking, "name") <- "userRanking"
+                if(is.null(attr(ranking, "name"))) attr(ranking, "name") <- "User-specified Ranking"
                 return(ranking)
               }
               rankingFunction <- .selectionKeywordToFunction(ranking)
