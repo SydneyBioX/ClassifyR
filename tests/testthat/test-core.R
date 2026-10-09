@@ -12,12 +12,39 @@ test_that("crossValidate uses the requested selection method for list input", {
   expect_false(any(selectionNames %in% c("t-test", "Difference in Means")))
 })
 
-test_that("parallel parameters honour nCores on Unix-alikes", {
+test_that("worker pools give the same results as lapply, with forked or socket workers", {
+  pool <- ClassifyR:::.makeWorkerPool(nCores = 2, nTasks = 10)
+  expect_s3_class(pool, "workerPool")
+  expect_equal(pool[["workers"]], 2L)
+  shared <- 1:3 # Data the task function uses from its enclosing environment.
+  task <- function(x) x^2 + sum(shared)
+  for(type in c(if(.Platform$OS.type != "windows") "FORK", "PSOCK"))
+  {
+    pool[["type"]] <- type
+    expect_equal(ClassifyR:::.poolApply(1:5, task, pool), lapply(1:5, task), info = type)
+  }
+})
+
+test_that("socket workers give the same cross-validation results as forked ones", {
   skip_on_os("windows")
+  data <- makeTwoClass()
+  run <- function() { set.seed(1); crossValidate(data$measurements, data$classes, classifier = "randomForest", nFeatures = 3, nRepeats = 2, nFolds = 3, nCores = 2) }
+  forked <- run()
+  original <- ClassifyR:::.makeWorkerPool
+  local_mocked_bindings(.makeWorkerPool = function(nCores, nTasks) { pool <- original(nCores, nTasks); pool[["type"]] <- "PSOCK"; pool }, .package = "ClassifyR")
+  socket <- run()
+  expect_identical(predictions(socket), predictions(forked))
+})
+
+test_that("results don't depend on the number of cores", {
+  skip_on_os("windows")
+  data <- makeTwoClass()
+  measurementsList <- list(a = data$measurements[, 1:15], b = data$measurements[, 16:30])
   set.seed(1)
-  crossValParams <- ClassifyR:::generateCrossValParams(nRepeats = 1, nFolds = 2, nCores = 2, extraParams = NULL)
-  expect_s4_class(crossValParams@parallelParams, "MulticoreParam")
-  expect_equal(BiocParallel::bpnworkers(crossValParams@parallelParams), 2)
+  serial <- crossValidate(measurementsList, data$classes, classifier = "randomForest", nFeatures = 3, nRepeats = 2, nFolds = 3)
+  set.seed(1)
+  parallel <- crossValidate(measurementsList, data$classes, classifier = "randomForest", nFeatures = 3, nRepeats = 2, nFolds = 3, nCores = 2)
+  expect_identical(lapply(serial, predictions), lapply(parallel, predictions))
 })
 
 test_that("nested cross-validation tunes classifier parameters", {
@@ -135,6 +162,7 @@ test_that("prepareData keeps the most variable features and drops similar ones",
   expect_false("g2" %in% colnames(prepared$measurements))
   expect_equal(ncol(prepared$measurements), ncol(measurements) - 1)
 })
+
 
 test_that("an unknown multiViewMethod is an error naming the choices", {
   data <- makeTwoClass()
