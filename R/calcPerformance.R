@@ -267,38 +267,28 @@ setMethod("calcCVperformance", "ClassifyResult",
     
   if(performanceType == "Sample C-index")
   {
-    performanceValues <- do.call(rbind, mapply(function(iterationSurv, iterationPredictions, iterationSamples)
+    # For each sample, count the concordant and discordant comparable pairs it belongs to, within each group.
+    pairCounts <- do.call(rbind, mapply(function(iterationSurv, iterationPredictions, iterationSamples)
     {
-      do.call(rbind, lapply(iterationSamples, function(sampleID)
-      {
-        sampleIndex <- which(iterationSamples == sampleID)
-        otherIndices <- setdiff(seq_along(iterationSamples), sampleIndex)
-        concordants <- discordants <- 0
-        iterationSurv <- as.matrix(iterationSurv)
-        for(compareIndex in otherIndices)
-        {
-          if(iterationSurv[sampleIndex, "time"] < iterationSurv[compareIndex, "time"] && iterationPredictions[sampleIndex] > iterationPredictions[compareIndex] && iterationSurv[sampleIndex, "status"] == 1)
-          { # Reference sample has shorter time, it is not censored, greater risk. Concordant.
-            concordants <- concordants + 1
-          } else if(iterationSurv[sampleIndex, "time"] > iterationSurv[compareIndex, "time"] && iterationPredictions[sampleIndex] < iterationPredictions[compareIndex] && iterationSurv[compareIndex, "status"] == 1)
-          { # Reference sample has longer time, the comparison sample is not censored, lower risk. Concordant.
-            concordants <- concordants + 1
-          } else if(iterationSurv[sampleIndex, "time"] < iterationSurv[compareIndex, "time"] && iterationPredictions[sampleIndex] < iterationPredictions[compareIndex] && iterationSurv[sampleIndex, "status"] == 1)
-          { # Reference sample has shorter time, it is not censored, but lower risk than comparison sample. Discordant.
-            discordants <- discordants + 1
-          } else if(iterationSurv[sampleIndex, "time"] > iterationSurv[compareIndex, "time"] && iterationPredictions[sampleIndex] > iterationPredictions[compareIndex] && iterationSurv[compareIndex, "status"] == 1)
-          { # Reference sample has longer time, the comparison sample is not censored, but higher risk than comparison sample. Discordant.
-            discordants <- discordants + 1
-          }
-        }
-        data.frame(sample = sampleID, concordant = concordants, discordant = discordants)
-      }))
+      iterationSurv <- as.matrix(iterationSurv)
+      times <- iterationSurv[, "time"]
+      # Element [i, j] is TRUE if sample i has a shorter time than sample j and sample i is not censored.
+      earlierEvent <- outer(times, times, '<') & iterationSurv[, "status"] == 1
+      higherRisk <- outer(iterationPredictions, iterationPredictions, '>')
+      lowerRisk <- outer(iterationPredictions, iterationPredictions, '<')
+      # Concordant: the sample with the earlier event has the higher risk. Discordant: it has the lower risk.
+      concordant <- earlierEvent & higherRisk
+      discordant <- earlierEvent & lowerRisk
+      data.frame(sample = iterationSamples,
+                 concordant = rowSums(concordant) + colSums(concordant),
+                 discordant = rowSums(discordant) + colSums(discordant))
     }, actualOutcome, predictedOutcome, samples, SIMPLIFY = FALSE))
 
-    sampleValues <- by(performanceValues[, c("concordant", "discordant")], performanceValues[, "sample"], colSums)
-    Cindex <- round(sapply(sampleValues, '[', 1) / (sapply(sampleValues, '[', 1) + sapply(sampleValues, '[', 2)), 2)
-    names(Cindex) <- names(sampleValues)
-    Cindex[is.nan(Cindex)] <- NA # The individual with the smallest censored time might not have any useful inequalities in some results but rarely do.
+    concordants <- rowsum(pairCounts[, "concordant"], pairCounts[, "sample"])[, 1]
+    discordants <- rowsum(pairCounts[, "discordant"], pairCounts[, "sample"])[, 1]
+    Cindex <- round(concordants / (concordants + discordants), 2)[allSamples]
+    names(Cindex) <- allSamples
+    Cindex[is.nan(Cindex)] <- NA # A censored individual with a time shorter than all events has no comparable pairs.
     return(list(name = performanceType, values = Cindex))
   }
   
@@ -337,20 +327,8 @@ setMethod("calcCVperformance", "ClassifyResult",
     {
       classesTable <- do.call(rbind, lapply(levels(iterationClasses), function(class)
       {
-        totalPositives <- sum(iterationClasses == class)
-        totalNegatives <- sum(iterationClasses != class)
-        uniquePredictions <- sort(unique(iterationPredictions[, class]), decreasing = TRUE)
-        rates <- do.call(rbind, lapply(uniquePredictions, function(uniquePrediction)
-        {
-          consideredSamples <- iterationPredictions[, class] >= uniquePrediction
-          truePositives <- sum(iterationClasses[consideredSamples] == class)
-          falsePositives <- sum(iterationClasses[consideredSamples] != class)
-          TPR <- truePositives / totalPositives
-          FPR <- falsePositives / totalNegatives
-          data.frame(FPR = FPR, TPR = TPR, class = class)
-        }))
-        rates <- rbind(data.frame(FPR = 0, TPR = 0, class = class), rates)
-        rates
+        rates <- .ROCrates(iterationPredictions[, class], iterationClasses == class)
+        data.frame(FPR = c(0, rates[["FPR"]]), TPR = c(0, rates[["TPR"]]), class = class)
       }))
       classesAUC <- .calcArea(classesTable, levels(actualOutcome[[1]]))
       mean(classesAUC[!duplicated(classesAUC[, c("class", "AUC")]), "AUC"]) # Average AUC in iteration.
@@ -530,3 +508,21 @@ setMethod("easyHard", "MultiAssayExperimentOrList",
     broom::tidy(fitted)
   }
 })
+# Calculates the true positive rate and false positive rate at each distinct score, from the highest
+# score to the lowest. A sample is predicted positive if its score is at least the threshold.
+.ROCrates <- function(scores, isPositive)
+{
+  totalPositives <- sum(isPositive)
+  totalNegatives <- sum(!isPositive)
+  scoresOrder <- order(scores, decreasing = TRUE, na.last = NA)
+  scoresSorted <- scores[scoresOrder]
+  truePositives <- cumsum(isPositive[scoresOrder])
+  falsePositives <- cumsum(!isPositive[scoresOrder])
+  # Keep the last sample of each group of tied scores, so that all tied samples are counted.
+  thresholdEnds <- c(scoresSorted[-1] != scoresSorted[-length(scoresSorted)], TRUE)
+  truePositives <- truePositives[thresholdEnds]
+  falsePositives <- falsePositives[thresholdEnds]
+  if(anyNA(scores)) # Comparisons to a missing score are unknown.
+    truePositives <- falsePositives <- rep(NA_integer_, length(truePositives))
+  list(FPR = falsePositives / totalNegatives, TPR = truePositives / totalPositives)
+}

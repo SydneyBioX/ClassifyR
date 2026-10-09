@@ -144,20 +144,9 @@ setMethod("ROCplot", "list",
       actualClasses <- actualOutcome(result)[match(predictions[, "sample"], sampleNames(result))]
       do.call(rbind, lapply(levels(actualClasses), function(class)
       {
-        totalPositives <- sum(actualClasses == class)
-        totalNegatives <- sum(actualClasses != class)
-        uniquePredictions <- sort(unique(predictions[, class]), decreasing = TRUE)
-        rates <- do.call(rbind, lapply(uniquePredictions, function(uniquePrediction)
-        {
-          consideredSamples <- predictions[, class] >= uniquePrediction
-          truePositives <- sum(actualClasses[consideredSamples] == class)
-          falsePositives <- sum(actualClasses[consideredSamples] != class)
-          TPR <- truePositives / totalPositives
-          FPR <- falsePositives / totalNegatives
-          data.frame(FPR = FPR, TPR = TPR, class = class)
-        }))
-        rates <- rbind(data.frame(FPR = 0, TPR = 0, class = class), rates)
-         
+        rates <- .ROCrates(predictions[, class], actualClasses == class)
+        rates <- data.frame(FPR = c(0, rates[["FPR"]]), TPR = c(0, rates[["TPR"]]), class = class)
+
         summaryTable <- data.frame(comparisonValue, rates)
         colnames(summaryTable)[1] <- comparisonName
         summaryTable
