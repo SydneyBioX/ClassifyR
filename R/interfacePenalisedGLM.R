@@ -78,7 +78,7 @@ penalisedGLMpredictInterface <- function(model, measurementsTest, lambda, ..., r
 
 .encodeTrain <- function(measurementsTrain)
 {
-  measurementsTrain <- as(measurementsTrain, "data.frame")
+  measurementsTrain <- .asDataFrame(measurementsTrain)
   isCategorical <- sapply(measurementsTrain, function(featureValues) is.factor(featureValues) || is.character(featureValues))
   featuresLevels <- lapply(measurementsTrain[isCategorical], function(featureValues) levels(factor(featureValues)))
   trainMatrix <- model.matrix(~ 0 + ., data = measurementsTrain, xlev = featuresLevels)
@@ -92,7 +92,7 @@ penalisedGLMpredictInterface <- function(model, measurementsTest, lambda, ..., r
 {
   encoding <- attr(model, "encoding")
   # The features in the training order, so that each factor is encoded with the same contrasts.
-  measurementsTest <- as(measurementsTest, "data.frame")[, encoding[["features"]], drop = FALSE]
+  measurementsTest <- .asDataFrame(measurementsTest)[, encoding[["features"]], drop = FALSE]
   # Keep samples with missing values, so that each prediction stays with its sample.
   testFrame <- model.frame(~ 0 + ., data = measurementsTest, xlev = encoding[["levels"]], na.action = na.pass)
   testMatrix <- model.matrix(attr(testFrame, "terms"), testFrame)
