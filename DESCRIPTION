@@ -20,7 +20,7 @@ VignetteBuilder: knitr
 Encoding: UTF-8
 biocViews: Classification, Survival
 Depends: R (>= 4.1.0), generics, methods, S4Vectors, MultiAssayExperiment, BiocParallel, survival
-Imports: grid, genefilter, utils, dplyr, tidyr, rlang, ranger, ggplot2 (>= 3.5.0), ggpubr, reshape2, ggupset, broom, dcanr
+Imports: grid, genefilter, utils, dplyr, tidyr, rlang, ranger, ggplot2 (>= 3.5.0), ggpubr, reshape2, ggupset, broom
 Suggests: limma, edgeR, car, Rmixmod, gridExtra (>= 2.0.0), cowplot,
         BiocStyle, pamr, PoiClaClu, knitr, htmltools, gtable,
         scales, e1071, rmarkdown, IRanges, robustbase, glmnet, class, randomForestSRC,
@@ -59,7 +59,6 @@ Collate:
     'interfaceGLM.R'
     'interfaceKNN.R'
     'interfaceKTSPclassifier.R'
-    'interfaceMerge.R'
     'interfaceMixModels.R'
     'interfaceNSC.R'
     'interfaceNaiveBayesKernel.R'
