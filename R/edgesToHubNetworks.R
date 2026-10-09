@@ -34,7 +34,7 @@
 #' @export
 edgesToHubNetworks <- function(edges, minCardinality = 5)
 {
-  if(class(edges) == "matrix")
+  if(is.matrix(edges))
   {
     allFeatures <- unique(as.vector(edges))
   } else { # data.frame

@@ -12,6 +12,10 @@ kTSPclassifier <- function(measurementsTrain, classesTrain, measurementsTest, fe
   
   difference <- match.arg(difference)
   returnType <- match.arg(returnType)
+  if(nlevels(classesTrain) != 2)
+    stop("k-TSP is for two classes but 'classesTrain' has ", nlevels(classesTrain), " levels.")
+  trainingMatrix <- as.matrix(measurementsTrain)
+  testingMatrix <- as.matrix(measurementsTest)
   
   classesSizes <- sapply(levels(classesTrain), function(class) sum(classesTrain == class))
   largerClass <- names(classesSizes)[which.max(classesSizes)[1]]
@@ -23,7 +27,7 @@ kTSPclassifier <- function(measurementsTrain, classesTrain, measurementsTest, fe
   {
     isSmaller <- trainingMatrix[secondClass, S4Vectors::first(pair)] < trainingMatrix[secondClass, S4Vectors::second(pair)]
     if(sum(isSmaller) < length(isSmaller) / 2)
-      Pairs(S4Vectors::second(pair), S4Vectors::first(pair))
+      S4Vectors::Pairs(S4Vectors::second(pair), S4Vectors::first(pair))
     else
       pair
   }))

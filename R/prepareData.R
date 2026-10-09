@@ -58,7 +58,6 @@ setMethod("prepareData", "data.frame",
   prepareData(S4Vectors::DataFrame(measurements, check.names = FALSE), outcome, ...)
 })
 
-#' @importFrom dcanr cor.pairs
 #' @rdname prepareData
 #' @export
 setMethod("prepareData", "DataFrame",
@@ -97,8 +96,8 @@ setMethod("prepareData", "DataFrame",
          "       one to three column names or a factor of the same length as the number of samples.")
 
   # Filter any variable that is all the same. Causes problems, particularly for linear models in base R.
-  keep <- apply(measurements, 2, function(covariate) if(length(unique(covariate)) == 1) FALSE else TRUE)
-  measurements <- measurements[, keep]
+  keep <- vapply(as.list(measurements), function(covariate) length(unique(covariate)) != 1, logical(1))
+  measurements <- measurements[, keep, drop = FALSE]
       
   ## String specifies the name of a single outcome column, typically a class.
   if(is.character(outcome) && length(outcome) == 1)
@@ -160,7 +159,7 @@ setMethod("prepareData", "DataFrame",
       outcome <- survival::Surv(outcome[, 1], outcome[, 2], outcome[, 3])
   }
   
-  if("clinical" %in% is.null(mcols(measurements)$assay) && (is.null(useFeatures) || !"clinical" %in% names(useFeatures)))
+  if("clinical" %in% mcols(measurements)$assay && (is.null(useFeatures) || !"clinical" %in% names(useFeatures)))
   {
     warning("Using clinical table, but no 'useFeatures' named list element for it is specified. Clinical data often has\n", 
     "lots of uninformative variables. Please consider specifying useful features.")
@@ -235,20 +234,24 @@ setMethod("prepareData", "DataFrame",
   if(!is.null(topNvariance))
   {
     if(is.null(mcols(measurements)$assay)) assays <- rep(1, ncol(measurements)) else assays <- mcols(measurements)$assay
-    measurements <- do.call(cbind, lapply(unqiue(assays), function(assay)
+    measurements <- do.call(cbind, lapply(unique(assays), function(assay)
     {
       assayColumns <- which(assays == assay)
       assayTopN <- topNvariance
-      if(length(topNvariance) > 1) assayTopN <- topNvariance[assay]
-      if(length(assayColumns) < assayTopN)
-        measurements[, assayColumns]
+      if(!is.null(names(topNvariance))) assayTopN <- topNvariance[as.character(assay)] # Assays not named are kept whole.
+      if(is.na(assayTopN) || length(assayColumns) <= assayTopN)
+        measurements[, assayColumns, drop = FALSE]
       else
-        measurements[, assayColumns][order(apply(measurements[, assayColumns], 2, var, na.rm = TRUE), decreasing = TRUE)[1:assayTopN]]  
+      {
+        variances <- apply(as.matrix(measurements[, assayColumns, drop = FALSE]), 2, var, na.rm = TRUE)
+        measurements[, assayColumns[order(variances, decreasing = TRUE)[seq_len(assayTopN)]], drop = FALSE]
+      }
     }))
   }
   
   if(maxSimilarity < 1)
   {
+    dropFeatures <- integer()
     categoricalFeatures <- sapply(measurements, class) %in% c("factor", "character")
     if(any(categoricalFeatures))
     {
@@ -257,16 +260,16 @@ setMethod("prepareData", "DataFrame",
       {
         fisher.test(table(measurements[, checkPair[1]], measurements[, checkPair[2]]))$p.value
       })
-      if(any(pValues) < maxSimilarity) dropFeatures <- checkPairs[2, which(pValues < maxSimilarity)]
+      if(any(pValues < maxSimilarity)) dropFeatures <- checkPairs[2, which(pValues < maxSimilarity)]
     }
     numericFeatures <- sapply(measurements, class) == "numeric"
     if(any(numericFeatures))
     {
-        correlations <- dcanr::cor.pairs(as.matrix(measurements[, numericFeatures]))
-        diag(correlations) <- 0
-        dropFeatures <- c(dropFeatures, unique(which(correlations > maxSimilarity, arr.ind = TRUE)[, 2]))
+        correlations <- stats::cor(as.matrix(measurements[, numericFeatures, drop = FALSE]))
+        correlations[lower.tri(correlations, diag = TRUE)] <- 0 # Each pair once; the second variable of a pair is dropped.
+        dropFeatures <- c(dropFeatures, which(numericFeatures)[unique(which(correlations > maxSimilarity, arr.ind = TRUE)[, 2])])
     }
-    dropFeatures <- character()
+    dropFeatures <- unique(dropFeatures)
     if(length(dropFeatures) > 0) measurements <- measurements[, setdiff(1:ncol(measurements), dropFeatures)]
   }
   

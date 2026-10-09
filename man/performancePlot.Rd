@@ -72,7 +72,7 @@ the characteristic being sorted into ascending or descending order.}
 \code{"box"} for box plot. If cross-validation is not repeated, then a bar chart.}
 
 \item{yLimits}{The minimum and maximum value of the performance metric to
-plot.}
+plot. If \code{NULL}, the limits are chosen automatically.}
 
 \item{fontSizes}{A vector of length 4. The first number is the size of the
 title.  The second number is the size of the axes titles. The third number
@@ -90,8 +90,7 @@ titles of grouped plots, if any are produced. In other words, when
 FALSE, it is hidden.}
 }
 \value{
-An object of class \code{ggplot} and a plot on the current graphics
-device, if \code{plot} is \code{TRUE}.
+An object of class \code{ggplot}.
 }
 \description{
 Draws a graphical summary of a particular performance measure for a list of
@@ -99,10 +98,10 @@ classifications
 }
 \details{
 If there are multiple values for a performance measure in a single result
-object, it is plotted as a violin plot, unless \code{aggregate} is
-\code{TRUE}, in which case the all predictions in a single result object are
-considered simultaneously, so that only one performance number is
-calculated, and a barchart is plotted.
+object, they are plotted as a box plot or, if \code{densityStyle} is
+\code{"violin"}, a violin plot. If a result's value of
+\code{characteristicsList[["x"]]} is one of \code{aggregate}, its values
+are averaged to a single number and a bar is plotted.
 }
 \examples{
 

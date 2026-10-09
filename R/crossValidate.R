@@ -53,6 +53,14 @@
 #' \code{selectionMethod} can be a keyword for any of the implemented approaches as shown by \code{available("selectionMethod")}.
 #' \code{multiViewMethod} can be a keyword for any of the implemented approaches as shown by \code{available("multiViewMethod")}.
 #'
+#' Every assay, classifier, selection method and combination of assays in one call is evaluated on the same
+#' training and test splits, so their performances can be compared sample by sample and split by split.
+#'
+#' If \code{nFeatures} has several values and no tuning mode is given in \code{extraParams}, the number of features is
+#' chosen by resubstitution: the classifier is trained and evaluated on the training samples for each value. Classifiers
+#' that fit their training samples perfectly (e.g. random forest) give every value the same performance, and then the
+#' smallest value is chosen.
+#'
 #' @return An object of class \code{\link{ClassifyResult}}
 #' @export
 #' @aliases crossValidate crossValidate,matrix-method crossValidate,DataFrame-method
@@ -162,7 +170,12 @@ setMethod("crossValidate", "DataFrame",
               classifier <- cleanClassifier(classifier = classifier,
                                             measurements = measurements, nFeatures = nFeaturesUse)
               
-              ##!!!!! Do something with data combinations
+              if(length(multiViewMethod) != 1 || !multiViewMethod %in% c("none", "merge", "prevalidation", "PCA"))
+                stop("multiViewMethod must be one of \"none\", \"merge\", \"prevalidation\" or \"PCA\" (see available(\"multiViewMethod\")).")
+
+              # Every cross-validation is prepared first, then all of their splits share one pool of workers.
+              queue <- .crossValidationQueue()
+
 
               ################################
               #### No multiview
@@ -201,7 +214,7 @@ setMethod("crossValidate", "DataFrame",
                                       nRepeats = nRepeats,
                                       nCores = nCores,
                                       characteristicsLabel = characteristicsLabel,
-                                      extraParams = extraParams, verbose = verbose
+                                      extraParams = extraParams, verbose = verbose, queue = queue
                                   )
                               },
                               simplify = FALSE)
@@ -216,45 +229,18 @@ setMethod("crossValidate", "DataFrame",
               #### Yes multiview
               ################################
 
-              ### Merging or binding to combine data
-              if(multiViewMethod == "merge"){
-
-
-                  # The below loops over different combinations of assays and merges them together.
-                  # This allows someone to answer which combinations of the assays might be most useful.
-
-                  if(!is.list(assayCombinations) && assayCombinations[1] == "all") assayCombinations <- do.call("c", sapply(seq_along(assayIDs), function(nChoose) combn(assayIDs, nChoose, simplify = FALSE)))
-
-                  result <- sapply(assayCombinations, function(assayIndex){
-                      CV(measurements = measurements[, S4Vectors::mcols(measurements)[["assay"]] %in% assayIndex, drop = FALSE],
-                         outcome = outcome, assayIDs = assayIndex,
-                         nFeatures = nFeaturesUse[assayIndex],
-                         selectionMethod = selectionMethod[assayIndex],
-                         classifier = classifier[assayIndex],
-                         multiViewMethod = ifelse(length(assayIndex) == 1, "none", multiViewMethod),
-                         nFolds = nFolds,
-                         nRepeats = nRepeats,
-                         nCores = nCores,
-                         characteristicsLabel = characteristicsLabel,
-                         extraParams = extraParams, verbose = verbose)
-                  }, simplify = FALSE)
-
-              }
-
-
-              ### Prevalidation to combine data
-              if(multiViewMethod == "prevalidation"){
-
-
-                  # The below loops over different combinations of assays and combines them together using prevalidation.
-                  # This allows someone to answer which combinations of the assays might be most useful.
-
-
+              # Merging, prevalidation or PCA combine the assays of each combination of assays. This allows
+              # someone to answer which combinations of the assays might be most useful.
+              if(multiViewMethod %in% c("merge", "prevalidation", "PCA"))
+              {
                   if(!is.list(assayCombinations) && assayCombinations[1] == "all")
                   {
                       assayCombinations <- do.call("c", sapply(seq_along(assayIDs), function(nChoose) combn(assayIDs, nChoose, simplify = FALSE)))
-                      assayCombinations <- assayCombinations[sapply(assayCombinations, function(combination) "clinical" %in% combination, simplify = TRUE)]
-                      if(length(assayCombinations) == 0) stop("No assayCombinations with \"clinical\" data")
+                      if(multiViewMethod != "merge") # Prevalidation and PCA add the other assays to the clinical data.
+                      {
+                          assayCombinations <- assayCombinations[sapply(assayCombinations, function(combination) "clinical" %in% combination, simplify = TRUE)]
+                          if(length(assayCombinations) == 0) stop("No assayCombinations with \"clinical\" data")
+                      }
                   }
 
                   result <- sapply(assayCombinations, function(assayIndex){
@@ -268,43 +254,11 @@ setMethod("crossValidate", "DataFrame",
                          nRepeats = nRepeats,
                          nCores = nCores,
                          characteristicsLabel = characteristicsLabel,
-                         extraParams = extraParams, verbose = verbose)
+                         extraParams = extraParams, verbose = verbose, queue = queue)
                   }, simplify = FALSE)
-
               }
 
-
-
-              ### Principal Components Analysis to combine data
-              if(multiViewMethod == "PCA"){
-
-
-                  # The below loops over different combinations of assays and combines them together using prevalidation.
-                  # This allows someone to answer which combinations of the assays might be most useful.
-
-
-                  if(!is.list(assayCombinations) && assayCombinations[1] == "all"){
-                      assayCombinations <- do.call("c", sapply(seq_along(assayIDs),function(nChoose) combn(assayIDs, nChoose, simplify = FALSE)))
-                      assayCombinations <- assayCombinations[sapply(assayCombinations, function(combination) "clinical" %in% combination, simplify = TRUE)]
-                      if(length(assayCombinations) == 0) stop("No assayCombinations with \"clinical\" data")
-                  }
-
-
-                  result <- sapply(assayCombinations, function(assayIndex){
-                      CV(measurements = measurements[, S4Vectors::mcols(measurements)$assay %in% assayIndex, drop = FALSE],
-                         outcome = outcome, assayIDs = assayIndex,
-                         nFeatures = nFeaturesUse[assayIndex],
-                         selectionMethod = selectionMethod[assayIndex],
-                         classifier = classifier[assayIndex],
-                         multiViewMethod = ifelse(length(assayIndex) == 1, "none", multiViewMethod),
-                         nFolds = nFolds,
-                         nRepeats = nRepeats,
-                         nCores = nCores,
-                         characteristicsLabel = characteristicsLabel,
-                         extraParams = extraParams, verbose = verbose)
-                  }, simplify = FALSE)
-
-              }
+              result <- .runCrossValidationQueue(queue, result, nCores)
               if(length(result) == 1) result <- result[[1]]
               result
 
@@ -336,6 +290,7 @@ setMethod("crossValidate", "MultiAssayExperimentOrList",
               crossValidate(measurements = measurementsAndOutcome[["measurements"]],
                             outcome = measurementsAndOutcome[["outcome"]], 
                             nFeatures = nFeatures,
+                            selectionMethod = selectionMethod,
                             classifier = classifier,
                             multiViewMethod = multiViewMethod,
                             assayCombinations = assayCombinations,
@@ -465,26 +420,18 @@ Using an ordinary GLM instead.")
     classifier
 }
 
-generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams){
+generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams, seed = NULL){
 
-    if(!exists(".Random.seed")) stop("Predictive modelling should always be reproducible. Please use set.seed(<number>) yourself and run 'crossValidate' again.")
-    index <- ifelse(.Random.seed[2] + 2 == length(.Random.seed), 3, 3 + .Random.seed[2]) # Right after set.seed, the second number is the length of the random integer vector.
-    seed <- .Random.seed[index] # Get current random number.
-    
-    # Set the BPparam RNGseed.
-    if(nCores == 1)
+    if(is.null(seed))
     {
-        BPparam <- SerialParam(RNGseed = seed)
-    } else { # Parallel processing is desired.
-        
-        if(Sys.info()["sysname"] == "Windows") {# Only SnowParam suits Windows.
-            BPparam <- BiocParallel::SnowParam(min(nCores, BiocParallel::snowWorkers("SOCK")), RNGseed = seed)
-        } else if (Sys.info()["sysname"] %in% c("MacOS", "Linux")) {
-            BPparam <- BiocParallel::MulticoreParam(min(nCores, BiocParallel::multicoreWorkers()), RNGseed = seed) # Multicore is faster than SNOW, but it doesn't work on Windows.
-        } else { # Something weird.
-            BPparam <- BiocParallel::bpparam() # BiocParallel will figure it out.
-        }
+      if(!exists(".Random.seed")) stop("Predictive modelling should always be reproducible. Please use set.seed(<number>) yourself and run 'crossValidate' again.")
+      index <- ifelse(.Random.seed[2] + 2 == length(.Random.seed), 3, 3 + .Random.seed[2]) # Right after set.seed, the second number is the length of the random integer vector.
+      seed <- .Random.seed[index] # Get current random number.
     }
+    
+    # The seed sets the random number streams of the splits. Workers come from one pool per crossValidate call
+    # (.makeWorkerPool); nested cross-validations within a split run serially.
+    BPparam <- BiocParallel::SerialParam(RNGseed = seed)
     tuneMode <- "none"
     performanceType <- "N/A"
     if(!is.null(extraParams[["tuneCross"]][["performanceType"]])) performanceType <- extraParams[["tuneCross"]][["performanceType"]]
@@ -492,6 +439,109 @@ generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams){
     if(!is.null(extraParams[["tuneCross"]])) tuneMode <- extraParams[["tuneCross"]][["tuneMode"]]
     if(!any(tuneMode %in% c("Resubstitution", "Nested CV", "none"))) stop("tuneMode must be Nested CV or Resubstitution or none.")
     CrossValParams(permutations = nRepeats, folds = nFolds, parallelParams = BPparam, tuneMode = tuneMode, performanceType = performanceType)
+}
+
+# Applies the user's extraParams for one stage ("train" or "predict") to its TrainParams or PredictParams.
+# A single value is a fixed setting, several values are tuned, and an empty value removes a setting.
+# The element "tuneParams" holds a list of parameter ranges to tune ("auto" uses the classifier's preset ranges).
+.applyStageExtras <- function(stageParams, extras)
+{
+  canTune <- methods::.hasSlot(stageParams, "tuneParams")
+  for(parameterName in names(extras))
+  {
+    parameter <- extras[[parameterName]]
+    if(parameterName == "tuneParams")
+    {
+      if(is.list(parameter))
+      {
+        if(!canTune) stop("Prediction parameters can't be tuned.")
+        stageParams@tuneParams[names(parameter)] <- parameter
+      }
+    } else if(length(parameter) == 1) {
+      stageParams@otherParams[parameterName] <- list(parameter)
+      if(canTune) stageParams@tuneParams[[parameterName]] <- NULL
+    } else if(length(parameter) > 1) {
+      if(!canTune) stop("Prediction parameter '", parameterName, "' has more than one value but prediction parameters can't be tuned.")
+      stageParams@tuneParams[parameterName] <- list(parameter)
+    } else {
+      stageParams@otherParams[[parameterName]] <- NULL
+      if(canTune) stageParams@tuneParams[[parameterName]] <- NULL
+    }
+  }
+  if(canTune && length(stageParams@tuneParams) == 0) stageParams@tuneParams <- NULL
+  if(length(stageParams@otherParams) == 0) stageParams@otherParams <- NULL
+  stageParams
+}
+
+# A queue of prepared cross-validations; add() returns the position of the added one.
+# The first cross-validation's seed and splits are kept, so that every later one uses the same splits.
+.crossValidationQueue <- function()
+{
+  items <- list()
+  shared <- NULL
+  list(add = function(item)
+       {
+         items[[length(items) + 1]] <<- item
+         if(is.null(shared))
+           shared <<- list(seed = BiocParallel::bpRNGseed(item[["crossValParams"]]@parallelParams),
+                           splits = item[["splits"]], nSamples = length(item[["outcome"]]))
+         length(items)
+       },
+       items = function() items,
+       shared = function() shared)
+}
+
+# Parallel workers for nCores cores, made once per call by .poolApply after the data are prepared: forked processes
+# on Linux and macOS, which share the main session's data without copying it, and socket workers on Windows, which
+# are sent the data once each.
+.makeWorkerPool <- function(nCores, nTasks)
+{
+  structure(list(workers = as.integer(max(1, min(nCores, nTasks))),
+                 type = if(.Platform$OS.type == "windows") "PSOCK" else "FORK"), class = "workerPool")
+}
+
+# lapply(X, FUN) on the workers of pool. FUN is left in .ClassifyRenvir of each worker (by forking, or sent once to
+# each socket worker), so only the elements of X and the results are passed between processes. Tasks are handed
+# out two at a time as workers become free, so that quick and slow tasks balance out. The random number state of the
+# main session is the same afterwards as before.
+.poolApply <- function(X, FUN, pool)
+{
+  previousSeed <- if(exists(".Random.seed", envir = globalenv())) get(".Random.seed", envir = globalenv())
+  on.exit(if(is.null(previousSeed)) suppressWarnings(rm(".Random.seed", envir = globalenv())) else
+            assign(".Random.seed", previousSeed, envir = globalenv()))
+  if(pool[["workers"]] == 1) return(lapply(X, FUN))
+  
+  assign("currentTask", FUN, envir = .ClassifyRenvir)
+  on.exit(rm("currentTask", envir = .ClassifyRenvir), add = TRUE)
+  if(pool[["type"]] == "FORK")
+  {
+    workers <- parallel::makeForkCluster(pool[["workers"]])
+  } else {
+    workers <- parallel::makePSOCKcluster(pool[["workers"]])
+    # The same package libraries as this session, then the task function. The functions sent have the global
+    # environment as theirs, so that this call's data aren't sent along with them.
+    setLibraries <- function(paths) { base::.libPaths(paths); NULL }
+    setTask <- function(task) { assign("currentTask", task, envir = get(".ClassifyRenvir", envir = asNamespace("ClassifyR"))); NULL }
+    environment(setLibraries) <- environment(setTask) <- globalenv()
+    parallel::clusterCall(workers, setLibraries, .libPaths())
+    parallel::clusterCall(workers, setTask, FUN)
+  }
+  on.exit(parallel::stopCluster(workers), add = TRUE)
+  runTask <- function(element) get("currentTask", envir = .ClassifyRenvir)(element)
+  environment(runTask) <- asNamespace("ClassifyR") # Sent to workers as a reference, not with this call's data.
+  parallel::parLapplyLB(workers, X, runTask, chunk.size = 2)
+}
+
+# Runs the splits of every queued cross-validation in one pool of workers and replaces each queue position in
+# positions (a vector or list, possibly named) by its ClassifyResult.
+.runCrossValidationQueue <- function(queue, positions, nCores)
+{
+  crossValidations <- queue$items()
+  if(length(crossValidations) == 0) return(positions)
+  nTasks <- sum(sapply(crossValidations, function(crossValidation) length(crossValidation[["splits"]][["train"]])))
+  results <- .runTestsSplits(crossValidations, .makeWorkerPool(nCores, nTasks))
+  classifyResults <- mapply(.assembleTests, crossValidations, results, SIMPLIFY = FALSE)
+  lapply(as.list(positions), function(position) classifyResults[[position]])
 }
 
 # Returns a single parameter set.
@@ -534,46 +584,9 @@ generateModellingParams <- function(assayIDs,
     # Always return a list for ease of processing. Unbox at end if just one.
     classifierParams <- .classifierKeywordToParams(classifier, extraParams[["train"]][["tuneParams"]])
 
-    if(!is.null(extraParams) && "train" %in% names(extraParams))
-    {
-      for(paramIndex in seq_along(extraParams[["train"]]))
-      {
-        parameter <- extraParams[["train"]][[paramIndex]]
-        parameterName <- names(extraParams[["train"]])[paramIndex]
-        if(length(parameter) == 1)
-        {
-          if(is.null(classifierParams$trainParams@otherParams)) classifierParams$trainParams@otherParams <- extraParams[["train"]][paramIndex]
-          else classifierParams$trainParams@otherParams[parameterName] <- parameter
-          if(parameterName %in% names(classifierParams$trainParams@tuneParams)) classifierParams$trainParams@tuneParams[[parameterName]] <- NULL
-        } else if(length(parameter) > 1) {
-          if(is.null(classifierParams$trainParams@tuneParams)) classifierParams$trainParams@tuneParams <- extraParams[["train"]][paramIndex]
-          else classifierParams$trainParams@tuneParams[parameterName] <- parameter # Multiple values, so tune them.
-        } else { # Remove the parameter
-          inOther <- match(parameterName, names(classifierParams$trainParams@otherParams))
-          if(!is.na(inOther)) classifierParams$trainParams@otherParams <- classifierParams$trainParams@otherParams[-inOther]
-        } 
-      }
-    }
-    if(!is.null(extraParams) && "predict" %in% names(extraParams))
-    {
-      for(paramIndex in seq_along(extraParams[["predict"]]))
-      {
-        parameter <- extraParams[["predict"]][[paramIndex]]
-        parameterName <- names(extraParams[["predict"]])[paramIndex]
-        if(length(parameter) == 1)
-        {
-          if(is.null(classifierParams$predictParams@otherParams)) classifierParams$predictParams@otherParams <- extraParams[["predict"]][paramIndex]
-          else classifierParams$predictParams@otherParams[parameterName] <- parameter
-          if(parameterName %in% names(classifierParams$predictParams@tuneParams)) classifierParams$predictParams@tuneParams[[parameterName]] <- NULL
-        } else if(length(parameter) > 1) {
-          if(is.null(classifierParams$predictParams@tuneParams)) classifierParams$predictParams@tuneParams <- extraParams[["predict"]][paramIndex]
-          else classifierParams$predictParams@tuneParams[parameterName] <- parameter # Multiple values, so tune them.
-        } else { # Remove the parameter
-          inOther <- match(parameterName, names(classifierParams$predictParams@otherParams))
-          if(!is.na(inOther)) classifierParams$predictParams@otherParams <- classifierParams$predictParams@otherParams[-inOther]
-        } 
-      }
-    }    
+    classifierParams$trainParams <- .applyStageExtras(classifierParams$trainParams, extraParams[["train"]])
+    if(!is.null(classifierParams$predictParams))
+      classifierParams$predictParams <- .applyStageExtras(classifierParams$predictParams, extraParams[["predict"]])
 
     selectionMethod <- unlist(selectionMethod)
 
@@ -717,8 +730,8 @@ generateMultiviewParams <- function(assayIDs,
 
 }
 
-# measurements, outcome are mutually exclusive with x, outcomeTrain, measurementsTest, outcomeTest.
-CV <- function(measurements, outcome, x, outcomeTrain, measurementsTest, outcomeTest,
+# Cross-validation of one assay or combination of assays with one classifier and selection method.
+CV <- function(measurements, outcome,
                assayIDs,
                nFeatures,
                selectionMethod,
@@ -727,50 +740,40 @@ CV <- function(measurements, outcome, x, outcomeTrain, measurementsTest, outcome
                nFolds,
                nRepeats,
                nCores,
-               characteristicsLabel, extraParams, verbose)
+               characteristicsLabel, extraParams, verbose, queue = NULL)
 
 {
     # Which data-types or data-views are present?
     if(is.null(characteristicsLabel)) characteristicsLabel <- "none"
 
-    # Setup cross-validation parameters. Could be needed for independent train/test if parameter tuning
-    # is specified to be done by nested cross-validation.
+    # Cross-validations queued by one crossValidate call share the first one's seed and splits.
+    shared <- if(!is.null(queue)) queue$shared() else NULL
     crossValParams <- generateCrossValParams(nRepeats = nRepeats,
                                              nFolds = nFolds,
                                              nCores = nCores,
-                                             extraParams = extraParams)
+                                             extraParams = extraParams,
+                                             seed = shared[["seed"]])
     
 
     # Turn text into TrainParams and TestParams objects
     modellingParams <- generateModellingParams(assayIDs = assayIDs,
-                                               measurements = if(!is.null(measurements)) measurements else x,
+                                               measurements = measurements,
                                                nFeatures = nFeatures,
                                                selectionMethod = selectionMethod,
                                                classifier = classifier,
                                                multiViewMethod = multiViewMethod, extraParams = extraParams)
+    if(crossValParams@tuneMode == "none" && !is.null(modellingParams@trainParams@tuneParams))
+      stop("Training parameters ", paste(names(modellingParams@trainParams@tuneParams), collapse = ", "), " have several values to tune ",
+           "but no tuning mode is set. Specify extraParams = list(tuneCross = list(tuneMode = ..., performanceType = ...)).")
     
     if(length(assayIDs) > 1 || length(assayIDs) == 1 && assayIDs != 1) assayText <- assayIDs else assayText <- NULL
     characteristics <- S4Vectors::DataFrame(characteristic = c(if(!is.null(assayText)) "Assay Name" else NULL, "Classifier Name", "Selection Name", "multiViewMethod", "characteristicsLabel"), value = c(if(!is.null(assayText)) paste(assayText, collapse = ", ") else NULL, paste(classifier, collapse = ", "),  paste(selectionMethod, collapse = ", "), multiViewMethod, characteristicsLabel))
 
-    if(!is.null(measurements))
-    { # Cross-validation.
-      classifyResults <- runTests(measurements, outcome, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics, verbose = verbose)
-    } else { # Independent training and testing.
-      classifyResults <- runTest(x, outcomeTrain, measurementsTest, outcomeTest, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics)
-      if(is.character(classifyResults)) stop(classifyResults)
-      fullResult <- runTest(measurements, outcome, measurements, outcome, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics, .iteration = 1)
-      classifyResults@finalModel <- fullResult$models
-      class(classifyResults@finalModel) <- c("trainedByClassifyR", classifyResults@finalModel)
-      attr(classifyResults@finalModel, "predictFunction") <- modellingParams@trainParams@classifier
-    }
-    
-    classifyResults
-}
-
-simplifyResults <- function(results, values = c("assay", "classifier", "selectionMethod", "multiViewMethod")){
-    ch <- sapply(results, function(x) x@characteristics[x@characteristics$characteristic %in% values, "value"], simplify = TRUE)
-    ch <- data.frame(t(ch))
-    results[!duplicated(ch)]
+    if(!is.null(queue)) # Prepare it now and run it with the others in the queue; return its position in the queue.
+      return(queue$add(.prepareTests(measurements, outcome, crossValParams, modellingParams, characteristics, verbose,
+                                     splits = if(!is.null(shared) && shared[["nSamples"]] == nrow(measurements)) shared[["splits"]],
+                                     deferFinal = TRUE)))
+    runTests(measurements, outcome, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics, verbose = verbose)
 }
 
 #' @rdname crossValidate
@@ -820,173 +823,58 @@ train.DataFrame <- function(x, outcomeTrain, selectionMethod = "auto", nFeatures
               if(length(classifier) == 1 && classifier == "auto")
                 if(isCategorical) classifier <- "randomForest" else classifier <- "CoxPH"
 
-              classifier <- cleanClassifier(classifier = classifier, measurements = measurements)
+              nFeatures <- cleanNFeatures(nFeatures = nFeatures, measurements = measurements)
+              classifier <- cleanClassifier(classifier = classifier, measurements = measurements, nFeatures = nFeatures)
               selectionMethod <- cleanSelectionMethod(selectionMethod = selectionMethod, measurements = measurements)
-              if(assayIDs == "all") assayIDs <- unique(S4Vectors::mcols(measurements)$assay)
+              if(identical(assayIDs, "all")) assayIDs <- unique(S4Vectors::mcols(measurements)$assay)
               if(is.null(assayIDs)) assayIDs <- 1
               names(assayIDs) <- assayIDs
-              names(classifier) <- assayIDs
 
-              if(multiViewMethod == "none"){
-                  resClassifier <-
-                      sapply(assayIDs, function(assayIndex) {
-                          # Loop over assays
-                          sapply(classifier[[assayIndex]], function(classifierForAssay) {
-                              # Loop over classifiers
-                                sapply(selectionMethod[[assayIndex]], function(selectionForAssay) {
-                                  # Loop over selectors
-                              
-                                  measurementsUse <- measurements
-                                  if(assayIndex != 1) measurementsUse <- measurements[, S4Vectors::mcols(measurements)[, "assay"] == assayIndex, drop = FALSE]
-                                  
-                                  modellingParams <- generateModellingParams(assayIDs = assayIDs, measurements = measurements, nFeatures = nFeatures,
-                                                     selectionMethod = selectionMethod, classifier = classifier, multiViewMethod = "none", extraParams = extraParams)
+              # Parameter tuning, if requested, is done on the training samples alone.
+              tuneCross <- extraParams[["tuneCross"]]
+              crossValParams <- CrossValParams(parallelParams = BiocParallel::SerialParam(),
+                                               tuneMode = if(is.null(tuneCross)) "none" else tuneCross[["tuneMode"]],
+                                               performanceType = if(is.null(tuneCross)) "auto" else tuneCross[["performanceType"]])
 
-                                  if(!is.null(modellingParams@selectParams))
-                                  {
-                                    topFeatures <- .doSelection(measurementsUse, outcomeTrain, CrossValParams(), modellingParams, verbose = verbose)
-                                    selectedFeaturesIndices <- topFeatures[[2]] # Extract for subsetting.
-                                    tuneDetailsSelect <- topFeatures[[3]]
-                                    measurementsUse <- measurementsUse[, selectedFeaturesIndices]
-                                  } else {
-                                    tuneDetailsSelect <- NULL
-                                    measurementsUse <- measurements
-                                  }
-
-                                  classifierParams <- .classifierKeywordToParams(classifierForAssay, extraParams[["train"]][["tuneParams"]])
-                                  if(!is.null(extraParams) && "train" %in% names(extraParams))
-                                  {
-                                     for(paramIndex in seq_along(extraParams[["train"]]))
-                                     {
-                                        parameter <- extraParams[["train"]][[paramIndex]]
-                                        parameterName <- names(extraParams[["train"]])[paramIndex]
-                                        if(length(parameter) == 1)
-                                        {
-                                          if(is.null(classifierParams$trainParams@otherParams)) classifierParams$trainParams@otherParams <- extraParams[["train"]][paramIndex]
-                                          else classifierParams$trainParams@otherParams[parameterName] <- parameter
-                                        } else if (length(parameter) > 1) {
-                                          if(is.null(classifierParams$trainParams@tuneParams)) classifierParams$trainParams@tuneParams <- extraParams[["train"]][paramIndex]
-                                          else classifierParams$trainParams@tuneParams[parameterName] <- parameter # Multiple values, so tune them.
-                                        } else { # Remove the parameter
-                                          inOther <- match(parameterName, names(classifierParams$trainParams@otherParams))
-                                          inTune <- match(parameterName, names(classifierParams$trainParams@tuneParams))
-                                          if(!is.na(inOther)) classifierParams$trainParams@otherParams <- classifierParams$trainParams@otherParams[-inOther]
-                                          if(!is.na(inTune)) classifierParams$trainParams@tuneParams <- classifierParams$trainParams@otherParams[-inTune]
-                                        }
-                                      }
-                                    }
-                                  if(!is.null(extraParams) && "predict" %in% names(extraParams))
-                                  {
-                                      for(paramIndex in seq_along(extraParams[["predict"]]))
-                                      {
-                                        parameter <- extraParams[["predict"]][[paramIndex]]
-                                        parameterName <- names(extraParams[["predict"]])[paramIndex]
-                                        if(length(parameter) == 1)
-                                        {
-                                          if(is.null(classifierParams$predictParams@otherParams)) classifierParams$predictParams@otherParams <- extraParams[["predict"]][paramIndex]
-                                          else classifierParams$predictParams@otherParams[parameterName] <- parameter
-                                        } else if (length(parameter) > 1) {
-                                          if(is.null(classifierParams$predictParams@tuneParams)) classifierParams$predictParams@tuneParams <- extraParams[["predict"]][paramIndex]
-                                          else classifierParams$predictParams@tuneParams[parameterName] <- parameter # Multiple values, so tune them.
-                                        } else { # Remove the parameter
-                                          inOther <- match(parameterName, names(classifierParams$predictParams@otherParams))
-                                          inTune <- match(parameterName, names(classifierParams$predictParams@tuneParams))
-                                          if(!is.na(inOther)) classifierParams$predictParams@otherParams <- classifierParams$predictParams@otherParams[-inOther]
-                                          if(!is.na(inTune)) classifierParams$predictParams@tuneParams <- classifierParams$predictParams@otherParams[-inTune]
-                                        } 
-                                      }
-                                    }
-                                  
-                                  modellingParams <- ModellingParams(balancing = "none", selectParams = NULL,
-                                                                     trainParams = classifierParams$trainParams, predictParams = classifierParams$predictParams)
-                                  if(!is.null(tuneDetailsSelect))
-                                  {
-                                    tuneDetailsSelectUse <- tuneDetailsSelect[["tuneCombinations"]][tuneDetailsSelect[["bestIndex"]], , drop = FALSE]
-                                    avoidTune <- match(colnames(tuneDetailsSelectUse), names(modellingParams@trainParams@tuneParams))
-                                    if(any(!is.na(avoidTune)))
-                                    {
-                                      modellingParams@trainParams@otherParams <- c(modellingParams@trainParams@otherParams, tuneDetailsSelectUse[!is.na(avoidTune)])
-                                      modellingParams@trainParams@tuneParams <- modellingParams@trainParams@tuneParams[-na.omit(avoidTune)]
-                                      if(length(modellingParams@trainParams@tuneParams) == 0) modellingParams@trainParams@tuneParams <- NULL
-                                    }
-                                  }
-                                  
-                                  trained <- .doTrain(measurementsUse, outcomeTrain, NULL, NULL, CrossValParams(), modellingParams, verbose = verbose)[["model"]]
-                                  attr(trained, "predictFunction") <- classifierParams$predictParams@predictor
-                                  attr(trained, "featuresForTrain") <- colnames(measurementsUse)
-                                  trained
-                                  ## train model
-                                }, simplify = FALSE)
-                          }, simplify = FALSE)
-                      }, simplify = FALSE)
-
-                  models <- unlist(unlist(resClassifier, recursive = FALSE), recursive = FALSE)
-                  if(length(models) == 1) {
-                      model <- models[[1]]
-                      class(model) <- c("trainedByClassifyR", class(model))
-                      models <- NULL
-                  } else {
-                      class(models) <- c("listOfModels", "trainedByClassifyR", class(models))
-                  }
+              # Selects features and fits a model on all of the training samples, as runTests does for its final model.
+              fitModel <- function(measurementsUse, assayIndex, multiView, selectionUse, classifierUse)
+              {
+                modellingParams <- generateModellingParams(assayIDs = assayIndex, measurements = measurementsUse,
+                                                           nFeatures = nFeatures[assayIndex], selectionMethod = selectionUse,
+                                                           classifier = classifierUse, multiViewMethod = multiView, extraParams = extraParams)
+                if(is.null(modellingParams@predictParams))
+                  stop("Classifier ", paste(unlist(classifierUse), collapse = ", "), " trains and predicts in one step, so it can't be trained on its own.")
+                trained <- runTest(measurementsUse, outcomeTrain, measurementsUse, outcomeTrain, crossValParams = crossValParams,
+                                   modellingParams = modellingParams, verbose = verbose, .iteration = 1)
+                if(is.character(trained)) stop(trained)
+                model <- trained[["models"]]
+                attr(model, "predictFunction") <- modellingParams@predictParams@predictor
+                model
               }
 
-              ################################
-              #### Yes multiview
-              ################################
-
-              ### Merging or binding to combine data
-              if(multiViewMethod == "merge"){
-                  measurementsUse <- measurements[, S4Vectors::mcols(measurements)[["assay"]] %in% assayIDs, drop = FALSE]
-                  model <- .doTrain(measurementsUse, outcomeTrain, NULL, NULL, crossValParams, modellingParams, verbose = verbose)[["model"]]
-                  attr(model, "predictFunction") <- modellingParams@trainParams@classifier
-                  class(model) <- c("trainedByClassifyR", class(model))
-              }
-
-
-              ### Prevalidation to combine data
-              if(multiViewMethod == "prevalidation"){
-                # Split measurements up by assay.
-                 assayTrain <- sapply(assayIDs, function(assayID) measurements[, S4Vectors::mcols(measurements)[["assay"]] %in% assayID, drop = FALSE], simplify = FALSE)
-
-               # Generate params for each assay. This could be extended to have different selectionMethods for each type
-                 paramsAssays <- mapply(generateModellingParams,
-                                        nFeatures = nFeatures[assayIDs],
-                                        selectionMethod = selectionMethod[assayIDs],
-                                        assayIDs = assayIDs,
-                                        measurements = assayTrain[assayIDs],
-                                        classifier = classifier[assayIDs],
-                                        MoreArgs = list(multiViewMethod = "none"),
-                                 SIMPLIFY = FALSE)
-
-                 modellingParams <- ModellingParams(
-                                    balancing = "none",
-                                    selectParams = NULL,
-                                    trainParams = TrainParams(prevalTrainInterface, params = paramsAssays, characteristics = paramsAssays$clinical@trainParams@characteristics,
-                                                              getFeatures = prevalFeatures),
-                                    predictParams = PredictParams(prevalPredictInterface, characteristics = paramsAssays$clinical@predictParams@characteristics))
-                 model <- .doTrain(measurementsUse, outcomeTrain, NULL, NULL, crossValParams, modellingParams, verbose = verbose)[["model"]]
-                 attr(model, "predictFunction") <- modellingParams@trainParams@classifier
-                 class(model) <- c("trainedByClassifyR", class(model))
-              }
-              
-              ### Principal Components Analysis to combine data
-              if(multiViewMethod == "PCA"){
+              if(multiViewMethod == "none")
+              {
+                models <- unlist(lapply(assayIDs, function(assayIndex)
+                {
+                  measurementsUse <- measurements
+                  if(assayIndex != 1) measurementsUse <- measurements[, S4Vectors::mcols(measurements)[, "assay"] == assayIndex, drop = FALSE]
+                  unlist(lapply(classifier[[assayIndex]], function(classifierForAssay)
+                    lapply(selectionMethod[[assayIndex]], function(selectionForAssay)
+                      fitModel(measurementsUse, assayIndex, "none", selectionForAssay, classifierForAssay))), recursive = FALSE)
+                }), recursive = FALSE)
+              } else { # Merge, prevalidation or PCA combine all of the chosen assays into one model.
                 measurementsUse <- measurements[, S4Vectors::mcols(measurements)[["assay"]] %in% assayIDs, drop = FALSE]
-                paramsClinical <-  list(clinical = generateModellingParams(
-                                        assayIDs = "clinical",
-                                        measurements = measurements[, S4Vectors::mcols(measurements)[["assay"]] == "clinical", drop = FALSE],
-                                        classifier = classifier["clinical"],
-                                        multiViewMethod = "none"))
-                
-                modellingParams <- ModellingParams(balancing = "none", selectParams = NULL,
-                                   trainParams = TrainParams(pcaTrainInterface, params = paramsClinical, nFeatures = nFeatures, characteristics = paramsClinical$clinical@trainParams@characteristics,
-                                                             getFeatures = PCAfeatures),
-                                   predictParams = PredictParams(pcaPredictInterface, characteristics = paramsClinical$clinical@predictParams@characteristics))
-                model <- .doTrain(measurementsUse, outcomeTrain, NULL, NULL, crossValParams, modellingParams, verbose = verbose)[["model"]]
-                attr(model, "predictFunction") <- modellingParams@trainParams@classifier
-                class(model) <- c("trainedByClassifyR", class(model))
+                models <- list(fitModel(measurementsUse, assayIDs, multiViewMethod, selectionMethod[assayIDs], classifier[assayIDs]))
               }
-              if(missing(models) || is.null(models)) return(model) else return(models)
+
+              if(length(models) == 1)
+              {
+                model <- models[[1]]
+                class(model) <- c("trainedByClassifyR", class(model))
+                return(model)
+              }
+              class(models) <- c("listOfModels", "trainedByClassifyR", class(models))
+              models
           }
 
 #' @rdname crossValidate
@@ -1010,15 +898,20 @@ train.list <- function(x, outcomeTrain, ...)
                 if (!all(sapply(x, nrow) == length(outcomeTrain)) && !is.character(outcomeTrain))
                   stop("outcome must have same number of samples as measurements")
               
-              df_list <- sapply(x, S4Vectors::DataFrame)
+              # The samples of every table in the order of the first table's.
+              if(!is.null(rownames(x[[1]])))
+                x <- lapply(x, function(measurements) measurements[rownames(x[[1]]), , drop = FALSE])
+              df_list <- lapply(x, S4Vectors::DataFrame, check.names = FALSE)
               
+              # Features are named assay_feature, as crossValidate and predict name them.
               df_list <- mapply(function(meas, nam){
                   S4Vectors::mcols(meas)$assay <- nam
                   S4Vectors::mcols(meas)$feature <- colnames(meas)
+                  colnames(meas) <- paste(nam, colnames(meas), sep = '_')
                   meas
               }, df_list, names(df_list))
               
-              combined_df <- do.call(cbind, df_list)
+              combined_df <- do.call(cbind, unname(df_list))
               
               # Each list of tabular data has been collapsed into a DataFrame.
               # Will be subset to relevant assayIDs inside the DataFrame method.
@@ -1057,26 +950,34 @@ train.MultiAssayExperiment <- function(x, outcome, ...)
 #' @export
 predict.trainedByClassifyR <- function(object, newData, outcome, ...)
 {
-  if(is(newData, "tabular")) # Simply tabular data.
+  # Name the features of the new data as train() names them.
+  if(is(newData, "MultiAssayExperiment"))
   {
-    colnames(newData) <- make.names(colnames(newData)) # Ensure that feature names are syntactically valid, like during model fitting.
-    if(is.character(outcome)) outcome <- make.names(outcome)
-  } else if(is.list(newData) && !is(object, "listOfModels")) # Don't check all those conditions that train function does.
-  { # Merge the list of data tables and keep track of assay names in columns' metadata.
-    newData <- mapply(function(meas, nam){
-               S4Vectors::mcols(meas)$assay <- nam
-               S4Vectors::mcols(meas)$feature <- colnames(meas)
-               meas
-               }, newData, names(newData))
-    newData <- do.call(cbind, newData)
-    } else if(is(newData, "MultiAssayExperiment"))
+    newData <- prepareData(newData, outcome)[["measurements"]]
+  } else if(is(newData, "tabular")) {
+    newData <- S4Vectors::DataFrame(newData, check.names = FALSE)
+  } else if(is.list(newData)) { # Features of several assays are named assay_feature.
+    if(!is.null(rownames(newData[[1]]))) # The samples of every table in the order of the first table's.
+      newData <- lapply(newData, function(measurements) measurements[rownames(newData[[1]]), , drop = FALSE])
+    newData <- do.call(cbind, mapply(function(measurementsOne, assayID)
     {
-              newData <- prepareData(newData, outcome)[["measurements"]]
-    }
-    
-    predictFunctionUse <- attr(object, "predictFunction")
-    class(object) <- class(object)[-1] # Now want the predict method of the specific model to be picked, so put model class first.
-    if (is(object, "listOfModels")) 
-         mapply(function(model, assay) predictFunctionUse(model, assay), object, newData, MoreArgs = list(...), SIMPLIFY = FALSE)
-    else do.call(predictFunctionUse, list(object, newData, ...)) # Object is itself a trained model and it is assumed that a predict method is defined for it.
+      measurementsOne <- S4Vectors::DataFrame(measurementsOne, check.names = FALSE)
+      colnames(measurementsOne) <- paste(assayID, colnames(measurementsOne), sep = '_')
+      measurementsOne
+    }, newData, names(newData), SIMPLIFY = FALSE) |> unname())
+  }
+  colnames(newData) <- make.names(colnames(newData))
+
+  # Each model predicts from the features it was trained with.
+  predictOne <- function(model)
+  {
+    predictFunction <- attr(model, "predictFunction")
+    features <- attr(model, "featuresForTrain")
+    class(model) <- setdiff(class(model), "trainedByClassifyR")
+    if(!is.null(features)) newData <- newData[, features, drop = FALSE]
+    extras <- list(...)
+    if(!"verbose" %in% names(extras)) extras[["verbose"]] <- 0
+    do.call(predictFunction, c(list(model, newData), extras))
+  }
+  if(is(object, "listOfModels")) lapply(unclass(object), predictOne) else predictOne(object)
 }

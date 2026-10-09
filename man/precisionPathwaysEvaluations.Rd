@@ -41,12 +41,12 @@ strataPlot(precisionPathways, ...)
 \arguments{
 \item{precisionPathways}{A pathway of class \code{PrecisionPathways}.}
 
-\item{costs}{A named vector of assays with the cost of each one.}
+\item{costs}{A named vector of assays with the cost of each one. An assay that is not named costs nothing.}
 
 \item{object}{A set of pathways of class \code{PrecisionPathways}.}
 
-\item{weights}{A numeric vector of length two specifying how to weight the predictive accuracy
-and the cost during ranking. Must sum to 1.}
+\item{weights}{A numeric vector of length two named \code{"accuracy"} and \code{"cost"} specifying how to weight the predictive accuracy
+and the cost during ranking. Must sum to 1. An unnamed vector is taken to be in the order accuracy, cost.}
 
 \item{...}{Not used but just following the S3 requirement of the generic template.}
 
@@ -65,4 +65,9 @@ a default colour scheme will automatically be chosen.}
 }
 \description{
 These functions tabulate or plot various aspects of precision pathways, such as accuracies and costs.
+}
+\details{
+The cost of a pathway is the total cost of the assays done on all of the samples. A sample predicted at a particular tier
+had every assay of the pathway up to and including that tier done, so it is charged the cost of each of those assays.
+For example, a sample predicted by the second assay of the pathway clinical-RNA costs the price of clinical data plus the price of RNA.
 }

@@ -182,6 +182,14 @@ independent validation data set.
 \code{classifier} can be any a keyword for any of the implemented approaches as shown by \code{available()}.
 \code{selectionMethod} can be a keyword for any of the implemented approaches as shown by \code{available("selectionMethod")}.
 \code{multiViewMethod} can be a keyword for any of the implemented approaches as shown by \code{available("multiViewMethod")}.
+
+Every assay, classifier, selection method and combination of assays in one call is evaluated on the same
+training and test splits, so their performances can be compared sample by sample and split by split.
+
+If \code{nFeatures} has several values and no tuning mode is given in \code{extraParams}, the number of features is
+chosen by resubstitution: the classifier is trained and evaluated on the training samples for each value. Classifiers
+that fit their training samples perfectly (e.g. random forest) give every value the same performance, and then the
+smallest value is chosen.
 }
 \examples{
 

@@ -6,6 +6,8 @@ pairsDifferencesRanking <- function(measurementsTrain, classesTrain, featurePair
     stop("No feature pairs provided but some must be.")
   if(!"Pairs" %in% class(featurePairs))
     stop("'featurePairs' must be of type Pairs.")
+  if(nlevels(classesTrain) != 2)
+    stop("Pairs differences ranking is for two classes but 'classesTrain' has ", nlevels(classesTrain), " levels.")
   
   suppliedPairs <- length(featurePairs)
   keepPairs <- S4Vectors::first(featurePairs) %in% colnames(measurementsTrain) & S4Vectors::second(featurePairs) %in% colnames(measurementsTrain)

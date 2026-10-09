@@ -103,7 +103,7 @@ mixModelsPredict <- function(models, measurementsTest, difference = c("unweighte
   }) # Matrix, rows are test samples, columns are features.
   if(!is.matrix(distancesVertical)) distancesVertical <- matrix(distancesVertical, nrow = 1)
 
-  if(difference == "crossover distance")
+  if(weighting == "crossover distance") # Also used to decide which features vote, for either type of difference.
   {
     if(verbose == 3)
       message(Sys.time(), ": Calculating horizontal distances to crossover points of class densities.")
