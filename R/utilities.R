@@ -728,10 +728,11 @@ predict.dlda <- function(object, newdata, ...) { # Remove once sparsediscrim is 
   
   if(!is.null(fixed))
   {
+    if(!is.matrix(permutations)) permutations <- matrix(permutations, ncol = 1)
     for(rowIndex in seq_len(nrow(fixed)))
     {
       keepColumns <- permutations[fixed[rowIndex, 1], ] == fixed[rowIndex, 2]
-      permutations <- permutations[, keepColumns]
+      permutations <- permutations[, keepColumns, drop = FALSE]
     }
   }
   permutations
