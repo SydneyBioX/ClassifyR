@@ -5,7 +5,7 @@
 \alias{SelectParams}
 \alias{SelectParams-class}
 \alias{SelectParams,missing-method}
-\alias{SelectParams,characterOrList-method}
+\alias{SelectParams,functionOrCharacterOrList-method}
 \alias{show,SelectParams-method}
 \title{Parameters for Feature Selection}
 \description{
@@ -18,7 +18,7 @@ feature selection. The empty constructor is provided for convenience.
 \describe{
 \item{\code{SelectParams(featureRanking, characteristics = DataFrame(), nFeatures = 20, minPresence = 1, intermediate = character(0), subsetToSelections = TRUE, tuneParams = list(nFeatures = seq(10, 100, 10)), ...)}}{Creates a \code{SelectParams} object which stores the function(s) which will do the selection and parameters that the function will use.\cr
     \describe{
-        \item{\code{featureRanking}}{A character keyword referring to a registered feature ranking function. See \code{\link{available}} for valid keywords.}
+        \item{\code{featureRanking}}{A character keyword referring to a registered feature ranking function, a feature ranking function or a list of either. See \code{\link{available}} for valid keywords. A ranking function must accept the training measurements and outcome as its first two arguments and return the features ranked from best to worst. The keyword \code{"none"} returns \code{NULL}, which \code{\link{ModellingParams}} accepts as no feature selection.}
         \item{\code{characteristics}}{A \code{\link{DataFrame}} describing the characteristics of feature selection to be done. First column must be named \code{"charateristic"} and second column must be named \code{"value"}. If using wrapper functions for feature selection in this package, the feature selection name will automatically be generated and therefore it is not necessary to specify it.}
         \item{\code{nFeatures}}{Default: \code{20}. The number of top-ranked features to choose. Can also be \code{NULL} if a vector of top numbers is specified to \code{tuneParams} for the list element named \code{nFeatures}.}
         \item{\code{minPresence}}{Default: \code{1}. If a list of functions was provided, how many of those must a feature have been selected by to be used in classification. 1 is equivalent to a set union and a number the same length as \code{featureSelection} is equivalent to set intersection.}

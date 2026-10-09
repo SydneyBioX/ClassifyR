@@ -2,6 +2,56 @@
 \title{ClassifyR News}
 \encoding{UTF-8}
 
+\section{Version 3.17.2}{\itemize{
+  \item
+  All assays, classifiers, selection methods and combinations of assays in one \code{crossValidate} call are evaluated
+  on the same training and test splits, so their results can be compared sample by sample. Results of every
+  cross-validation after the first in a call differ from earlier versions.
+  \item
+  \code{crossValidate} runs the splits of all of its cross-validations, and their final models, in one pool of
+  parallel workers that is reused within an R session. Results are the same for any number of cores. \code{nCores} is
+  honoured on macOS.
+  \item
+  \code{selectionMethod} is used for \code{MultiAssayExperiment} and list input.
+  \item
+  DLDA subtracts twice the log prior probability of each class (it added it, favouring smaller classes) and computes
+  posterior probabilities on the log scale.
+  \item
+  The GLM classifier fits an intercept.
+  \item
+  Cox elastic net ranks features by the absolute value of their coefficients. Its tuning of lambda by C-index counts
+  concordant pairs of all values of lambda at once, giving the same choice as \code{cv.glmnet}.
+  \item
+  Test data of penalised GLM, Cox elastic net and XGBoost are encoded with the training data's columns and factor
+  levels. XGBoost uses the xgboost 3 interface.
+  \item
+  \code{calcExternalPerformance} matches predicted and actual classes by name and accepts several performance types.
+  \item
+  Sample-wise C-index, AUC and ROC curves are computed with vectorised code; their values are unchanged.
+  \item
+  Precision pathways: models are matched to assays by name; the cost of a pathway includes every tier a sample passed
+  through; prediction applies the stored models directly and doesn't need the classes of the new samples; the
+  confidence cut-off is a minimum (\code{>=}).
+  \item
+  \code{crissCrossValidate}: the diagonal of \code{trainType = "modelTest"} is the cross-validation of each data set;
+  data sets are restricted to their shared features; TOP is only needed when \code{runTOP = TRUE}.
+  \item
+  \code{train} and \code{predict} work for several assays and for merge, prevalidation and PCA, and match features by
+  name. The \code{runTest} method for \code{MultiAssayExperiment} works.
+  \item
+  Nested cross-validation tunes classifier parameters; tuning keeps the other training settings; tuning ranges without
+  a tuning mode are an error.
+  \item
+  Classifiers and options that failed on any input work: k nearest neighbours, Fisher discriminant, k-TSP, Poisson
+  LDA, crossover distance weighting of naive Bayes and mixtures of normals, \code{nFeatures = 1}, percentage splits,
+  \code{prepareData}'s \code{topNvariance} and \code{maxSimilarity}, \code{ROCplot(mode = "average")}, and several
+  options of \code{samplesMetricMap}, \code{rankingPlot} and \code{selectionPlot}.
+  \item
+  Plotting functions don't change the global ggplot2 theme.
+  \item
+  A test suite covers each classifier and selection keyword and each of the above.
+}}
+
 \section{Version 3.14.0}{\itemize{
   \item
   Precision pathways gains an all-combinations-of-all-subsets mode.
