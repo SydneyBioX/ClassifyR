@@ -139,3 +139,51 @@ test_that("kNN returns a factor with the training levels, also for one test samp
     expect_equal(nrow(one), 1)
   }
 })
+
+test_that("Fisher discriminant classifies two classes and rejects more", {
+  data <- makeTwoClass(shift = 3)
+  train <- asDataFrame(data$measurements[1:40, 1:5])
+  test <- asDataFrame(data$measurements[41:60, 1:5])
+  predicted <- ClassifyR:::fisherDiscriminant(train, data$classes[1:40], test, verbose = 0)
+  expect_equal(nrow(predicted), 20)
+  expect_gt(mean(predicted[, "class"] == data$classes[41:60]), 0.8)
+  # The pooled variance is weighted by the class sizes.
+  trainMatrix <- as.matrix(train)
+  isA <- data$classes[1:40] == "A"
+  pooled <- (19 * apply(trainMatrix[isA, ], 2, var) + 19 * apply(trainMatrix[!isA, ], 2, var)) / 38
+  direction <- (colMeans(trainMatrix[isA, ]) - colMeans(trainMatrix[!isA, ])) / pooled
+  expect_equal(unname(predicted[, "score"]), unname(-1 * as.matrix(test) %*% direction)[, 1])
+  threeClasses <- factor(rep(c("A", "B", "C"), length.out = 40))
+  expect_error(ClassifyR:::fisherDiscriminant(train, threeClasses, test, verbose = 0), "two classes")
+})
+
+test_that("k-TSP classifier predicts with feature pairs", {
+  data <- makeTwoClass(shift = 3)
+  # The pairs reverse their order between the classes.
+  data$measurements[data$classes == "A", 1:3] <- data$measurements[data$classes == "A", 1:3] - 3
+  train <- asDataFrame(data$measurements[1:40, ])
+  test <- asDataFrame(data$measurements[41:60, ])
+  pairs <- S4Vectors::Pairs(c("g1", "g2", "g3"), c("g10", "g11", "g12"))
+  for(difference in c("unweighted", "weighted"))
+  {
+    predicted <- ClassifyR:::kTSPclassifier(train, data$classes[1:40], test, featurePairs = pairs,
+                                            difference = difference, verbose = 0)
+    expect_equal(nrow(predicted), 20)
+    expect_gt(mean(predicted[, "class"] == data$classes[41:60]), 0.8)
+  }
+  threeClasses <- factor(rep(c("A", "B", "C"), length.out = 40))
+  expect_error(ClassifyR:::kTSPclassifier(train, threeClasses, test, featurePairs = pairs, verbose = 0), "two classes")
+})
+
+test_that("Poisson LDA classifies counts", {
+  skip_if_not_installed("PoiClaClu")
+  set.seed(9)
+  classes <- factor(rep(c("A", "B"), each = 20))
+  counts <- matrix(rpois(40 * 20, 20), 40, 20, dimnames = list(paste0("s", 1:40), paste0("g", 1:20)))
+  counts[classes == "B", 1:5] <- rpois(20 * 5, 60)
+  train <- asDataFrame(counts[c(1:15, 21:35), ])
+  test <- asDataFrame(counts[c(16:20, 36:40), ])
+  predicted <- ClassifyR:::classifyInterface(train, classes[c(1:15, 21:35)], test, verbose = 0)
+  expect_equal(levels(predicted[, "class"]), c("A", "B"))
+  expect_equal(as.character(predicted[, "class"]), rep(c("A", "B"), each = 5))
+})
