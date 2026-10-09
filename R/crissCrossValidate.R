@@ -25,9 +25,14 @@
 #' @param runTOP Default: \code{FALSE}. If \code{TRUE}, perform the Transferable Omics Prediction (TOP) procedure in a leave-one-dataset-out manner. 
 #' @param verbose Default: 0. A number between 0 and 3 for the amount of progress messages to give.  A higher number will produce more messages.
 #' 
+#' @details Only the features measured in every data set are used. For \code{trainType = "modelTrain"}, the diagonal of
+#' the performance matrix is resubstitution: the model is evaluated on the data set it was trained on. For
+#' \code{trainType = "modelTest"}, the diagonal is the cross-validated performance of feature selection and
+#' training within that data set. If \code{nFeatures} has several values, the random feature baseline uses the largest one.
 #' @return A list with elements \code{"real"} for the matrix of pairwise performance metrics using real
 #' feature selection, \code{"random"} if \code{doRandomFeatures} is \code{TRUE} for metrics of random selection, 
-#' \code{"top"} if \code{runTOP} is \code{TRUE}, and \code{"params"} for a list of parameters used.
+#' \code{"top"} if \code{runTOP} is \code{TRUE}, and \code{"params"} for a list of parameters used. The element
+#' \code{"diagonal"} of \code{"params"} states how the diagonal was evaluated.
 #'
 #' @author Harry Robertson
 #' @export
@@ -45,27 +50,34 @@ crissCrossValidate <- function(measurements, outcomes,
                                nCores = 1,
                                verbose = 0)
 {
-    if(!requireNamespace("TOP", quietly = TRUE))
+    if(runTOP && !requireNamespace("TOP", quietly = TRUE))
         stop("The package 'TOP' could not be found. Please install it.")
     
     trainType <- match.arg(trainType)
-    extraParams <- NULL
-    if(length(nFeatures) > 1) # Tune the choice of top number of features.
-    {
-      extraParams <- list(tuneCross = list(tuneMode = selectionOptimisation, performanceType = performanceType))
-    }
     
-    if(!is.list(measurements)) stop("'measurements' is not of type list but is of type", class(measurements))
+    if(!is.list(measurements)) stop("'measurements' is not of type list but is of type ", class(measurements)[1])
     if(is.null(names(measurements))) stop("Each element of 'measurements' must be named by the name of the data set.")
-    if(!is.list(outcomes)) stop("'outcomes' is not of type list but is of type", class(outcomes))
+    if(!is.list(outcomes)) stop("'outcomes' is not of type list but is of type ", class(outcomes)[1])
+    if(length(outcomes) != length(measurements)) stop("'outcomes' must have one element for each data set in 'measurements'.")
     
-    isCategorical <- is.character(outcomes[[1]]) && 
-        (length(outcomes[[1]]) == 1 || length(outcomes[[1]]) == nrow(measurements[[1]])) ||
-        is.factor(outcomes[[1]])
+    categorical <- mapply(function(measurementsOne, outcomesOne)
+    {
+        is.character(outcomesOne) && (length(outcomesOne) == 1 || length(outcomesOne) == nrow(measurementsOne)) ||
+        is.factor(outcomesOne)
+    }, measurements, outcomes)
+    if(length(unique(categorical)) > 1)
+        stop("Some data sets have a categorical outcome and others have a survival outcome. All must be the same kind.")
+    isCategorical <- categorical[1]
     
     # If user didn't specify performanceType, choose "Balanced Accuracy" for classification else "C-index" for survival
     if(performanceType == "auto") {
         if(isCategorical) performanceType <- "Balanced Accuracy" else performanceType <- "C-index"
+    }
+    
+    extraParams <- NULL
+    if(length(nFeatures) > 1) # Tune the choice of top number of features.
+    {
+      extraParams <- list(tuneCross = list(tuneMode = selectionOptimisation, performanceType = performanceType))
     }
     # If user left selectionMethod as "auto", pick t-test for categorical or CoxPH for survival
     if(length(selectionMethod) == 1 && selectionMethod == "auto") {
@@ -75,6 +87,9 @@ crissCrossValidate <- function(measurements, outcomes,
     if(length(classifier) == 1 && classifier == "auto") {
         if(isCategorical) classifier <- "randomForest" else classifier <- "CoxPH"
     }
+    
+    # Models are trained on one data set and applied to the others, so only features measured in every data set are used.
+    measurements <- .keepSharedFeatures(measurements)
     
     # Keep a copy of the original measurements/outcomes if runTOP is requested
     if (runTOP) {
@@ -86,7 +101,7 @@ crissCrossValidate <- function(measurements, outcomes,
         prepareData(measurementsOne, outcomesOne)
     }, measurements, outcomes, SIMPLIFY = FALSE)
     
-    measurements <- lapply(dataCleaned, "[[", 1)
+    measurements <- .keepSharedFeatures(lapply(dataCleaned, "[[", 1))
     outcomes <- lapply(dataCleaned, "[[", 2)
     
     if (trainType == "modelTrain") {
@@ -107,7 +122,7 @@ crissCrossValidate <- function(measurements, outcomes,
         # Predict on each dataset
         performanceAllPairs <- lapply(trainedModels, function(trainedModel) {
             mapply(function(testData, testOutcomes) {
-                predictions <- predict(trainedModel, testData[, attr(trainedModel, "featuresForTrain")], outcome = NULL, verbose = verbose)
+                predictions <- predict(trainedModel, testData[, attr(trainedModel, "featuresForTrain"), drop = FALSE], outcome = NULL, verbose = verbose)
                 
                 if (performanceType == "AUC") {
                     # Must have columns named after each factor level for multi-class AUC
@@ -165,9 +180,12 @@ crissCrossValidate <- function(measurements, outcomes,
         # Build cross-validation parameters
         crossValParams <- generateCrossValParams(nRepeats, nFolds, nCores, extraParams)
         
-        # Evaluate each "trainedModel" on all datasets
-        performanceAllPairs <- lapply(trainedModels, function(trainedModel) {
-            mapply(function(measurementsOne, outcomesOne) {
+        # Evaluate each "trainedModel" on all datasets. On the diagonal, the features chosen in a data set
+        # would be evaluated on the same samples, so the cross-validation of that data set is used instead.
+        performanceAllPairs <- mapply(function(trainedModel, trainName) {
+            mapply(function(measurementsOne, outcomesOne, testName) {
+                if(testName == trainName)
+                    return(mean(performance(calcCVperformance(trainedModel, performanceType))[[performanceType]]))
                 classifierParams <- .classifierKeywordToParams(classifier, NULL)
                 modellingParams <- ModellingParams(
                     selectParams = SelectParams("previousSelection",
@@ -180,8 +198,8 @@ crissCrossValidate <- function(measurements, outcomes,
                 result <- runTests(measurementsOne, outcomesOne, crossValParams, modellingParams)
                 avgPerf <- mean(performance(calcCVperformance(result, performanceType))[[performanceType]])
                 avgPerf
-            }, measurements, outcomes, SIMPLIFY = FALSE)
-        })
+            }, measurements, outcomes, names(measurements), SIMPLIFY = FALSE)
+        }, trainedModels, names(trainedModels), SIMPLIFY = FALSE)
         
         realPerformance <- matrix(
             unlist(performanceAllPairs),
@@ -197,16 +215,17 @@ crissCrossValidate <- function(measurements, outcomes,
     
     if (doRandomFeatures) {
         message("Starting random feature selection procedure.")
-        # For each dataset, pick random features (nFeatures)
+        # For each dataset, pick random features. If several values of nFeatures are tuned, the largest is used.
+        nRandom <- min(max(nFeatures), ncol(measurements[[1]]))
         randomFeatures <- lapply(measurements, function(dataset) {
-            sample(colnames(dataset), nFeatures)
+            sample(colnames(dataset), nRandom)
         })
         
         performanceAllPairs <- lapply(randomFeatures, function(randomFeaturesSet) {
             mapply(function(testData, testOutcomes) {
                 resultRand <- crossValidate(testData[, randomFeaturesSet, drop = FALSE],
                                             testOutcomes,
-                                            nFeatures       = nFeatures,
+                                            nFeatures       = nRandom,
                                             selectionMethod = "none",
                                             classifier      = classifier,
                                             multiViewMethod = "none",
@@ -289,21 +308,38 @@ crissCrossValidate <- function(measurements, outcomes,
                           trainType             = trainType,
                           performanceType       = performanceType,
                           doRandomFeatures      = doRandomFeatures,
-                          runTOP                = runTOP)
+                          runTOP                = runTOP,
+                          diagonal              = if(trainType == "modelTrain") "resubstitution" else "cross-validation")
     
     result
+}
+
+# Subset every data set to the features measured in all of them.
+.keepSharedFeatures <- function(measurements)
+{
+    sharedFeatures <- Reduce(intersect, lapply(measurements, colnames))
+    if(length(sharedFeatures) == 0)
+        stop("The data sets have no features in common.")
+    nUnshared <- sapply(measurements, ncol) - length(sharedFeatures)
+    if(any(nUnshared > 0))
+        message("Using the ", length(sharedFeatures), " features present in every data set. Features not used per data set: ",
+                paste(names(measurements), nUnshared, sep = " ", collapse = ", "), ".")
+    lapply(measurements, function(measurementsOne) measurementsOne[, sharedFeatures, drop = FALSE])
 }
 
 #' A function to plot the output of the crissCrossValidate function.
 #'
 #' This function generates a heatmap of the cross-validation results from
-#' \code{\link{crissCrossValidate}}. By default, it hides the "resubstitution" diagonal
-#' (where the training == test set) unless \code{showResubMetric = TRUE}.
+#' \code{\link{crissCrossValidate}}. For \code{trainType = "modelTrain"}, the diagonal
+#' (where the training set is the test set) is resubstitution and is hidden unless \code{showResubMetric = TRUE}.
+#' For \code{trainType = "modelTest"}, the diagonal is cross-validation within each data set; it is shown and
+#' outlined in black.
 #'
 #' @param crissCrossResult The output of the \code{\link{crissCrossValidate}} function.
 #' @param includeValues Logical. If \code{TRUE}, numeric values are printed on each tile.
-#' @param showResubMetric Logical. If \code{FALSE}, the diagonal (resubstitution) cells
+#' @param showResubMetric Logical. If \code{FALSE}, the diagonal (resubstitution) cells of a \code{"modelTrain"} result
 #'        are set to \code{NA} and appear grayed-out or blank. Defaults to \code{FALSE}.
+#' @return A \code{ggplot} object, or a combined plot of two heatmaps if random features were evaluated.
 #'
 #' @import ggplot2
 #' @import reshape2
@@ -313,22 +349,24 @@ crissCrossPlot <- function(crissCrossResult,
                            includeValues    = FALSE,
                            showResubMetric  = FALSE)
 {
-    # We'll attach for convenience
-    attach(crissCrossResult)
-    on.exit(detach(crissCrossResult), add = TRUE)
-    
+    params <- crissCrossResult[["params"]]
     scalebar_title <- params$performanceType
+    # Results created before the diagonal was recorded have a resubstitution diagonal.
+    isResubstitution <- !identical(params$diagonal, "cross-validation")
+    diagonalText <- if(isResubstitution) "resubstitution" else "cross-validation within the data set"
     
     # Helper function: turn matrix into heatmap
     plotMatrix <- function(mat, xlab_text, ylab_text) {
         # Convert to matrix if needed
         mat <- as.matrix(mat)
         
-        if (!showResubMetric) {
+        if (isResubstitution && !showResubMetric) {
             diag(mat) <- NA
         }
         
         melted_df <- reshape2::melt(mat, na.rm = FALSE, value.name = "value")
+        diagonalIndices <- cbind(seq_len(min(dim(mat))), seq_len(min(dim(mat))))
+        diagonal_df <- data.frame(Var1 = rownames(mat)[diagonalIndices[, 1]], Var2 = colnames(mat)[diagonalIndices[, 2]])
         
         gg <- ggplot(melted_df, aes(x = Var1, y = Var2, fill = value)) +
             geom_tile(color = "white") +
@@ -351,6 +389,12 @@ crissCrossPlot <- function(crissCrossResult,
             ) +
             coord_fixed()
         
+        if (!isResubstitution || showResubMetric) {
+            gg <- gg + geom_tile(data = diagonal_df, aes(x = Var1, y = Var2), inherit.aes = FALSE,
+                                 fill = NA, colour = "black", linewidth = 0.5) +
+                labs(caption = paste("Diagonal:", diagonalText))
+        }
+        
         if (includeValues) {
             gg <- gg + geom_text(aes(label = round(value, 3)), color = "black", size = 3, na.rm = TRUE)
         }
@@ -359,20 +403,20 @@ crissCrossPlot <- function(crissCrossResult,
     
     if (params$trainType == "modelTrain") {
         
-        mainMatrix <- real
-        if ("top" %in% names(crissCrossResult)) {  # If runTOP is TRUE and we have result$top, append it as an extra row
-            mainMatrix <- rbind(mainMatrix, crissCrossResult$top)
+        mainMatrix <- crissCrossResult[["real"]]
+        if (!is.null(crissCrossResult[["top"]])) {  # If runTOP is TRUE and we have result$top, append it as an extra row
+            mainMatrix <- rbind(mainMatrix, crissCrossResult[["top"]])
         }
         
         heatmapObj <- plotMatrix(mainMatrix, "Training Dataset", "Testing Dataset")
         
     } else if (params$trainType == "modelTest") {
         # Real is "Features Extracted" vs. "Cross-validate"
-        mainMatrix <- real
+        mainMatrix <- crissCrossResult[["real"]]
         heatmapObj1 <- plotMatrix(mainMatrix, "Features Extracted", "Dataset Tested")
         
-        if (params$doRandomFeatures == TRUE && exists("random")) {
-            heatmapObj2 <- plotMatrix(random, "Random Features", "Dataset Tested")
+        if (isTRUE(params$doRandomFeatures) && !is.null(crissCrossResult[["random"]])) {
+            heatmapObj2 <- plotMatrix(crissCrossResult[["random"]], "Random Features", "Dataset Tested")
             heatmapObj <- ggarrange(
                 heatmapObj1,
                 heatmapObj2,
@@ -386,5 +430,5 @@ crissCrossPlot <- function(crissCrossResult,
         }
     }
     
-    print(heatmapObj)
+    heatmapObj
 }
