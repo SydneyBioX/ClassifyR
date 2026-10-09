@@ -491,46 +491,70 @@ generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams, seed =
        shared = function() shared)
 }
 
-# Parallel workers for nCores cores, made once per call by .poolApply after the data are prepared: forked processes
-# on Linux and macOS, which share the main session's data without copying it, and socket workers on Windows, which
-# are sent the data once each.
+# Parallel workers for nCores cores, started once per call by .poolApply after the data are prepared: forked
+# processes on Linux and macOS (MulticoreParam), which share the main session's data without copying it, and socket
+# workers on Windows (SnowParam), which are sent the data once each.
 .makeWorkerPool <- function(nCores, nTasks)
 {
   structure(list(workers = as.integer(max(1, min(nCores, nTasks))),
                  type = if(.Platform$OS.type == "windows") "PSOCK" else "FORK"), class = "workerPool")
 }
 
-# lapply(X, FUN) on the workers of pool. FUN is left in .ClassifyRenvir of each worker (by forking, or sent once to
-# each socket worker), so only the elements of X and the results are passed between processes. The random number
-# state of the main session is the same afterwards as before.
+# lapply(X, FUN) on the workers of pool. Only the elements of X and the results are passed between processes: forked
+# workers find FUN in their copy of .ClassifyRenvir, and BiocParallel sends FUN once to each socket worker. The random
+# number state of the main session is the same afterwards as before.
 .poolApply <- function(X, FUN, pool)
 {
   previousSeed <- if(exists(".Random.seed", envir = globalenv())) get(".Random.seed", envir = globalenv())
   on.exit(if(is.null(previousSeed)) suppressWarnings(rm(".Random.seed", envir = globalenv())) else
             assign(".Random.seed", previousSeed, envir = globalenv()))
   if(pool[["workers"]] == 1) return(lapply(X, FUN))
-  
-  assign("currentTask", FUN, envir = .ClassifyRenvir)
-  on.exit(rm("currentTask", envir = .ClassifyRenvir), add = TRUE)
-  if(pool[["type"]] == "FORK")
+
+  # Linear algebra and OpenMP use one thread in each worker. A multithreaded BLAS such as OpenBLAS otherwise starts
+  # one thread per core in every worker, and the workers slow each other down many times; OpenMP code (e.g.
+  # randomForestSRC) in a forked worker can wait forever for threads of this session that the worker doesn't have.
+  # Forked workers inherit the settings of this session, so they are changed here, before the workers start; changing
+  # BLAS's inside a worker would first restart all of its threads. Socket workers are new R sessions and read them
+  # from environment variables when they start. Each setting is changed only if the session uses more than one
+  # thread, because restoring several BLAS threads afterwards starts them again.
+  blasThreads <- RhpcBLASctl::blas_get_num_procs()
+  if(isTRUE(blasThreads > 1))
   {
-    workers <- parallel::makeForkCluster(pool[["workers"]])
-  } else {
-    workers <- parallel::makePSOCKcluster(pool[["workers"]])
-    # The same package libraries as this session, then the task function. The functions sent have the global
-    # environment as theirs, so that this call's data aren't sent along with them.
-    setLibraries <- function(paths) { base::.libPaths(paths); NULL }
-    setTask <- function(task) { assign("currentTask", task, envir = get(".ClassifyRenvir", envir = asNamespace("ClassifyR"))); NULL }
-    environment(setLibraries) <- environment(setTask) <- globalenv()
-    parallel::clusterCall(workers, setLibraries, .libPaths())
-    parallel::clusterCall(workers, setTask, FUN)
+    RhpcBLASctl::blas_set_num_threads(1)
+    on.exit(RhpcBLASctl::blas_set_num_threads(blasThreads), add = TRUE)
   }
-  on.exit(parallel::stopCluster(workers), add = TRUE)
-  runTask <- function(element) get("currentTask", envir = .ClassifyRenvir)(element)
-  environment(runTask) <- asNamespace("ClassifyR") # Sent to workers as a reference, not with this call's data.
+  ompThreads <- RhpcBLASctl::omp_get_max_threads()
+  if(isTRUE(ompThreads > 1))
+  {
+    RhpcBLASctl::omp_set_num_threads(1)
+    on.exit(RhpcBLASctl::omp_set_num_threads(ompThreads), add = TRUE)
+  }
   # Tasks are handed out in chunks as workers become free, about eight chunks per worker: enough for quick and slow
   # tasks to balance out, and few enough that workers don't wait long for the main process to send the next chunk.
-  parallel::parLapplyLB(workers, X, runTask, chunk.size = max(1L, ceiling(length(X) / (8L * pool[["workers"]]))))
+  nChunks <- min(length(X), 8L * pool[["workers"]])
+  if(pool[["type"]] == "FORK")
+  {
+    assign("currentTask", FUN, envir = .ClassifyRenvir)
+    on.exit(rm("currentTask", envir = .ClassifyRenvir), add = TRUE)
+    runTask <- function(element) get("currentTask", envir = .ClassifyRenvir)(element)
+    environment(runTask) <- asNamespace("ClassifyR") # Sent to workers as a reference, not with this call's data.
+    workers <- BiocParallel::MulticoreParam(pool[["workers"]], tasks = nChunks)
+  } else {
+    # The workers use the same package libraries as this session, and one thread for linear algebra and OpenMP.
+    variables <- c("R_LIBS", "OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS")
+    previousVariables <- Sys.getenv(variables, unset = NA)
+    on.exit(for(variable in variables)
+              if(is.na(previousVariables[[variable]])) Sys.unsetenv(variable) else
+                do.call(Sys.setenv, as.list(previousVariables[variable])), add = TRUE)
+    Sys.setenv(R_LIBS = paste(.libPaths(), collapse = .Platform$path.sep), OPENBLAS_NUM_THREADS = 1, OMP_NUM_THREADS = 1)
+    runTask <- FUN
+    workers <- BiocParallel::SnowParam(pool[["workers"]], type = "SOCK", tasks = nChunks)
+  }
+  # The workers are started once, so that each chunk of tasks is run by a process that already exists. Without
+  # bpstart, bplapply would start a new process for every chunk.
+  BiocParallel::bpstart(workers)
+  on.exit(BiocParallel::bpstop(workers), add = TRUE)
+  BiocParallel::bplapply(X, runTask, BPPARAM = workers)
 }
 
 # Runs the splits of every queued cross-validation in one pool of workers and replaces each queue position in
