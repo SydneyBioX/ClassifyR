@@ -8,26 +8,30 @@ penalisedGLMtrainInterface <- function(measurementsTrain, classesTrain, lambda =
     message(Sys.time(), ": Fitting elastic net regularised GLM classifier to data.")
 
   # One-hot encoding needed.    
-  measurementsTrain <- MatrixModels::model.Matrix(~ 0 + ., data = measurementsTrain)
+  measurementsTrain <- .encodeTrain(measurementsTrain)
   fitted <- glmnet::glmnet(measurementsTrain, classesTrain, family = "multinomial", lambda = lambda,
                            weights = as.numeric(1 / (table(classesTrain)[classesTrain] / length(classesTrain))), ...)
   # Inverse class size weighting needed to give decent predictions when class imbalance.
   
   if(is.null(lambda) || length(lambda) > 1) # fitted has numerous models for a range of lambda values.
   { # Pick one lambda based on resubstitution performance. But not the one that makes all variables excluded from model.
-    lambdaConsider <- colSums(as.matrix(fitted[["beta"]][[1]])) != 0
-    bestLambda <- fitted[["lambda"]][lambdaConsider][which.min(sapply(fitted[["lambda"]][lambdaConsider], function(lambda) # Largest Lambda with minimum balanced error rate.
+    lambdaConsider <- fitted[["lambda"]][colSums(as.matrix(fitted[["beta"]][[1]])) != 0]
+    # Predictions for all lambda values at once. A column for each lambda.
+    lambdasPredictions <- as.matrix(predict(fitted, measurementsTrain, s = lambdaConsider, type = "class"))
+    balancedErrors <- apply(lambdasPredictions, 2, function(lambdaPredictions)
     {
-      classPredictions <- factor(as.character(predict(fitted, measurementsTrain, s = lambda, type = "class")), levels = fitted[["classnames"]])
+      classPredictions <- factor(as.character(lambdaPredictions), levels = fitted[["classnames"]])
       calcExternalPerformance(classesTrain, classPredictions, "Balanced Error")
-    }))[1]]
+    })
+    bestLambda <- lambdaConsider[which.min(balancedErrors)[1]] # Largest Lambda with minimum balanced error rate.
     attr(fitted, "tune") <- list(lambda = bestLambda)
   } else { # The user specified exactly one lambda value. Record it.
     attr(fitted, "tune") <- list(lambda = lambda)
   }
   
   attr(fitted, "featureNames") <- colnames(measurementsTrain)
-  attr(fitted, "featureGroups") <- measurementsTrain@assign
+  attr(fitted, "featureGroups") <- attr(measurementsTrain, "assign")
+  attr(fitted, "encoding") <- attr(measurementsTrain, "encoding")
   
   fitted
 }
@@ -40,7 +44,7 @@ penalisedGLMpredictInterface <- function(model, measurementsTest, lambda, ..., r
 
   # One-hot encoding needed.
   # Ensure that testing data has same columns names in same order as training data.
-  measurementsTest <- MatrixModels::model.Matrix(~ 0 + ., data = measurementsTest)
+  measurementsTest <- .encodeTest(measurementsTest, model)
   
   if(!requireNamespace("glmnet", quietly = TRUE))
     stop("The package 'glmnet' could not be found. Please install it.")
@@ -65,6 +69,41 @@ penalisedGLMpredictInterface <- function(model, measurementsTest, lambda, ..., r
 
 ################################################################################
 #
+# One-hot encoding of categorical features for glmnet and xgboost, which need a
+# numeric matrix. The encoding of the training data is stored with the model so
+# that test data are encoded into the same columns, in the same order, with the
+# same factor levels, whichever levels are present in the test samples.
+#
+################################################################################
+
+.encodeTrain <- function(measurementsTrain)
+{
+  measurementsTrain <- as(measurementsTrain, "data.frame")
+  isCategorical <- sapply(measurementsTrain, function(featureValues) is.factor(featureValues) || is.character(featureValues))
+  featuresLevels <- lapply(measurementsTrain[isCategorical], function(featureValues) levels(factor(featureValues)))
+  trainMatrix <- model.matrix(~ 0 + ., data = measurementsTrain, xlev = featuresLevels)
+  attr(trainMatrix, "encoding") <- list(features = colnames(measurementsTrain), levels = featuresLevels,
+                                        columns = colnames(trainMatrix))
+  trainMatrix
+}
+
+# model has an "encoding" attribute made by .encodeTrain.
+.encodeTest <- function(measurementsTest, model)
+{
+  encoding <- attr(model, "encoding")
+  # The features in the training order, so that each factor is encoded with the same contrasts.
+  measurementsTest <- as(measurementsTest, "data.frame")[, encoding[["features"]], drop = FALSE]
+  # Keep samples with missing values, so that each prediction stays with its sample.
+  testFrame <- model.frame(~ 0 + ., data = measurementsTest, xlev = encoding[["levels"]], na.action = na.pass)
+  testMatrix <- model.matrix(attr(testFrame, "terms"), testFrame)
+  missingColumns <- setdiff(encoding[["columns"]], colnames(testMatrix))
+  if(length(missingColumns) > 0)
+    testMatrix <- cbind(testMatrix, matrix(0, nrow(testMatrix), length(missingColumns), dimnames = list(NULL, missingColumns)))
+  testMatrix[, encoding[["columns"]], drop = FALSE]
+}
+
+################################################################################
+#
 # Get selected features (i.e. non-zero model coefficients)
 #
 # Note: Need to convert back to actual features when factors were expanded into
@@ -81,7 +120,7 @@ penalisedFeatures <- function(model)
                           coefficientsUsed <- sapply(model[["beta"]], function(classCoefficients) classCoefficients[, whichCoefficientColumn])
                           featureScores <- rowSums(abs(coefficientsUsed))
                         } else { # survival data
-                            featureScores <- model[["beta"]][, whichCoefficientColumn]
+                            featureScores <- abs(model[["beta"]][, whichCoefficientColumn])
                         }
                         featureGroups <- attr(model, "featureGroups")[match(names(featureScores), attr(model, "featureNames"))]
                         groupScores <- unname(by(featureScores, featureGroups, max))

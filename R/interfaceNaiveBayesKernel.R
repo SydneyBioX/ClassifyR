@@ -67,7 +67,7 @@ naiveBayesKernel <- function(measurementsTrain, classesTrain, measurementsTest,
   }) # Matrix, rows are test samples, columns are features.
   if(!is.matrix(distancesVertical)) distancesVertical <- matrix(distancesVertical, nrow = 1)
   
-  if(difference == "weighted" && weighting == "crossover distance")
+  if(weighting == "crossover distance") # Also used to decide which features vote, for either type of difference.
   {
     if(verbose == 3)
       message(Sys.time(), ": Calculating horizontal distances to crossover points of class densities.")
@@ -82,7 +82,7 @@ naiveBayesKernel <- function(measurementsTrain, classesTrain, measurementsTest,
         sapply(testSamples, function(testSample) min(abs(testSample - classCrosses)))
       })
       classesDistances[cbind(1:nrow(classesDistances), predictedClasses)]
-    }, featuresDensities, test, as.data.frame(classesVerticalIndices)) # Matrix of horizontal distances to nearest cross-over involving the predicted class.
+    }, featuresDensities, as.data.frame(testingMatrix), as.data.frame(classesVerticalIndices)) # Matrix of horizontal distances to nearest cross-over involving the predicted class.
   }
 
   if(verbose == 3)

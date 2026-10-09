@@ -14,7 +14,8 @@ kNNinterface <- function(measurementsTrain, classesTrain, measurementsTest, k = 
     message(Sys.time(), ":Fitting k Nearest Neighbours classifier to data and predicting classes.")
   
   nearestToEach <- BiocNeighbors::queryKNN(as.matrix(measurementsTrain), as.matrix(measurementsTest), k = k)
-  nearestClasses <- apply(nearestToEach[["index"]], 2, function(nearestToOne) classesTrain[nearestToOne])
+  # Matrix, rows are test samples, columns are the k nearest training samples.
+  nearestClasses <- matrix(as.character(classesTrain)[nearestToEach[["index"]]], nrow = nrow(nearestToEach[["index"]]))
   if(mode == "unweighted")
   {
       classScores <- t(apply(nearestClasses, 1, function(nearestRow) table(factor(nearestRow, levels = levels(classesTrain))) / length(nearestRow)))
@@ -27,6 +28,8 @@ kNNinterface <- function(measurementsTrain, classesTrain, measurementsTest, k = 
       classPredictions <- levels(classesTrain)[apply(classScores, 1, which.max)]
   }
   
+  classPredictions <- factor(classPredictions, levels = levels(classesTrain))
+  rownames(classScores) <- names(classPredictions) <- rownames(measurementsTest)
   switch(returnType, class = classPredictions, # Factor vector.
          score = classScores, # Numeric matrix.
          both = data.frame(class = classPredictions, classScores, check.names = FALSE))

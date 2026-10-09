@@ -6,7 +6,7 @@ limmaRanking <- function(measurementsTrain, classesTrain, ..., verbose = 3)
 
   fitParams <- list(t(as.matrix(measurementsTrain)), model.matrix(~ classesTrain))
   if(!missing(...))
-    fitParams <- append(fitParams, ...)
+    fitParams <- c(fitParams, list(...))
   linearModel <- do.call(limma::lmFit, fitParams)
   linearModel <- limma::eBayes(linearModel)
   linearModel <- linearModel[, -1] # Get rid of intercept.
