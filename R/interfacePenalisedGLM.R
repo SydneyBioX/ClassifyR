@@ -15,12 +15,15 @@ penalisedGLMtrainInterface <- function(measurementsTrain, classesTrain, lambda =
   
   if(is.null(lambda) || length(lambda) > 1) # fitted has numerous models for a range of lambda values.
   { # Pick one lambda based on resubstitution performance. But not the one that makes all variables excluded from model.
-    lambdaConsider <- colSums(as.matrix(fitted[["beta"]][[1]])) != 0
-    bestLambda <- fitted[["lambda"]][lambdaConsider][which.min(sapply(fitted[["lambda"]][lambdaConsider], function(lambda) # Largest Lambda with minimum balanced error rate.
+    lambdaConsider <- fitted[["lambda"]][colSums(as.matrix(fitted[["beta"]][[1]])) != 0]
+    # Predictions for all lambda values at once. A column for each lambda.
+    lambdasPredictions <- as.matrix(predict(fitted, measurementsTrain, s = lambdaConsider, type = "class"))
+    balancedErrors <- apply(lambdasPredictions, 2, function(lambdaPredictions)
     {
-      classPredictions <- factor(as.character(predict(fitted, measurementsTrain, s = lambda, type = "class")), levels = fitted[["classnames"]])
+      classPredictions <- factor(as.character(lambdaPredictions), levels = fitted[["classnames"]])
       calcExternalPerformance(classesTrain, classPredictions, "Balanced Error")
-    }))[1]]
+    })
+    bestLambda <- lambdaConsider[which.min(balancedErrors)[1]] # Largest Lambda with minimum balanced error rate.
     attr(fitted, "tune") <- list(lambda = bestLambda)
   } else { # The user specified exactly one lambda value. Record it.
     attr(fitted, "tune") <- list(lambda = lambda)
