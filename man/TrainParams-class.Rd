@@ -15,15 +15,15 @@ The empty constructor is provided for convenience.
 \section{Constructor}{
 
 \describe{
-\item{\code{TrainParams(classifier, balancing = c("downsample", "upsample", "none"), characteristics = DataFrame(),
+\item{\code{TrainParams(classifier, characteristics = DataFrame(),
 intermediate = character(0), tuneParams = NULL, getFeatures = NULL, ...)}}{
 Creates a \code{TrainParams} object which stores the function which will do the
 classifier building and parameters that the function will use.
 \describe{
 \item{\code{classifier}}{A character keyword referring to a registered classifier. See \code{\link{available}}
 for valid keywords.}
-\item{\code{balancing}}{Default: \code{"downsample"}. A keyword specifying how to handle class imbalance for data sets with categorical outcome.
-Valid values are \code{"downsample"}, \code{"upsample"} and \code{"none"}.}
+\item{\code{balancing}}{Not used. Class imbalance is handled by the \code{balancing} setting of \code{\link{ModellingParams}};
+specifying it here is an error.}
 \item{\code{characteristics}}{A \code{\link{DataFrame}} describing the
 characteristics of the classifier used. First column must be named \code{"charateristic"}
 and second column must be named \code{"value"}. If using wrapper functions for classifiers

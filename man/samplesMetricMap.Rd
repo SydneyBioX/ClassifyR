@@ -65,7 +65,7 @@ design to compare. Can be any characteristic that all results share.}
 performance measure or "auto". If the results are classification then
 sample accuracy will be displayed. Otherwise, the results would be survival risk
 predictions and then a sample C-index will be displayed. Valid values are \code{"Sample Error"},
-\code{"Sample Error"} or \code{"Sample C-index"}. If the metric is not stored in the
+\code{"Sample Accuracy"} or \code{"Sample C-index"}. If the metric is not stored in the
 results list, the performance metric will be calculated automatically.}
 
 \item{featureValues}{If not NULL, can be a named factor or named numeric
@@ -76,7 +76,8 @@ vector specifying some variable of interest to plot above the heatmap.}
 
 \item{metricColours}{If the outcome is categorical, a list of vectors of colours
 for metric levels for each class. If the outcome is numeric, such as a risk score,
-then a single vector of colours for the metric levels for all samples.}
+then a single vector of colours for the metric levels for all samples. By default,
+if there are more than two classes, a gradient from white to a dark colour is made for each class.}
 
 \item{classColours}{Either a vector of colours for class levels if both
 classes should have same colour, or a list of length 2, with each component
@@ -96,18 +97,18 @@ colour bar.}
 
 \item{title}{The title to place above the plot.}
 
-\item{showLegends}{Logical. IF FALSE, the legend is not drawn.}
+\item{showLegends}{Logical. If FALSE, the legend is not drawn.}
 
 \item{xAxisLabel}{The name plotted for the x-axis. NULL suppresses label.}
 
-\item{showXtickLabels}{Logical. IF FALSE, the x-axis labels are hidden.}
+\item{showXtickLabels}{Logical. If FALSE, the x-axis labels are hidden.}
 
 \item{yAxisLabel}{Default: \code{"auto"} for list of \code{ClassifyResult}s and
 \code{"Analysis"} for a \code{matrix}. The axis name plotted for the y-axis.
 If \code{"auto"}, automatically set depending on value of \code{comparison}.
 \code{NULL} suppresses the label.}
 
-\item{showYtickLabels}{Logical. IF FALSE, the y-axis labels are hidden.}
+\item{showYtickLabels}{Logical. If FALSE, the y-axis labels are hidden.}
 
 \item{legendSize}{The size of the boxes in the legends.}
 
