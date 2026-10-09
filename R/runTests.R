@@ -140,25 +140,13 @@ input data. Autmomatically reducing to smaller number.")
        splits = samplesSplitsList, splitsInfo = splitsTestInfoTable, fullResult = fullResult, finalState = finalState)
 }
 
-# Random number streams of the elements of a bplapply or bpmapply call with RNGseed equal to seed.
+# Random number streams of the elements of a bplapply or bpmapply call with RNGseed equal to seed: the ones that
+# BiocParallel gives the elements of a serial call. The random number state of this session is unchanged.
 .splitStreams <- function(seed, nSplits)
 {
   if(is.null(seed)) return(vector("list", nSplits))
-  streams <- vector("list", nSplits)
-  # The first stream is the one BiocParallel derives from RNGseed: L'Ecuyer-CMRG seeded from a default generator.
-  kind <- RNGkind()
-  previousSeed <- if(exists(".Random.seed", envir = globalenv())) get(".Random.seed", envir = globalenv())
-  on.exit({
-    RNGkind(kind[1], kind[2], kind[3])
-    if(is.null(previousSeed)) rm(".Random.seed", envir = globalenv()) else assign(".Random.seed", previousSeed, envir = globalenv())
-  })
-  RNGkind("default", "default", "default")
-  set.seed(seed)
-  RNGkind("L'Ecuyer-CMRG")
-  streams[[1]] <- get(".Random.seed", envir = globalenv())
-  for(splitIndex in seq_len(nSplits - 1))
-    streams[[splitIndex + 1]] <- parallel::nextRNGSubStream(streams[[splitIndex]])
-  streams
+  BiocParallel::bplapply(seq_len(nSplits), function(split) get(".Random.seed", envir = globalenv()),
+                         BPPARAM = BiocParallel::SerialParam(RNGseed = seed))
 }
 
 # Runs every split of the cross-validations, and their deferred final models (split 0), in one call of bplapply.
