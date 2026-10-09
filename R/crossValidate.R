@@ -501,9 +501,8 @@ generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams, seed =
 }
 
 # lapply(X, FUN) on the workers of pool. FUN is left in .ClassifyRenvir of each worker (by forking, or sent once to
-# each socket worker), so only the elements of X and the results are passed between processes. Tasks are handed
-# out two at a time as workers become free, so that quick and slow tasks balance out. The random number state of the
-# main session is the same afterwards as before.
+# each socket worker), so only the elements of X and the results are passed between processes. The random number
+# state of the main session is the same afterwards as before.
 .poolApply <- function(X, FUN, pool)
 {
   previousSeed <- if(exists(".Random.seed", envir = globalenv())) get(".Random.seed", envir = globalenv())
@@ -529,7 +528,9 @@ generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams, seed =
   on.exit(parallel::stopCluster(workers), add = TRUE)
   runTask <- function(element) get("currentTask", envir = .ClassifyRenvir)(element)
   environment(runTask) <- asNamespace("ClassifyR") # Sent to workers as a reference, not with this call's data.
-  parallel::parLapplyLB(workers, X, runTask, chunk.size = 2)
+  # Tasks are handed out in chunks as workers become free, about eight chunks per worker: enough for quick and slow
+  # tasks to balance out, and few enough that workers don't wait long for the main process to send the next chunk.
+  parallel::parLapplyLB(workers, X, runTask, chunk.size = max(1L, ceiling(length(X) / (8L * pool[["workers"]]))))
 }
 
 # Runs the splits of every queued cross-validation in one pool of workers and replaces each queue position in
