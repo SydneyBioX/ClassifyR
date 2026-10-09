@@ -297,3 +297,9 @@ test_that("limma ranking passes extra arguments to lmFit", {
   weighted <- ClassifyR:::limmaRanking(train, data$classes, weights = rep(1, nrow(train)), verbose = 0)
   expect_equal(weighted, unweighted)
 })
+
+test_that("edgesToHubNetworks accepts a matrix", {
+  edges <- cbind(c("MITF", "MITF", "MITF", "KRAS"), c("HINT1", "LEF1", "PSMD14", "ARAF"))
+  hubs <- edgesToHubNetworks(edges, minCardinality = 3)
+  expect_equal(names(hubs@sets), "MITF")
+})
