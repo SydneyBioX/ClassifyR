@@ -115,3 +115,11 @@ test_that("XGB trains and predicts with xgboost 3 and encodes test data with the
   expect_true(is.numeric(risks))
   expect_length(risks, 10)
 })
+
+test_that("SVM predicts with categorical features and non-syntactic feature names", {
+  data <- makeCategorical()
+  model <- ClassifyR:::SVMtrainInterface(data$train, data$classes, verbose = 0)
+  predictions <- ClassifyR:::SVMpredictInterface(model, data$test, verbose = 0)
+  expect_equal(nrow(predictions), 10)
+  expect_equal(colnames(predictions), c("class", "A", "B"))
+})
