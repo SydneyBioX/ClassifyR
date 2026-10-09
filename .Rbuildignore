@@ -10,3 +10,4 @@ vignettes/incorporateNew.Rmd
 vignettes/presets.Rmd
 vignettes/survival.Rmd
 ^\.github$
+^AUDIT\.md$
