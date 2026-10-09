@@ -289,3 +289,11 @@ test_that("prevalidation and PCA draw their inner cross-validation seed from the
   expect_length(seeds, 4)
   expect_length(unique(seeds), 4)
 })
+
+test_that("limma ranking passes extra arguments to lmFit", {
+  data <- makeTwoClass()
+  train <- asDataFrame(data$measurements)
+  unweighted <- ClassifyR:::limmaRanking(train, data$classes, verbose = 0)
+  weighted <- ClassifyR:::limmaRanking(train, data$classes, weights = rep(1, nrow(train)), verbose = 0)
+  expect_equal(weighted, unweighted)
+})
