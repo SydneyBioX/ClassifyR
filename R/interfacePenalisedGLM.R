@@ -8,7 +8,7 @@ penalisedGLMtrainInterface <- function(measurementsTrain, classesTrain, lambda =
     message(Sys.time(), ": Fitting elastic net regularised GLM classifier to data.")
 
   # One-hot encoding needed.    
-  measurementsTrain <- MatrixModels::model.Matrix(~ 0 + ., data = measurementsTrain)
+  measurementsTrain <- .encodeTrain(measurementsTrain)
   fitted <- glmnet::glmnet(measurementsTrain, classesTrain, family = "multinomial", lambda = lambda,
                            weights = as.numeric(1 / (table(classesTrain)[classesTrain] / length(classesTrain))), ...)
   # Inverse class size weighting needed to give decent predictions when class imbalance.
@@ -27,7 +27,8 @@ penalisedGLMtrainInterface <- function(measurementsTrain, classesTrain, lambda =
   }
   
   attr(fitted, "featureNames") <- colnames(measurementsTrain)
-  attr(fitted, "featureGroups") <- measurementsTrain@assign
+  attr(fitted, "featureGroups") <- attr(measurementsTrain, "assign")
+  attr(fitted, "encoding") <- attr(measurementsTrain, "encoding")
   
   fitted
 }
@@ -40,7 +41,7 @@ penalisedGLMpredictInterface <- function(model, measurementsTest, lambda, ..., r
 
   # One-hot encoding needed.
   # Ensure that testing data has same columns names in same order as training data.
-  measurementsTest <- MatrixModels::model.Matrix(~ 0 + ., data = measurementsTest)
+  measurementsTest <- .encodeTest(measurementsTest, model)
   
   if(!requireNamespace("glmnet", quietly = TRUE))
     stop("The package 'glmnet' could not be found. Please install it.")
@@ -61,6 +62,41 @@ penalisedGLMpredictInterface <- function(model, measurementsTest, lambda, ..., r
   switch(returnType, class = classPredictions, # Factor vector.
          score = classScores, # Numeric matrix.
          both = data.frame(class = classPredictions, classScores, check.names = FALSE))
+}
+
+################################################################################
+#
+# One-hot encoding of categorical features for glmnet and xgboost, which need a
+# numeric matrix. The encoding of the training data is stored with the model so
+# that test data are encoded into the same columns, in the same order, with the
+# same factor levels, whichever levels are present in the test samples.
+#
+################################################################################
+
+.encodeTrain <- function(measurementsTrain)
+{
+  measurementsTrain <- as(measurementsTrain, "data.frame")
+  isCategorical <- sapply(measurementsTrain, function(featureValues) is.factor(featureValues) || is.character(featureValues))
+  featuresLevels <- lapply(measurementsTrain[isCategorical], function(featureValues) levels(factor(featureValues)))
+  trainMatrix <- model.matrix(~ 0 + ., data = measurementsTrain, xlev = featuresLevels)
+  attr(trainMatrix, "encoding") <- list(features = colnames(measurementsTrain), levels = featuresLevels,
+                                        columns = colnames(trainMatrix))
+  trainMatrix
+}
+
+# model has an "encoding" attribute made by .encodeTrain.
+.encodeTest <- function(measurementsTest, model)
+{
+  encoding <- attr(model, "encoding")
+  # The features in the training order, so that each factor is encoded with the same contrasts.
+  measurementsTest <- as(measurementsTest, "data.frame")[, encoding[["features"]], drop = FALSE]
+  # Keep samples with missing values, so that each prediction stays with its sample.
+  testFrame <- model.frame(~ 0 + ., data = measurementsTest, xlev = encoding[["levels"]], na.action = na.pass)
+  testMatrix <- model.matrix(attr(testFrame, "terms"), testFrame)
+  missingColumns <- setdiff(encoding[["columns"]], colnames(testMatrix))
+  if(length(missingColumns) > 0)
+    testMatrix <- cbind(testMatrix, matrix(0, nrow(testMatrix), length(missingColumns), dimnames = list(NULL, missingColumns)))
+  testMatrix[, encoding[["columns"]], drop = FALSE]
 }
 
 ################################################################################

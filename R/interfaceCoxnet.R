@@ -7,8 +7,7 @@ coxnetTrainInterface <- function(measurementsTrain, survivalTrain, lambda = NULL
   if(verbose == 3)
     message(Sys.time(), ": Fitting coxnet model to data.")
     
-  measurementsTrain <- data.frame(measurementsTrain, check.names = FALSE)
-  measurementsMatrix <- MatrixModels::model.Matrix(~ 0 + ., data = measurementsTrain)
+  measurementsMatrix <- .encodeTrain(measurementsTrain) # One-hot encoding needed.
   
   # The response variable is a Surv class of object.
   fit <- glmnet::cv.glmnet(measurementsMatrix, survivalTrain, family = "cox", type = "C", lambda = lambda, ...)
@@ -17,7 +16,8 @@ coxnetTrainInterface <- function(measurementsTrain, survivalTrain, lambda = NULL
   offset <- -mean(predict(fitted, measurementsMatrix, s = fit$lambda.min, type = "link"))
   attr(fitted, "tune") <- list(lambda = fit$lambda.min, offset = offset)
   attr(fitted, "featureNames") <- colnames(measurementsMatrix)
-  attr(fitted, "featureGroups") <- measurementsMatrix@assign
+  attr(fitted, "featureGroups") <- attr(measurementsMatrix, "assign")
+  attr(fitted, "encoding") <- attr(measurementsMatrix, "encoding")
   
   class(fitted) <- class(fitted)[1] # Get rid of glmnet which messes with dispatch. 
   fitted
@@ -35,8 +35,8 @@ coxnetPredictInterface <- function(model, measurementsTest, survivalTest = NULL,
   if(missing(lambda)) # Tuning parameters are not passed to prediction functions.
     lambda <- attr(model, "tune")[["lambda"]] # Sneak it in as an attribute on the model.
   
-  testMatrix <- glmnet::makeX(as(measurementsTest, "data.frame"))
-  testMatrix <- testMatrix[, rownames(model[["beta"]])]
+  # Same one-hot encoding, columns and column order as the training data.
+  testMatrix <- .encodeTest(measurementsTest, model)
   
   offset <- attr(model, "tune")[["offset"]]
   model$offset <- TRUE
