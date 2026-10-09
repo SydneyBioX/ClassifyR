@@ -185,7 +185,7 @@ setMethod("plotFeatureClasses", "DataFrame", function(measurements, classes, use
   if(!requireNamespace("gridExtra", quietly = TRUE))
     stop("The package 'gridExtra' could not be found. Please install it.")
   
-  ggplot2::theme_set(ggplot2::theme_classic() + ggplot2::theme(panel.border = ggplot2::element_rect(fill = NA), panel.grid.major = ggplot2::element_line(colour = "grey", linetype = "dashed")))
+  plotTheme <- ggplot2::theme_classic() + ggplot2::theme(panel.border = ggplot2::element_rect(fill = NA), panel.grid.major = ggplot2::element_line(colour = "grey", linetype = "dashed"))
   whichNumericFeaturePlots <- match.arg(whichNumericFeaturePlots)
   if(xLabelPositions[1] == "auto")
     xLabelPositions <- ggplot2::waiver()
@@ -196,9 +196,9 @@ setMethod("plotFeatureClasses", "DataFrame", function(measurements, classes, use
   if(!is(useFeatures, "data.frame") && !is(useFeatures, "DataFrame"))
   {
     if(!is(useFeatures, "Pairs")) # A simple vector.
-      measurements <- tryCatch(measurements[useFeatures], error = function(error) message("Error: Parameter 'useFeatures' not in measurements, subscript contains out-of-bounds indices"))
+      measurements <- tryCatch(measurements[useFeatures], error = function(error) stop("Parameter 'useFeatures' not in measurements, subscript contains out-of-bounds indices.", call. = FALSE))
     else # Pairs object.
-      measurements <- tryCatch(measurements[union(S4Vectors::first(useFeatures), S4Vectors::second(useFeatures))], error = function(error) message("Error: Parameter 'useFeatures' not in measurements, subscript contains out-of-bounds indices"))
+      measurements <- tryCatch(measurements[union(S4Vectors::first(useFeatures), S4Vectors::second(useFeatures))], error = function(error) stop("Parameter 'useFeatures' not in measurements, subscript contains out-of-bounds indices.", call. = FALSE))
   }
   
   if(!is(useFeatures, "Pairs"))
@@ -227,8 +227,8 @@ setMethod("plotFeatureClasses", "DataFrame", function(measurements, classes, use
       {
         if(whichNumericFeaturePlots %in% c("both", "density"))
         {
-          densPlot <- ggplot2::ggplot(plotData, ggplot2::aes(x = measurement, colour = class)) +
-            ggplot2::stat_density(ggplot2::aes(y = ggplot2::after_stat(density)), geom = "path", position = "identity", size = lineWidth) +
+          densPlot <- ggplot2::ggplot(plotData, ggplot2::aes(x = measurement, colour = class)) + plotTheme +
+            ggplot2::stat_density(ggplot2::aes(y = ggplot2::after_stat(density)), geom = "path", position = "identity", linewidth = lineWidth) +
             ggplot2::scale_colour_manual("Class", values = colours) + ggplot2::coord_cartesian(xlim = measurementLimits) +
             ggplot2::scale_x_continuous(breaks = xLabelPositions) + ggplot2::scale_y_continuous(breaks = yLabelPositions)
           
@@ -241,7 +241,7 @@ setMethod("plotFeatureClasses", "DataFrame", function(measurements, classes, use
         if(whichNumericFeaturePlots %in% c("both", "stripchart"))
         {
           yLabel <- ifelse(whichNumericFeaturePlots == "both", yAxisLabels[2], yAxisLabels[1])
-          stripPlot <- ggplot2::ggplot(plotData, ggplot2::aes(x = class, y = measurement)) +
+          stripPlot <- ggplot2::ggplot(plotData, ggplot2::aes(x = class, y = measurement)) + plotTheme +
             ggplot2::geom_dotplot(binaxis = 'y', stackdir = "center", position = "dodge", ggplot2::aes(colour = class), binwidth = dotBinWidth) +
             ggplot2::scale_colour_manual("Class", values = colours) + ggplot2::xlab(yLabel) + ggplot2::ylab(xAxisLabel) + ggplot2::scale_y_continuous(limits = measurementLimits) +
             ggplot2::theme(plot.title = ggplot2::element_text(size = fontSizes[1], hjust = 0.5),
@@ -290,7 +290,7 @@ setMethod("plotFeatureClasses", "DataFrame", function(measurements, classes, use
           stripPlot
         }
       } else { # Plotting variable is a factor.
-        barPlot <- ggplot2::ggplot(plotData, ggplot2::aes(x = measurement, fill = class)) +
+        barPlot <- ggplot2::ggplot(plotData, ggplot2::aes(x = measurement, fill = class)) + plotTheme +
           ggplot2::geom_bar() + ggplot2::xlab(xAxisLabel) + ggplot2::ylab("Number of Samples") +
           ggplot2::scale_fill_manual("Class", values = colours) +
           ggplot2::theme(plot.title = ggplot2::element_text(size = fontSizes[1], hjust = 0.5),
@@ -317,8 +317,8 @@ setMethod("plotFeatureClasses", "DataFrame", function(measurements, classes, use
       
       groupedPlotData <- tidyr::gather(dplyr::mutate(plotData, ID = 1:dplyr::n()), key, value, 1:2)
       
-      pairsPlot <- ggplot2::ggplot(groupedPlotData, ggplot2::aes(key, value, group = ID, colour = class)) +
-        ggplot2::geom_line(size = lineWidth) +
+      pairsPlot <- ggplot2::ggplot(groupedPlotData, ggplot2::aes(key, value, group = ID, colour = class)) + plotTheme +
+        ggplot2::geom_line(linewidth = lineWidth) +
         ggplot2::scale_colour_manual("Class", values = colours) + ggplot2::coord_cartesian(ylim = measurementLimits) +
         ggplot2::scale_x_discrete(expand = c(0.05, 0.05), labels = c(S4Vectors::first(featurePair), S4Vectors::second(featurePair))) +
         ggplot2::scale_y_continuous(breaks = yLabelPositions) + ggplot2::ggtitle("Pairs Plot") +

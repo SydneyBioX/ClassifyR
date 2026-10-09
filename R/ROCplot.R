@@ -114,7 +114,6 @@ setMethod("ROCplot", "list",
   if(resultsWithComparison < length(results))
     stop("Not all results have comparison characteristic ", comparison, ' but need to.')
                
-  ggplot2::theme_set(ggplot2::theme_classic() + ggplot2::theme(panel.border = ggplot2::element_rect(fill = NA)))
   distinctClasses <- levels(actualOutcome(results[[1]]))
   numberDistinctClasses <- length(distinctClasses)
   comparisonName <- comparison
@@ -122,7 +121,7 @@ setMethod("ROCplot", "list",
   
   plotDataList <- mapply(function(result, comparisonValue)
   {
-    predictions <- result@predictions
+    predictions <- as.data.frame(result@predictions, optional = TRUE)
     if(mode == "average")
     {
       if("fold" %in% colnames(predictions))
@@ -144,20 +143,9 @@ setMethod("ROCplot", "list",
       actualClasses <- actualOutcome(result)[match(predictions[, "sample"], sampleNames(result))]
       do.call(rbind, lapply(levels(actualClasses), function(class)
       {
-        totalPositives <- sum(actualClasses == class)
-        totalNegatives <- sum(actualClasses != class)
-        uniquePredictions <- sort(unique(predictions[, class]), decreasing = TRUE)
-        rates <- do.call(rbind, lapply(uniquePredictions, function(uniquePrediction)
-        {
-          consideredSamples <- predictions[, class] >= uniquePrediction
-          truePositives <- sum(actualClasses[consideredSamples] == class)
-          falsePositives <- sum(actualClasses[consideredSamples] != class)
-          TPR <- truePositives / totalPositives
-          FPR <- falsePositives / totalNegatives
-          data.frame(FPR = FPR, TPR = TPR, class = class)
-        }))
-        rates <- rbind(data.frame(FPR = 0, TPR = 0, class = class), rates)
-         
+        rates <- .ROCrates(predictions[, class], actualClasses == class)
+        rates <- data.frame(FPR = c(0, rates[["FPR"]]), TPR = c(0, rates[["TPR"]]), class = class)
+
         summaryTable <- data.frame(comparisonValue, rates)
         colnames(summaryTable)[1] <- comparisonName
         summaryTable
@@ -179,13 +167,13 @@ setMethod("ROCplot", "list",
       combinedTable <- do.call(rbind, allPRtables) # To calculate change points.
       averagedTable <- do.call(rbind, lapply(distinctClasses, function(aClass)
       {
-        classTable <- subset(combinedTable, class = aClass)
+        classTable <- subset(combinedTable, class == aClass)
         changePoints <- sort(unique(classTable[, "FPR"]))
         summaryTable <- do.call(rbind, lapply(changePoints, function(changePoint)
         {
           TPRs <- sapply(allPRtables, function(PRtable)
           {
-            PRtable <- subset(PRtable, class = aClass)
+            PRtable <- subset(PRtable, class == aClass)
             PRtable[max(which(PRtable[, "FPR"] <= changePoint)), "TPR"]
           })
           data.frame(FPR = changePoint, TPR = mean(TPRs), lower = unname(quantile(TPRs, quantiles[1])), upper = unname(quantile(TPRs, quantiles[2])), class = aClass)
@@ -232,7 +220,8 @@ setMethod("ROCplot", "list",
   ROCplots <- lapply(plotDataSets, function(plotData)
               {
                 ROCplot <- ggplot2::ggplot(plotData, ggplot2::aes(x = FPR, y = TPR, colour = !!lineColour)) +
-                           ggplot2::geom_line(size = lineWidth) + ggplot2::xlab(NULL) + ggplot2::ylab(NULL) + ggplot2::labs(colour = legendTitle) + ggplot2::geom_segment(x = 0, y = 0, xend = 1, yend = 1, size = lineWidth, colour = "black") + ggplot2::scale_x_continuous(breaks = labelPositions, limits = c(0, 1)) +  ggplot2::scale_y_continuous(breaks = labelPositions, limits = c(0, 1)) +
+                           ggplot2::theme_classic() + ggplot2::theme(panel.border = ggplot2::element_rect(fill = NA)) +
+                           ggplot2::geom_line(linewidth = lineWidth) + ggplot2::xlab(NULL) + ggplot2::ylab(NULL) + ggplot2::labs(colour = legendTitle) + ggplot2::geom_segment(x = 0, y = 0, xend = 1, yend = 1, linewidth = lineWidth, colour = "black") + ggplot2::scale_x_continuous(breaks = labelPositions, limits = c(0, 1)) +  ggplot2::scale_y_continuous(breaks = labelPositions, limits = c(0, 1)) +
                            ggplot2::theme(axis.text = ggplot2::element_text(colour = "black", size = fontSizes[3]), legend.position = c(1, 0), legend.justification = c(1, 0), legend.background = ggplot2::element_rect(fill = "transparent"), legend.title = ggplot2::element_text(size = fontSizes[4], hjust = 0), legend.text = ggplot2::element_text(size = fontSizes[5])) + ggplot2::guides(colour = ggplot2::guide_legend(title.hjust = 0.5)) + ggplot2::scale_colour_manual(values = lineColours)
                 
                 if(mode == "average") # Add some confidence bands.
