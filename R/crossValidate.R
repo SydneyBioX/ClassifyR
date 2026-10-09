@@ -563,8 +563,9 @@ generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams, seed =
       pool <- BiocParallel::MulticoreParam(min(nCores, BiocParallel::multicoreWorkers()))
     assign(poolName, pool, envir = .ClassifyRenvir)
   }
-  # Tasks are handed out one at a time, so that workers finishing quick tasks (e.g. a small assay) take more of them.
-  if(is(pool, "MulticoreParam")) BiocParallel::bptasks(pool) <- nTasks
+  # MulticoreParam forks a process for each chunk of tasks, so tasks are given in a few chunks per worker: enough
+  # for workers finishing quick chunks to take more, few enough that forking costs little.
+  if(is(pool, "MulticoreParam")) BiocParallel::bptasks(pool) <- min(nTasks, 4L * BiocParallel::bpnworkers(pool))
   pool
 }
 

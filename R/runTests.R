@@ -182,7 +182,11 @@ input data. Autmomatically reducing to smaller number.")
     splitStreams
   }), recursive = FALSE)
 
-  results <- bplapply(seq_len(nrow(tasks)), function(taskIndex)
+  # Splits of different cross-validations (e.g. assays of different sizes) are interleaved, so that each chunk of
+  # tasks given to a worker has a similar amount of work. Each task sets its own random number stream, so the order
+  # doesn't change the results.
+  taskOrder <- order(tasks[, "split"], tasks[, "crossValidation"])
+  results <- bplapply(taskOrder, function(taskIndex)
   {
     if(!is.null(streams[[taskIndex]])) assign(".Random.seed", streams[[taskIndex]], envir = globalenv())
     crossValidation <- crossValidations[[tasks[taskIndex, "crossValidation"]]]
@@ -206,6 +210,7 @@ input data. Autmomatically reducing to smaller number.")
       attr(result[["models"]], "forImportance") <- NULL
     result
   }, BPPARAM = parallelParams)
+  results[taskOrder] <- results
   lapply(unname(split(seq_len(nrow(tasks)), tasks[, "crossValidation"])), function(taskIndices)
   {
     isFinal <- tasks[taskIndices, "split"] == 0
