@@ -145,7 +145,17 @@ input data. Autmomatically reducing to smaller number.")
 {
   if(is.null(seed)) return(vector("list", nSplits))
   streams <- vector("list", nSplits)
-  streams[[1]] <- BiocParallel:::.rng_init_stream(seed)
+  # The first stream is the one BiocParallel derives from RNGseed: L'Ecuyer-CMRG seeded from a default generator.
+  kind <- RNGkind()
+  previousSeed <- if(exists(".Random.seed", envir = globalenv())) get(".Random.seed", envir = globalenv())
+  on.exit({
+    RNGkind(kind[1], kind[2], kind[3])
+    if(is.null(previousSeed)) rm(".Random.seed", envir = globalenv()) else assign(".Random.seed", previousSeed, envir = globalenv())
+  })
+  RNGkind("default", "default", "default")
+  set.seed(seed)
+  RNGkind("L'Ecuyer-CMRG")
+  streams[[1]] <- get(".Random.seed", envir = globalenv())
   for(splitIndex in seq_len(nSplits - 1))
     streams[[splitIndex + 1]] <- parallel::nextRNGSubStream(streams[[splitIndex]])
   streams
