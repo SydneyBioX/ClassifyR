@@ -187,3 +187,26 @@ test_that("Poisson LDA classifies counts", {
   expect_equal(levels(predicted[, "class"]), c("A", "B"))
   expect_equal(as.character(predicted[, "class"]), rep(c("A", "B"), each = 5))
 })
+
+test_that("naive Bayes and mixtures of normals run with crossover distance weighting", {
+  data <- makeTwoClass(shift = 3)
+  train <- asDataFrame(data$measurements[1:40, 1:4])
+  test <- asDataFrame(data$measurements[41:60, 1:4])
+  for(difference in c("unweighted", "weighted"))
+  {
+    predicted <- ClassifyR:::naiveBayesKernel(train, data$classes[1:40], test, difference = difference,
+                                              weighting = "crossover distance", verbose = 0)
+    expect_equal(nrow(predicted), 20)
+    expect_gt(mean(predicted[, "class"] == data$classes[41:60]), 0.7)
+  }
+  skip_if_not_installed("Rmixmod")
+  set.seed(10)
+  models <- ClassifyR:::mixModelsTrain(train, data$classes[1:40], nbCluster = 1, verbose = 0)
+  for(difference in c("unweighted", "weighted"))
+  {
+    predicted <- suppressWarnings(ClassifyR:::mixModelsPredict(models, test, difference = difference,
+                                                               weighting = "crossover distance", verbose = 0))
+    expect_equal(nrow(predicted), 20)
+    expect_gt(mean(predicted[, "class"] == data$classes[41:60]), 0.7)
+  }
+})
