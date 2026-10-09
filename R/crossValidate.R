@@ -162,7 +162,9 @@ setMethod("crossValidate", "DataFrame",
               classifier <- cleanClassifier(classifier = classifier,
                                             measurements = measurements, nFeatures = nFeaturesUse)
               
-              ##!!!!! Do something with data combinations
+              # Every cross-validation is prepared first, then all of their splits share one pool of workers.
+              queue <- .crossValidationQueue()
+
 
               ################################
               #### No multiview
@@ -201,7 +203,7 @@ setMethod("crossValidate", "DataFrame",
                                       nRepeats = nRepeats,
                                       nCores = nCores,
                                       characteristicsLabel = characteristicsLabel,
-                                      extraParams = extraParams, verbose = verbose
+                                      extraParams = extraParams, verbose = verbose, queue = queue
                                   )
                               },
                               simplify = FALSE)
@@ -236,7 +238,7 @@ setMethod("crossValidate", "DataFrame",
                          nRepeats = nRepeats,
                          nCores = nCores,
                          characteristicsLabel = characteristicsLabel,
-                         extraParams = extraParams, verbose = verbose)
+                         extraParams = extraParams, verbose = verbose, queue = queue)
                   }, simplify = FALSE)
 
               }
@@ -268,7 +270,7 @@ setMethod("crossValidate", "DataFrame",
                          nRepeats = nRepeats,
                          nCores = nCores,
                          characteristicsLabel = characteristicsLabel,
-                         extraParams = extraParams, verbose = verbose)
+                         extraParams = extraParams, verbose = verbose, queue = queue)
                   }, simplify = FALSE)
 
               }
@@ -301,10 +303,11 @@ setMethod("crossValidate", "DataFrame",
                          nRepeats = nRepeats,
                          nCores = nCores,
                          characteristicsLabel = characteristicsLabel,
-                         extraParams = extraParams, verbose = verbose)
+                         extraParams = extraParams, verbose = verbose, queue = queue)
                   }, simplify = FALSE)
 
               }
+              result <- .runCrossValidationQueue(queue, result, nCores)
               if(length(result) == 1) result <- result[[1]]
               result
 
@@ -472,18 +475,9 @@ generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams){
     index <- ifelse(.Random.seed[2] + 2 == length(.Random.seed), 3, 3 + .Random.seed[2]) # Right after set.seed, the second number is the length of the random integer vector.
     seed <- .Random.seed[index] # Get current random number.
     
-    # Set the BPparam RNGseed.
-    if(nCores == 1)
-    {
-        BPparam <- SerialParam(RNGseed = seed)
-    } else { # Parallel processing is desired.
-        
-        if(.Platform$OS.type == "windows") {# Only SnowParam suits Windows.
-            BPparam <- BiocParallel::SnowParam(min(nCores, BiocParallel::snowWorkers("SOCK")), RNGseed = seed)
-        } else { # Unix-alikes, including macOS and Linux.
-            BPparam <- BiocParallel::MulticoreParam(min(nCores, BiocParallel::multicoreWorkers()), RNGseed = seed) # Multicore is faster than SNOW, but it doesn't work on Windows.
-        }
-    }
+    # The seed sets the random number streams of the splits. Workers come from one pool per crossValidate call
+    # (.makeWorkerPool); nested cross-validations within a split run serially.
+    BPparam <- BiocParallel::SerialParam(RNGseed = seed)
     tuneMode <- "none"
     performanceType <- "N/A"
     if(!is.null(extraParams[["tuneCross"]][["performanceType"]])) performanceType <- extraParams[["tuneCross"]][["performanceType"]]
@@ -523,6 +517,37 @@ generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams){
   if(canTune && length(stageParams@tuneParams) == 0) stageParams@tuneParams <- NULL
   if(length(stageParams@otherParams) == 0) stageParams@otherParams <- NULL
   stageParams
+}
+
+# A queue of prepared cross-validations; add() returns the position of the added one.
+.crossValidationQueue <- function()
+{
+  items <- list()
+  list(add = function(item) { items[[length(items) + 1]] <<- item; length(items) },
+       items = function() items)
+}
+
+# Parallel workers for nCores cores.
+.makeWorkerPool <- function(nCores, nTasks)
+{
+  if(nCores == 1) return(BiocParallel::SerialParam())
+  if(.Platform$OS.type == "windows") # Only SnowParam suits Windows.
+    return(BiocParallel::SnowParam(min(nCores, BiocParallel::snowWorkers("SOCK"))))
+  # Multicore is faster than SNOW. Tasks are handed out one at a time, so that workers finishing
+  # quick tasks (e.g. a small assay) take more of them.
+  BiocParallel::MulticoreParam(min(nCores, BiocParallel::multicoreWorkers()), tasks = nTasks)
+}
+
+# Runs the splits of every queued cross-validation in one pool of workers and replaces each queue position in
+# positions (a vector or list, possibly named) by its ClassifyResult.
+.runCrossValidationQueue <- function(queue, positions, nCores)
+{
+  crossValidations <- queue$items()
+  if(length(crossValidations) == 0) return(positions)
+  nTasks <- sum(sapply(crossValidations, function(crossValidation) length(crossValidation[["splits"]][["train"]])))
+  results <- .runTestsSplits(crossValidations, .makeWorkerPool(nCores, nTasks))
+  classifyResults <- mapply(.assembleTests, crossValidations, results, SIMPLIFY = FALSE)
+  lapply(as.list(positions), function(position) classifyResults[[position]])
 }
 
 # Returns a single parameter set.
@@ -721,7 +746,7 @@ CV <- function(measurements, outcome, x, outcomeTrain, measurementsTest, outcome
                nFolds,
                nRepeats,
                nCores,
-               characteristicsLabel, extraParams, verbose)
+               characteristicsLabel, extraParams, verbose, queue = NULL)
 
 {
     # Which data-types or data-views are present?
@@ -751,6 +776,8 @@ CV <- function(measurements, outcome, x, outcomeTrain, measurementsTest, outcome
 
     if(!is.null(measurements))
     { # Cross-validation.
+      if(!is.null(queue)) # Prepare it now and run it with the others in the queue; return its position in the queue.
+        return(queue$add(.prepareTests(measurements, outcome, crossValParams, modellingParams, characteristics, verbose)))
       classifyResults <- runTests(measurements, outcome, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics, verbose = verbose)
     } else { # Independent training and testing.
       classifyResults <- runTest(x, outcomeTrain, measurementsTest, outcomeTest, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics)

@@ -73,13 +73,28 @@ setMethod("runTests", c("matrix"), function(measurements, outcome, ...) # Matrix
 setMethod("runTests", "DataFrame", function(measurements, outcome, crossValParams = CrossValParams(), modellingParams = ModellingParams(),
            characteristics = S4Vectors::DataFrame(), ..., verbose = 1)
 {
+  crossValidation <- .prepareTests(measurements, outcome, crossValParams, modellingParams, characteristics, verbose, ...)
+  results <- .runTestsSplits(list(crossValidation), crossValParams@parallelParams)[[1]]
+  .assembleTests(crossValidation, results)
+})
+
+# A cross-validation is run in three steps, so that the splits of several cross-validations can share one pool of
+# parallel workers (see crossValidate):
+# 1. .prepareTests checks the data, makes the training and test splits and fits the final model to all samples.
+# 2. .runTestsSplits runs the training and testing of every split of one or more cross-validations.
+# 3. .assembleTests collects one cross-validation's results into a ClassifyResult.
+# Each split uses the random number stream that bpmapply with the cross-validation's RNGseed would give it, so the
+# results don't depend on how the splits are distributed among workers.
+
+.prepareTests <- function(measurements, outcome, crossValParams, modellingParams, characteristics, verbose, ...)
+{
   if(is.null(rownames(measurements)))
   {
     warning("'measurements' DataFrame must have sample identifiers as its row names. Generating generic ones.")
     rownames(measurements) <- paste("Sample", seq_len(nrow(measurements)))
   }
   
-  if(any(is.na(measurements)))
+  if(any(vapply(as.list(measurements), anyNA, logical(1))))
     stop("Some data elements are missing and classifiers don't work with missing data. Consider imputation or filtering.")            
 
   originalFeatures <- colnames(measurements)
@@ -108,34 +123,66 @@ input data. Autmomatically reducing to smaller number.")
     else
       modellingParams@selectParams@nFeatures <- max(nFeatures)
   }
-  
-  # Element names of the list returned by runTest, in order.
-  resultTypes <- c("ranked", "selected", "models", "testSet", "predictions", "tune", "importance")
 
   # Create all partitions of training and testing sets.
   samplesSplitsList <- samplesSplits(crossValParams@samplesSplits, crossValParams@permutations, crossValParams@folds, crossValParams@percentTest, crossValParams@leave, outcome)
   splitsTestInfoTable <- splitsTestInfo(crossValParams@samplesSplits, crossValParams@permutations, crossValParams@folds, crossValParams@percentTest, crossValParams@leave, samplesSplitsList)
-  
-  # Necessary hack for parallel processing on Windows.
-  modellingParams <- modellingParams
-  crossValParams <- crossValParams
-  characteristics <- characteristics
-  verbose <- verbose
-  # Make them all local variables, so they are passed to workers.
 
-  results <- bpmapply(function(trainingSamples, testSamples, setNumber)
+  # The final model is fitted with the random number state that follows making the splits.
+  fullResult <- runTest(measurements, outcome, measurements, outcome, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics, .iteration = 1)
+
+  list(measurements = measurements, outcome = outcome, originalFeatures = originalFeatures, crossValParams = crossValParams,
+       modellingParams = modellingParams, characteristics = characteristics, verbose = verbose,
+       splits = samplesSplitsList, splitsInfo = splitsTestInfoTable, fullResult = fullResult)
+}
+
+# Random number streams of the elements of a bplapply or bpmapply call with RNGseed equal to seed.
+.splitStreams <- function(seed, nSplits)
+{
+  if(is.null(seed)) return(vector("list", nSplits))
+  streams <- vector("list", nSplits)
+  streams[[1]] <- BiocParallel:::.rng_init_stream(seed)
+  for(splitIndex in seq_len(nSplits - 1))
+    streams[[splitIndex + 1]] <- parallel::nextRNGSubStream(streams[[splitIndex]])
+  streams
+}
+
+.runTestsSplits <- function(crossValidations, parallelParams)
+{
+  tasks <- do.call(rbind, lapply(seq_along(crossValidations), function(index)
+                     data.frame(crossValidation = index, split = seq_along(crossValidations[[index]][["splits"]][["train"]]))))
+  streams <- unlist(lapply(crossValidations, function(crossValidation)
+                       .splitStreams(BiocParallel::bpRNGseed(crossValidation[["crossValParams"]]@parallelParams),
+                                     length(crossValidation[["splits"]][["train"]]))), recursive = FALSE)
+
+  results <- bplapply(seq_len(nrow(tasks)), function(taskIndex)
   {
-    if(verbose >= 1 && setNumber %% 10 == 0)
+    if(!is.null(streams[[taskIndex]])) assign(".Random.seed", streams[[taskIndex]], envir = globalenv())
+    crossValidation <- crossValidations[[tasks[taskIndex, "crossValidation"]]]
+    setNumber <- tasks[taskIndex, "split"]
+    if(crossValidation[["verbose"]] >= 1 && setNumber %% 10 == 0)
       message(Sys.time(), ": Processing sample set ", setNumber, '.')
     
+    trainingSamples <- crossValidation[["splits"]][["train"]][[setNumber]]
+    testSamples <- crossValidation[["splits"]][["test"]][[setNumber]]
     # crossValParams is needed at least for nested feature tuning.
-    
-    runTest(measurements[trainingSamples, , drop = FALSE], outcome[trainingSamples],
-            measurements[testSamples, , drop = FALSE], outcome[testSamples],
-            crossValParams, modellingParams, characteristics, verbose,
-            .iteration = setNumber)
-  }, samplesSplitsList[["train"]], samplesSplitsList[["test"]], (1:length(samplesSplitsList[["train"]])),
-  BPPARAM = crossValParams@parallelParams, SIMPLIFY = FALSE)
+    runTest(crossValidation[["measurements"]][trainingSamples, , drop = FALSE], crossValidation[["outcome"]][trainingSamples],
+            crossValidation[["measurements"]][testSamples, , drop = FALSE], crossValidation[["outcome"]][testSamples],
+            crossValidation[["crossValParams"]], crossValidation[["modellingParams"]], crossValidation[["characteristics"]],
+            crossValidation[["verbose"]], .iteration = setNumber)
+  }, BPPARAM = parallelParams)
+  unname(split(results, tasks[, "crossValidation"]))
+}
+
+.assembleTests <- function(crossValidation, results)
+{
+  measurements <- crossValidation[["measurements"]]
+  outcome <- crossValidation[["outcome"]]
+  crossValParams <- crossValidation[["crossValParams"]]
+  modellingParams <- crossValidation[["modellingParams"]]
+  characteristics <- crossValidation[["characteristics"]]
+  splitsTestInfoTable <- crossValidation[["splitsInfo"]]
+  fullResult <- crossValidation[["fullResult"]]
 
   # Error checking and reporting.
   resultErrors <- sapply(results, function(result) is.character(result))
@@ -190,17 +237,16 @@ input data. Autmomatically reducing to smaller number.")
   if(!is.null(results[[1]][["importance"]]))
     importance <- do.call(rbind, lapply(results, "[[", "importance"))
   
-  fullResult <- runTest(measurements, outcome, measurements, outcome, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics, .iteration = 1)
   if(is.character(fullResult))
   {
     warning("Unable to fit a full model: ", fullResult)
     fullResult <- list(models = NULL)
   }
   
-  ClassifyResult(characteristics, rownames(measurements), originalFeatures,
+  ClassifyResult(characteristics, rownames(measurements), crossValidation[["originalFeatures"]],
                  lapply(results, "[[", "ranked"), lapply(results, "[[", "selected"),
                  lapply(results, "[[", "models"), tuneList, predictionsTable, outcome, importance, modellingParams, fullResult$models)
-})
+}
 
 #' @rdname runTests
 #' @import MultiAssayExperiment methods

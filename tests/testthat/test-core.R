@@ -12,12 +12,22 @@ test_that("crossValidate uses the requested selection method for list input", {
   expect_false(any(selectionNames %in% c("t-test", "Difference in Means")))
 })
 
-test_that("parallel parameters honour nCores on Unix-alikes", {
+test_that("parallel workers honour nCores on Unix-alikes", {
   skip_on_os("windows")
+  pool <- ClassifyR:::.makeWorkerPool(nCores = 2, nTasks = 10)
+  expect_s4_class(pool, "MulticoreParam")
+  expect_equal(BiocParallel::bpnworkers(pool), 2)
+})
+
+test_that("results don't depend on the number of cores", {
+  skip_on_os("windows")
+  data <- makeTwoClass()
+  measurementsList <- list(a = data$measurements[, 1:15], b = data$measurements[, 16:30])
   set.seed(1)
-  crossValParams <- ClassifyR:::generateCrossValParams(nRepeats = 1, nFolds = 2, nCores = 2, extraParams = NULL)
-  expect_s4_class(crossValParams@parallelParams, "MulticoreParam")
-  expect_equal(BiocParallel::bpnworkers(crossValParams@parallelParams), 2)
+  serial <- crossValidate(measurementsList, data$classes, classifier = "randomForest", nFeatures = 3, nRepeats = 2, nFolds = 3)
+  set.seed(1)
+  parallel <- crossValidate(measurementsList, data$classes, classifier = "randomForest", nFeatures = 3, nRepeats = 2, nFolds = 3, nCores = 2)
+  expect_identical(lapply(serial, predictions), lapply(parallel, predictions))
 })
 
 test_that("nested cross-validation tunes classifier parameters", {
