@@ -10,3 +10,4 @@ debug
 
 # vscode stuff
 .vscode
+tests/testthat/Rplots.pdf
