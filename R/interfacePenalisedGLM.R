@@ -81,7 +81,7 @@ penalisedFeatures <- function(model)
                           coefficientsUsed <- sapply(model[["beta"]], function(classCoefficients) classCoefficients[, whichCoefficientColumn])
                           featureScores <- rowSums(abs(coefficientsUsed))
                         } else { # survival data
-                            featureScores <- model[["beta"]][, whichCoefficientColumn]
+                            featureScores <- abs(model[["beta"]][, whichCoefficientColumn])
                         }
                         featureGroups <- attr(model, "featureGroups")[match(names(featureScores), attr(model, "featureNames"))]
                         groupScores <- unname(by(featureScores, featureGroups, max))

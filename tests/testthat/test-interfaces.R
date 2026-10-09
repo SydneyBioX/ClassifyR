@@ -48,3 +48,13 @@ test_that("GLM is fitted with an intercept", {
   predicted <- ClassifyR:::GLMpredictInterface(model, train, returnType = "class", verbose = 0)
   expect_gt(mean(predicted == classes), 0.75)
 })
+
+test_that("CoxNet feature ranking uses the size of protective coefficients", {
+  set.seed(5)
+  measurements <- matrix(rnorm(150 * 10), 150, 10, dimnames = list(NULL, paste0("g", 1:10)))
+  time <- rexp(150, rate = exp(-1.5 * measurements[, 1] + 0.3 * measurements[, 2]))
+  outcome <- survival::Surv(time, rep(1, 150))
+  model <- suppressWarnings(ClassifyR:::coxnetTrainInterface(asDataFrame(measurements), outcome, verbose = 0))
+  ranked <- ClassifyR:::penalisedFeatures(model)[[1]]
+  expect_equal(ranked[1], 1)
+})
