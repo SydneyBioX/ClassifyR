@@ -317,3 +317,14 @@ test_that("previousSelection warns when few previous features are in the current
   expect_equal(colnames(current)[selected], previous[4:5])
   expect_no_warning(ClassifyR:::previousSelection(asDataFrame(data$measurements), data$classes, result, .iteration = 1, verbose = 0))
 })
+
+test_that("two-class rankings stop for more than two classes", {
+  data <- makeTwoClass()
+  train <- asDataFrame(data$measurements)
+  threeClasses <- factor(rep(c("A", "B", "C"), length.out = nrow(train)))
+  pairs <- S4Vectors::Pairs(c("g1", "g2"), c("g10", "g11"))
+  expect_error(ClassifyR:::KolmogorovSmirnovRanking(train, threeClasses, verbose = 0), "two classes")
+  expect_error(ClassifyR:::KullbackLeiblerRanking(train, threeClasses, verbose = 0), "two classes")
+  expect_error(ClassifyR:::pairsDifferencesRanking(train, threeClasses, featurePairs = pairs, verbose = 0), "two classes")
+  expect_length(ClassifyR:::pairsDifferencesRanking(train, data$classes, featurePairs = pairs, verbose = 0), 2)
+})
