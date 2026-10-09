@@ -65,27 +65,6 @@ coxmatC<-function(X,time,status){
 }
 
 
-fastCox <- function(X, y, learnind, criterion, ...) {
-  ### use learningset only and sort according to time
-  X <- X[learnind, ]
-  time <- y[learnind, 1]
-  status <- y[learnind, 2]
-  sorted <- order(time)
-  time <- time[sorted]
-  status <- status[sorted]
-  X <- as.matrix(X[sorted, ])
-  # compute columnwise coxmodels
-  out <- coxmatC(X,time,status)
-  # compute p-values
-  if (criterion == "pvalue") 
-    crit <- (1 - pnorm(abs(out$zscores))) * 2
-  if (criterion == "coefficient") 
-    crit <- abs(out$coefs)
-  
-  ### and return a VarSelOut-object
-  new("VarSelOut", varsel = crit, criterion = criterion)
-}
-
 # Equivalent to genefilter::rowttests for the cox model. This is much faster
 # than calling coxph for each row of a high-dimensional matrix.
 

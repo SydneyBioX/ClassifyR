@@ -12,12 +12,28 @@ test_that("crossValidate uses the requested selection method for list input", {
   expect_false(any(selectionNames %in% c("t-test", "Difference in Means")))
 })
 
-test_that("parallel workers honour nCores on Unix-alikes", {
-  skip_on_os("windows")
+test_that("worker pools give the same results as lapply, with forked or socket workers", {
   pool <- ClassifyR:::.makeWorkerPool(nCores = 2, nTasks = 10)
-  expect_s3_class(pool, "forkPool")
-  expect_equal(pool[["workers"]], 2)
-  expect_equal(ClassifyR:::.forkApply(1:5, function(x) x^2, pool), as.list((1:5)^2))
+  expect_s3_class(pool, "workerPool")
+  expect_equal(pool[["workers"]], 2L)
+  shared <- 1:3 # Data the task function uses from its enclosing environment.
+  task <- function(x) x^2 + sum(shared)
+  for(type in c(if(.Platform$OS.type != "windows") "FORK", "PSOCK"))
+  {
+    pool[["type"]] <- type
+    expect_equal(ClassifyR:::.poolApply(1:5, task, pool), lapply(1:5, task), info = type)
+  }
+})
+
+test_that("socket workers give the same cross-validation results as forked ones", {
+  skip_on_os("windows")
+  data <- makeTwoClass()
+  run <- function() { set.seed(1); crossValidate(data$measurements, data$classes, classifier = "randomForest", nFeatures = 3, nRepeats = 2, nFolds = 3, nCores = 2) }
+  forked <- run()
+  original <- ClassifyR:::.makeWorkerPool
+  local_mocked_bindings(.makeWorkerPool = function(nCores, nTasks) { pool <- original(nCores, nTasks); pool[["type"]] <- "PSOCK"; pool }, .package = "ClassifyR")
+  socket <- run()
+  expect_identical(predictions(socket), predictions(forked))
 })
 
 test_that("results don't depend on the number of cores", {
@@ -163,4 +179,23 @@ test_that("all assays, classifiers and combinations share the same splits", {
   set.seed(1)
   merged <- crossValidate(measurementsList, data$classes, classifier = "DLDA", multiViewMethod = "merge", nFeatures = 3, nRepeats = 2, nFolds = 3)
   expect_true(all(sapply(lapply(merged, foldsOf), identical, folds[[1]])))
+})
+
+test_that("an unknown multiViewMethod is an error naming the choices", {
+  data <- makeTwoClass()
+  set.seed(1)
+  expect_error(crossValidate(list(a = data$measurements[, 1:15], b = data$measurements[, 16:30]), data$classes,
+                             multiViewMethod = "Merge", nRepeats = 1, nFolds = 3), "must be one of")
+})
+
+test_that("train and predict match the samples of a list of tables by name", {
+  data <- makeTwoClass()
+  aligned <- list(a = data$measurements[, 1:15], b = data$measurements[, 16:30])
+  shuffled <- aligned
+  shuffled$b <- shuffled$b[rev(rownames(shuffled$b)), ]
+  set.seed(1)
+  fromAligned <- train(aligned, data$classes, classifier = "DLDA", multiViewMethod = "merge", nFeatures = 3)
+  set.seed(1)
+  fromShuffled <- train(shuffled, data$classes, classifier = "DLDA", multiViewMethod = "merge", nFeatures = 3)
+  expect_equal(predict(fromShuffled, shuffled), predict(fromAligned, aligned))
 })

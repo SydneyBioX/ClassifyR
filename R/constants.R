@@ -109,4 +109,4 @@ NULL
   ncol = 2, byrow = TRUE, dimnames = list(NULL, c("multiViewMethod Keyword", "Description"))
 ) |> as.data.frame()
 
-.ClassifyRenvir[["prepareDataFormals"]] <- c("useFeatures", "maxMissingProp", "topNvariance")
+.ClassifyRenvir[["prepareDataFormals"]] <- c("useFeatures", "maxMissingProp", "maxSimilarity", "topNvariance")

@@ -210,7 +210,7 @@ input data. Autmomatically reducing to smaller number.")
       attr(result[["models"]], "forImportance") <- NULL
     result
   }
-  results <- if(inherits(parallelParams, "forkPool")) .forkApply(taskOrder, runTask, parallelParams) else
+  results <- if(inherits(parallelParams, "workerPool")) .poolApply(taskOrder, runTask, parallelParams) else
                bplapply(taskOrder, runTask, BPPARAM = parallelParams)
   results[taskOrder] <- results
   lapply(unname(split(seq_len(nrow(tasks)), tasks[, "crossValidation"])), function(taskIndices)
