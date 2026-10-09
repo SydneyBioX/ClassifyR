@@ -86,7 +86,7 @@ setMethod("runTests", "DataFrame", function(measurements, outcome, crossValParam
 # Each split uses the random number stream that bpmapply with the cross-validation's RNGseed would give it, so the
 # results don't depend on how the splits are distributed among workers.
 
-.prepareTests <- function(measurements, outcome, crossValParams, modellingParams, characteristics, verbose, ...)
+.prepareTests <- function(measurements, outcome, crossValParams, modellingParams, characteristics, verbose, ..., splits = NULL, deferFinal = FALSE)
 {
   if(is.null(rownames(measurements)))
   {
@@ -124,16 +124,20 @@ input data. Autmomatically reducing to smaller number.")
       modellingParams@selectParams@nFeatures <- max(nFeatures)
   }
 
-  # Create all partitions of training and testing sets.
+  # Create all partitions of training and testing sets, unless given ones shared with other cross-validations.
+  if(!is.null(splits)) samplesSplitsList <- splits else
   samplesSplitsList <- samplesSplits(crossValParams@samplesSplits, crossValParams@permutations, crossValParams@folds, crossValParams@percentTest, crossValParams@leave, outcome)
   splitsTestInfoTable <- splitsTestInfo(crossValParams@samplesSplits, crossValParams@permutations, crossValParams@folds, crossValParams@percentTest, crossValParams@leave, samplesSplitsList)
 
-  # The final model is fitted with the random number state that follows making the splits.
+  # The final model is fitted with the random number state that follows making the splits. If deferred, it is
+  # fitted alongside the splits (by .runTestsSplits) from that state.
+  finalState <- if(exists(".Random.seed", envir = globalenv())) get(".Random.seed", envir = globalenv())
+  if(deferFinal) fullResult <- NULL else
   fullResult <- runTest(measurements, outcome, measurements, outcome, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics, .iteration = 1)
 
   list(measurements = measurements, outcome = outcome, originalFeatures = originalFeatures, crossValParams = crossValParams,
        modellingParams = modellingParams, characteristics = characteristics, verbose = verbose,
-       splits = samplesSplitsList, splitsInfo = splitsTestInfoTable, fullResult = fullResult)
+       splits = samplesSplitsList, splitsInfo = splitsTestInfoTable, fullResult = fullResult, finalState = finalState)
 }
 
 # Random number streams of the elements of a bplapply or bpmapply call with RNGseed equal to seed.
@@ -147,19 +151,36 @@ input data. Autmomatically reducing to smaller number.")
   streams
 }
 
+# Runs every split of the cross-validations, and their deferred final models (split 0), in one call of bplapply.
+# Returns, for each cross-validation, its list of split results with the final model's result as attribute
+# "fullResult" when it was deferred.
 .runTestsSplits <- function(crossValidations, parallelParams)
 {
   tasks <- do.call(rbind, lapply(seq_along(crossValidations), function(index)
-                     data.frame(crossValidation = index, split = seq_along(crossValidations[[index]][["splits"]][["train"]]))))
-  streams <- unlist(lapply(crossValidations, function(crossValidation)
-                       .splitStreams(BiocParallel::bpRNGseed(crossValidation[["crossValParams"]]@parallelParams),
-                                     length(crossValidation[["splits"]][["train"]]))), recursive = FALSE)
+  {
+    crossValidation <- crossValidations[[index]]
+    splitNumbers <- seq_along(crossValidation[["splits"]][["train"]])
+    if(is.null(crossValidation[["fullResult"]])) splitNumbers <- c(0L, splitNumbers)
+    data.frame(crossValidation = index, split = splitNumbers)
+  }))
+  streams <- unlist(lapply(seq_along(crossValidations), function(index)
+  {
+    crossValidation <- crossValidations[[index]]
+    splitStreams <- .splitStreams(BiocParallel::bpRNGseed(crossValidation[["crossValParams"]]@parallelParams),
+                                  length(crossValidation[["splits"]][["train"]]))
+    if(is.null(crossValidation[["fullResult"]])) splitStreams <- c(list(crossValidation[["finalState"]]), splitStreams)
+    splitStreams
+  }), recursive = FALSE)
 
   results <- bplapply(seq_len(nrow(tasks)), function(taskIndex)
   {
     if(!is.null(streams[[taskIndex]])) assign(".Random.seed", streams[[taskIndex]], envir = globalenv())
     crossValidation <- crossValidations[[tasks[taskIndex, "crossValidation"]]]
     setNumber <- tasks[taskIndex, "split"]
+    if(setNumber == 0) # The final model, fitted to all samples.
+      return(runTest(crossValidation[["measurements"]], crossValidation[["outcome"]], crossValidation[["measurements"]], crossValidation[["outcome"]],
+                     crossValParams = crossValidation[["crossValParams"]], modellingParams = crossValidation[["modellingParams"]],
+                     characteristics = crossValidation[["characteristics"]], .iteration = 1))
     if(crossValidation[["verbose"]] >= 1 && setNumber %% 10 == 0)
       message(Sys.time(), ": Processing sample set ", setNumber, '.')
     
@@ -171,7 +192,13 @@ input data. Autmomatically reducing to smaller number.")
             crossValidation[["crossValParams"]], crossValidation[["modellingParams"]], crossValidation[["characteristics"]],
             crossValidation[["verbose"]], .iteration = setNumber)
   }, BPPARAM = parallelParams)
-  unname(split(results, tasks[, "crossValidation"]))
+  lapply(unname(split(seq_len(nrow(tasks)), tasks[, "crossValidation"])), function(taskIndices)
+  {
+    isFinal <- tasks[taskIndices, "split"] == 0
+    splitResults <- results[taskIndices[!isFinal]]
+    if(any(isFinal)) attr(splitResults, "fullResult") <- results[[taskIndices[isFinal]]]
+    splitResults
+  })
 }
 
 .assembleTests <- function(crossValidation, results)
@@ -183,6 +210,8 @@ input data. Autmomatically reducing to smaller number.")
   characteristics <- crossValidation[["characteristics"]]
   splitsTestInfoTable <- crossValidation[["splitsInfo"]]
   fullResult <- crossValidation[["fullResult"]]
+  if(is.null(fullResult)) fullResult <- attr(results, "fullResult")
+  attr(results, "fullResult") <- NULL
 
   # Error checking and reporting.
   resultErrors <- sapply(results, function(result) is.character(result))

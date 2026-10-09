@@ -145,3 +145,21 @@ test_that("prepareData keeps the most variable features and drops similar ones",
   expect_false("g2" %in% colnames(prepared$measurements))
   expect_equal(ncol(prepared$measurements), ncol(measurements) - 1)
 })
+
+test_that("all assays, classifiers and combinations share the same splits", {
+  data <- makeTwoClass()
+  measurementsList <- list(a = data$measurements[, 1:15], b = data$measurements[, 16:30])
+  foldsOf <- function(result)
+  {
+    predictionsTable <- as.data.frame(predictions(result))
+    predictionsTable <- predictionsTable[order(predictionsTable[, "permutation"], predictionsTable[, "sample"]), ]
+    paste(predictionsTable[, "permutation"], predictionsTable[, "fold"])
+  }
+  set.seed(1)
+  separate <- crossValidate(measurementsList, data$classes, classifier = c("DLDA", "randomForest"), nFeatures = 3, nRepeats = 2, nFolds = 3)
+  folds <- lapply(separate, foldsOf)
+  expect_true(all(sapply(folds, identical, folds[[1]])))
+  set.seed(1)
+  merged <- crossValidate(measurementsList, data$classes, classifier = "DLDA", multiViewMethod = "merge", nFeatures = 3, nRepeats = 2, nFolds = 3)
+  expect_true(all(sapply(lapply(merged, foldsOf), identical, folds[[1]])))
+})

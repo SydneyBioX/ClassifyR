@@ -53,6 +53,14 @@
 #' \code{selectionMethod} can be a keyword for any of the implemented approaches as shown by \code{available("selectionMethod")}.
 #' \code{multiViewMethod} can be a keyword for any of the implemented approaches as shown by \code{available("multiViewMethod")}.
 #'
+#' Every assay, classifier, selection method and combination of assays in one call is evaluated on the same
+#' training and test splits, so their performances can be compared sample by sample and split by split.
+#'
+#' If \code{nFeatures} has several values and no tuning mode is given in \code{extraParams}, the number of features is
+#' chosen by resubstitution: the classifier is trained and evaluated on the training samples for each value. Classifiers
+#' that fit their training samples perfectly (e.g. random forest) give every value the same performance, and then the
+#' smallest value is chosen.
+#'
 #' @return An object of class \code{\link{ClassifyResult}}
 #' @export
 #' @aliases crossValidate crossValidate,matrix-method crossValidate,DataFrame-method
@@ -469,11 +477,14 @@ Using an ordinary GLM instead.")
     classifier
 }
 
-generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams){
+generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams, seed = NULL){
 
-    if(!exists(".Random.seed")) stop("Predictive modelling should always be reproducible. Please use set.seed(<number>) yourself and run 'crossValidate' again.")
-    index <- ifelse(.Random.seed[2] + 2 == length(.Random.seed), 3, 3 + .Random.seed[2]) # Right after set.seed, the second number is the length of the random integer vector.
-    seed <- .Random.seed[index] # Get current random number.
+    if(is.null(seed))
+    {
+      if(!exists(".Random.seed")) stop("Predictive modelling should always be reproducible. Please use set.seed(<number>) yourself and run 'crossValidate' again.")
+      index <- ifelse(.Random.seed[2] + 2 == length(.Random.seed), 3, 3 + .Random.seed[2]) # Right after set.seed, the second number is the length of the random integer vector.
+      seed <- .Random.seed[index] # Get current random number.
+    }
     
     # The seed sets the random number streams of the splits. Workers come from one pool per crossValidate call
     # (.makeWorkerPool); nested cross-validations within a split run serially.
@@ -520,22 +531,41 @@ generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams){
 }
 
 # A queue of prepared cross-validations; add() returns the position of the added one.
+# The first cross-validation's seed and splits are kept, so that every later one uses the same splits.
 .crossValidationQueue <- function()
 {
   items <- list()
-  list(add = function(item) { items[[length(items) + 1]] <<- item; length(items) },
-       items = function() items)
+  shared <- NULL
+  list(add = function(item)
+       {
+         items[[length(items) + 1]] <<- item
+         if(is.null(shared))
+           shared <<- list(seed = BiocParallel::bpRNGseed(item[["crossValParams"]]@parallelParams),
+                           splits = item[["splits"]], nSamples = length(item[["outcome"]]))
+         length(items)
+       },
+       items = function() items,
+       shared = function() shared)
 }
 
-# Parallel workers for nCores cores.
+# Parallel workers for nCores cores. Making a MulticoreParam or SnowParam counts the free connections, which takes
+# about half a second on servers allowing many open files, so each pool is made once per session and reused.
 .makeWorkerPool <- function(nCores, nTasks)
 {
   if(nCores == 1) return(BiocParallel::SerialParam())
-  if(.Platform$OS.type == "windows") # Only SnowParam suits Windows.
-    return(BiocParallel::SnowParam(min(nCores, BiocParallel::snowWorkers("SOCK"))))
-  # Multicore is faster than SNOW. Tasks are handed out one at a time, so that workers finishing
-  # quick tasks (e.g. a small assay) take more of them.
-  BiocParallel::MulticoreParam(min(nCores, BiocParallel::multicoreWorkers()), tasks = nTasks)
+  poolName <- paste0("workerPool", nCores)
+  pool <- .ClassifyRenvir[[poolName]]
+  if(is.null(pool))
+  {
+    if(.Platform$OS.type == "windows") # Only SnowParam suits Windows.
+      pool <- BiocParallel::SnowParam(min(nCores, BiocParallel::snowWorkers("SOCK")))
+    else # Multicore is faster than SNOW.
+      pool <- BiocParallel::MulticoreParam(min(nCores, BiocParallel::multicoreWorkers()))
+    assign(poolName, pool, envir = .ClassifyRenvir)
+  }
+  # Tasks are handed out one at a time, so that workers finishing quick tasks (e.g. a small assay) take more of them.
+  if(is(pool, "MulticoreParam")) BiocParallel::bptasks(pool) <- nTasks
+  pool
 }
 
 # Runs the splits of every queued cross-validation in one pool of workers and replaces each queue position in
@@ -754,10 +784,13 @@ CV <- function(measurements, outcome, x, outcomeTrain, measurementsTest, outcome
 
     # Setup cross-validation parameters. Could be needed for independent train/test if parameter tuning
     # is specified to be done by nested cross-validation.
+    # Cross-validations queued by one crossValidate call share the first one's seed and splits.
+    shared <- if(!is.null(queue)) queue$shared() else NULL
     crossValParams <- generateCrossValParams(nRepeats = nRepeats,
                                              nFolds = nFolds,
                                              nCores = nCores,
-                                             extraParams = extraParams)
+                                             extraParams = extraParams,
+                                             seed = shared[["seed"]])
     
 
     # Turn text into TrainParams and TestParams objects
@@ -777,7 +810,9 @@ CV <- function(measurements, outcome, x, outcomeTrain, measurementsTest, outcome
     if(!is.null(measurements))
     { # Cross-validation.
       if(!is.null(queue)) # Prepare it now and run it with the others in the queue; return its position in the queue.
-        return(queue$add(.prepareTests(measurements, outcome, crossValParams, modellingParams, characteristics, verbose)))
+        return(queue$add(.prepareTests(measurements, outcome, crossValParams, modellingParams, characteristics, verbose,
+                                       splits = if(!is.null(shared) && shared[["nSamples"]] == nrow(measurements)) shared[["splits"]],
+                                       deferFinal = TRUE)))
       classifyResults <- runTests(measurements, outcome, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics, verbose = verbose)
     } else { # Independent training and testing.
       classifyResults <- runTest(x, outcomeTrain, measurementsTest, outcomeTest, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics)
