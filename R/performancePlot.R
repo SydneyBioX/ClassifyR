@@ -4,10 +4,10 @@
 #' classifications
 #' 
 #' If there are multiple values for a performance measure in a single result
-#' object, it is plotted as a violin plot, unless \code{aggregate} is
-#' \code{TRUE}, in which case the all predictions in a single result object are
-#' considered simultaneously, so that only one performance number is
-#' calculated, and a barchart is plotted.
+#' object, they are plotted as a box plot or, if \code{densityStyle} is
+#' \code{"violin"}, a violin plot. If a result's value of
+#' \code{characteristicsList[["x"]]} is one of \code{aggregate}, its values
+#' are averaged to a single number and a bar is plotted.
 #' 
 #' @aliases performancePlot performancePlot,list-method
 #' @param results A list of \code{\link{ClassifyResult}} objects.
@@ -44,7 +44,7 @@
 #' the order of levels will be computed based on the median performance value of
 #' the characteristic being sorted into ascending or descending order.
 #' @param yLimits The minimum and maximum value of the performance metric to
-#' plot.
+#' plot. If \code{NULL}, the limits are chosen automatically.
 #' @param densityStyle Default: "box". Either \code{"violin"} for violin plot or
 #' \code{"box"} for box plot. If cross-validation is not repeated, then a bar chart.
 #' @param fontSizes A vector of length 4. The first number is the size of the
@@ -58,8 +58,7 @@
 #' @param showLegend If \code{TRUE}, a legend is plotted next to the plot. If
 #' FALSE, it is hidden.
 #' @param ... Not used by end user.
-#' @return An object of class \code{ggplot} and a plot on the current graphics
-#' device, if \code{plot} is \code{TRUE}.
+#' @return An object of class \code{ggplot}.
 #' @author Dario Strbenac
 #' @examples
 #' 
@@ -136,7 +135,6 @@ setMethod("performancePlot", "list",
   if(metric == "auto")
       metric <- ifelse("risk" %in% colnames(results[[1]]@predictions), "C-index", "Balanced Accuracy")
             
-  ggplot2::theme_set(ggplot2::theme_classic() + ggplot2::theme(panel.border = ggplot2::element_rect(fill = NA)))
   metrics <- unlist(lapply(results, function(result)
     if(!is.null(result@performance)) names(result@performance)))
   namesCounts <- table(metrics)
@@ -179,14 +177,15 @@ setMethod("performancePlot", "list",
   
   allCharacteristics <- unlist(characteristicsList)
   xLabel <- allCharacteristics['x']
-  if(rotate90 == TRUE) plotData[, xLabel] <- factor(plotData[, xLabel], levels = rev(levels(plotData[, xLabel])))
+  if(rotate90 == TRUE) plotData[, xLabel] <- factor(plotData[, xLabel], levels = rev(levels(factor(plotData[, xLabel]))))
 
   legendPosition <- ifelse(showLegend == TRUE, "right", "none")
   characteristicsList <- lapply(characteristicsList, rlang::sym)
 
-  performancePlot <- ggplot2::ggplot() + ggplot2::geom_hline(yintercept = baseline, linetype = 2)
+  performancePlot <- ggplot2::ggplot() + ggplot2::theme_classic() + ggplot2::theme(panel.border = ggplot2::element_rect(fill = NA)) +
+                     ggplot2::geom_hline(yintercept = baseline, linetype = 2)
 
-  if(!is.null(yLimits)) performancePlot <- performancePlot + ggplot2::coord_cartesian(ylim = yLimits)
+  if(!is.null(yLimits) && rotate90 == FALSE) performancePlot <- performancePlot + ggplot2::coord_cartesian(ylim = yLimits)
   if("fillColour" %in% names(characteristicsList))
     performancePlot <- performancePlot + ggplot2::scale_fill_manual(values = coloursList[["fillColours"]])
   if("lineColour" %in% names(characteristicsList))
@@ -205,7 +204,6 @@ setMethod("performancePlot", "list",
     performancePlot <- performancePlot + ggplot2::geom_bar(data = singlePlotData, stat = "identity", ggplot2::aes(x = !!characteristicsList[['x']], y = !!(rlang::sym(metric)), fill = !!fillVariable, colour = !!lineVariable), alpha = alpha)
   }
   
-  if(!is.null(yLimits)) yLimits = c(0, 1)
   if(rotate90 == TRUE) performancePlot <- performancePlot + ggplot2::coord_flip(ylim = yLimits)
   
   performancePlot <- performancePlot + ggplot2::facet_grid(ggplot2::vars(!!rowVariable), ggplot2::vars(!!columnVariable)) + ggplot2::theme(strip.text = ggplot2::element_text(size = fontSizes[4]))
