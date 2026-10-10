@@ -546,6 +546,9 @@ setMethod("SelectParams", c("functionOrCharacterOrList"),
               rankingFunction
             }
             if(is.list(featureRanking)) featureRanking <- lapply(featureRanking, toFunction) else featureRanking <- toFunction(featureRanking)
+            # previousSelection uses the features chosen in the same iteration of the previous cross-validation.
+            if(is.function(featureRanking) && identical(attr(featureRanking, "name"), "previousSelection") && !".iteration" %in% intermediate)
+              intermediate <- c(intermediate, ".iteration")
             if(!is.list(featureRanking) && (ncol(characteristics) == 0 || !"Selection Name" %in% characteristics[, "characteristic"]))
             {
               characteristics <- rbind(characteristics, S4Vectors::DataFrame(characteristic = "Selection Name", value = .functionDisplayName(featureRanking, "User-specified Ranking")))
