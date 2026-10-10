@@ -2,7 +2,8 @@
 
 classifierPackages <- list(randomForest = "ranger", kNN = "class", ridgeGLM = "glmnet", elasticNetGLM = "glmnet",
                            LASSOGLM = "glmnet", SVM = "e1071", NSC = "pamr", mixturesNormals = "Rmixmod",
-                           CoxNet = "glmnet", randomSurvivalForest = "randomForestSRC", XGB = "xgboost")
+                           CoxNet = "glmnet", randomSurvivalForest = "randomForestSRC", XGB = "xgboost",
+                           aorsf = "aorsf", glmboost = "mboost", LiblineaR = "LiblineaR", ncvreg = "ncvreg")
 selectionPackages <- list(limma = "limma", edgeR = "edgeR", Levene = "car", DMD = "robustbase")
 
 hasPackages <- function(packages) all(vapply(packages, requireNamespace, logical(1), quietly = TRUE))
