@@ -50,7 +50,8 @@
 #' \item{\code{"Micro F1"}: F1 score obtained by calculating the
 #' harmonic mean of micro precision and micro recall.}
 #' \item{\code{"Macro Precision"}: Sum of the ratios of the number of correct predictions in each
-#' class to the number of samples predicted to be in each class, divided by the number of classes.}
+#' class to the number of samples predicted to be in each class, divided by the number of classes. A class which is never
+#' predicted has a precision of 0.}
 #' \item{\code{"Macro Recall"}: Sum of the ratios of the number of correct predictions
 #' in each class to the number of samples in each class, divided by the number of classes.}
 #' \item{\code{"Macro F1"}: F1 score obtained by calculating the harmonic mean of macro precision
@@ -58,17 +59,21 @@
 #' \item{\code{"Matthews Correlation Coefficient"}: Matthews Correlation Coefficient (MCC). A score
 #' between -1 and 1 indicating how concordant the predicted classes are to the actual classes. Only defined if
 #' there are two classes.}
-#' \item{\code{"AUC"}: Area Under the Curve. An area ranging from 0 to 1, under the ROC.}
+#' \item{\code{"AUC"}: Area Under the Curve. An area ranging from 0 to 1, under the ROC. For more than two classes,
+#'         the mean of the one-versus-rest areas. If a group of predictions lacks a sample of some class, its AUC is
+#'         \code{NaN}, with a warning.}
 #' \item{\code{"C-index"}: For survival data, the concordance index, for models which produce risk scores. Ranges from 0 to 1.}
-#' \item{\code{"Sample C-index"}: Per-individual C-index.}
+#' \item{\code{"Sample C-index"}: Per-individual C-index. For each sample, the proportion of comparable pairs it
+#'         belongs to which are concordant, with a pair of tied risk scores counting as half concordant, as for the C-index.}
 #' }
 #' 
 #' @param actualOutcome A factor vector or survival information specifying each sample's known outcome.
 #' @param predictedOutcome A factor vector or survival information of the same length as \code{actualOutcome} specifying each sample's predicted outcome.
 #' @param grouping Default: \code{"permutation"}. If the cross-validation was k-fold, then this determines whether the metric will be calculated for samples
 #' grouped by permutation or by fold, if the value is \code{"fold"}. For small sample sizes, \code{"permutation"} would suit. But, for large sample sizes,
-#' \code{"fold"} would be preferable, as class membership probabilities or risk scores are not directly comparable between folds. This setting makes
-#' no difference to error or accuracy metrics, apart from their variability.
+#' \code{"fold"} would be preferable, as class membership probabilities or risk scores are not directly comparable between folds. If
+#' \code{"fold"}, the metric is calculated for each fold and the folds' values are averaged, giving one value for each permutation.
+#' Metrics are not rounded.
 #' 
 #' @return If \code{calcCVperformance} was run, an updated
 #' \code{\linkS4class{ClassifyResult}} object, with new metric values in the
@@ -225,6 +230,8 @@ setMethod("calcCVperformance", "ClassifyResult",
         predictedOutcome <- factor(result@predictions[, "class"], levels = classLevels)
         actualOutcome <- factor(actualOutcomeOrdered, levels = classLevels, ordered = TRUE)
         performance <- .calcPerformance(actualOutcome, predictedOutcome, samples, performanceType, groupID)
+        if(!performanceType %in% c("Sample Error", "Sample Accuracy") && grepl(':', names(performance[["values"]])[1])) # Then average for each permutation.
+          performance[["values"]] <- .averagePermutations(performance[["values"]])
         result@performance[[performance[["name"]]]] <- performance[["values"]]
       }
   }
@@ -282,17 +289,22 @@ setMethod("calcCVperformance", "ClassifyResult",
       earlierEvent <- outer(times, times, '<') & iterationSurv[, "status"] == 1
       higherRisk <- outer(iterationPredictions, iterationPredictions, '>')
       lowerRisk <- outer(iterationPredictions, iterationPredictions, '<')
+      tiedRisk <- outer(iterationPredictions, iterationPredictions, '==')
       # Concordant: the sample with the earlier event has the higher risk. Discordant: it has the lower risk.
+      # Tied: both have the same risk, which counts as half concordant, as for the C-index.
       concordant <- earlierEvent & higherRisk
       discordant <- earlierEvent & lowerRisk
+      tied <- earlierEvent & tiedRisk
       data.frame(sample = iterationSamples,
                  concordant = rowSums(concordant) + colSums(concordant),
-                 discordant = rowSums(discordant) + colSums(discordant))
+                 discordant = rowSums(discordant) + colSums(discordant),
+                 tied = rowSums(tied) + colSums(tied))
     }, actualOutcome, predictedOutcome, samples, SIMPLIFY = FALSE))
 
     concordants <- rowsum(pairCounts[, "concordant"], pairCounts[, "sample"])[, 1]
     discordants <- rowsum(pairCounts[, "discordant"], pairCounts[, "sample"])[, 1]
-    Cindex <- round(concordants / (concordants + discordants), 2)[allSamples]
+    tieds <- rowsum(pairCounts[, "tied"], pairCounts[, "sample"])[, 1]
+    Cindex <- ((concordants + 0.5 * tieds) / (concordants + discordants + tieds))[allSamples]
     names(Cindex) <- allSamples
     Cindex[is.nan(Cindex)] <- NA # A censored individual with a time shorter than all events has no comparable pairs.
     return(list(name = performanceType, values = Cindex))
@@ -329,8 +341,13 @@ setMethod("calcCVperformance", "ClassifyResult",
         mean(classErrors / classSizes, na.rm = TRUE)
     }, actualOutcome, predictedOutcome, SIMPLIFY = FALSE))
   } else if(performanceType == "AUC") {
+    missingClass <- sapply(actualOutcome, function(iterationClasses) any(table(iterationClasses) == 0))
+    if(any(missingClass))
+      warning(sum(missingClass), " of ", length(missingClass), " groups of predictions lack a sample of some class. ",
+              "Their AUC is NaN.")
     performanceValues <- unlist(mapply(function(iterationClasses, iterationPredictions)
     {
+      if(any(table(iterationClasses) == 0)) return(NaN)
       classesTable <- do.call(rbind, lapply(levels(iterationClasses), function(class)
       {
         rates <- .ROCrates(iterationPredictions[, class], iterationClasses == class)
@@ -374,7 +391,9 @@ setMethod("calcCVperformance", "ClassifyResult",
       }
       if(performanceType %in% c("Macro Precision", "Macro F1"))
       {
-        macroP <- sum(truePositives / (truePositives + falsePositives)) / nrow(confusionMatrix)
+        classPrecisions <- truePositives / (truePositives + falsePositives)
+        classPrecisions[truePositives + falsePositives == 0] <- 0 # The class was never predicted.
+        macroP <- sum(classPrecisions) / nrow(confusionMatrix)
         if(performanceType == "Macro Precision") return(macroP)
       }
       if(performanceType %in% c("Macro Recall", "Macro F1"))

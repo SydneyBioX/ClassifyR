@@ -286,7 +286,7 @@ input data. Autmomatically reducing to smaller number.")
     
     if(!is.null(ncol(predictedOutcome)))
         predictedOutcome <- predictedOutcome[, na.omit(match(c("class", "risk"), colnames(predictedOutcome)))]
-    performanceChanges <- round(performancesWithoutEach - calcExternalPerformance(outcomeTest, predictedOutcome, performanceType), 2)
+    performanceChanges <- performancesWithoutEach - calcExternalPerformance(outcomeTest, predictedOutcome, performanceType)
 
     if(is.null(S4Vectors::mcols(measurementsTrain)) || !any(c("assay", "feature") %in% colnames(S4Vectors::mcols(measurementsTrain))))
     {

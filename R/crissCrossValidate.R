@@ -156,7 +156,6 @@ crissCrossValidate <- function(measurements, outcomes,
             dimnames = list(paste("Select and Train", names(measurements)),
                             paste("Predict",         names(measurements)))
         )
-        realPerformance <- round(realPerformance, 2)
         
     } else {
         # trainType == "modelTest"
@@ -208,7 +207,6 @@ crissCrossValidate <- function(measurements, outcomes,
             dimnames = list(paste("Select", names(measurements)),
                             paste("Cross-validate", names(measurements)))
         )
-        realPerformance <- round(realPerformance, 2)
     }
     
     result <- list(real = realPerformance) # Store the results
@@ -244,7 +242,6 @@ crissCrossValidate <- function(measurements, outcomes,
             dimnames = list(paste("Random Select", names(measurements)),
                             paste("Cross-validate", names(measurements)))
         )
-        randomPerformance <- round(randomPerformance, 2)
         
         result$random <- randomPerformance
     }
@@ -294,7 +291,7 @@ crissCrossValidate <- function(measurements, outcomes,
         
         topMatrix <- matrix(topPerformance, nrow = 1,
                             dimnames = list("TOP", names(top_measurements)))
-        result$top <- round(topMatrix, 2)
+        result$top <- topMatrix
     }
     
     # Store the parameters
@@ -330,15 +327,16 @@ crissCrossValidate <- function(measurements, outcomes,
 #' A function to plot the output of the crissCrossValidate function.
 #'
 #' This function generates a heatmap of the cross-validation results from
-#' \code{\link{crissCrossValidate}}. For \code{trainType = "modelTrain"}, the diagonal
-#' (where the training set is the test set) is resubstitution and is hidden unless \code{showResubMetric = TRUE}.
-#' For \code{trainType = "modelTest"}, the diagonal is cross-validation within each data set; it is shown and
-#' outlined in black.
+#' \code{\link{crissCrossValidate}}. The diagonal, where the features are chosen or the model is trained in the data set
+#' that is tested, is hidden unless \code{showDiagonal = TRUE}. For \code{trainType = "modelTrain"}, it is
+#' resubstitution. For \code{trainType = "modelTest"}, it is cross-validation within each data set. If shown, it is
+#' outlined in black and a caption says how it was evaluated.
 #'
 #' @param crissCrossResult The output of the \code{\link{crissCrossValidate}} function.
 #' @param includeValues Logical. If \code{TRUE}, numeric values are printed on each tile.
-#' @param showResubMetric Logical. If \code{FALSE}, the diagonal (resubstitution) cells of a \code{"modelTrain"} result
-#'        are set to \code{NA} and appear grayed-out or blank. Defaults to \code{FALSE}.
+#' @param showDiagonal Logical. If \code{FALSE}, the diagonal cells are set to \code{NA} and appear grayed-out.
+#'        Defaults to \code{FALSE}.
+#' @param showResubMetric Deprecated name of \code{showDiagonal}.
 #' @return A \code{ggplot} object, or a combined plot of two heatmaps if random features were evaluated.
 #'
 #' @import ggplot2
@@ -347,8 +345,14 @@ crissCrossValidate <- function(measurements, outcomes,
 #' @export
 crissCrossPlot <- function(crissCrossResult,
                            includeValues    = FALSE,
-                           showResubMetric  = FALSE)
+                           showDiagonal     = FALSE,
+                           showResubMetric)
 {
+    if(!missing(showResubMetric))
+    {
+        warning("'showResubMetric' is deprecated. Use 'showDiagonal' instead.")
+        showDiagonal <- showResubMetric
+    }
     params <- crissCrossResult[["params"]]
     scalebar_title <- params$performanceType
     # Results created before the diagonal was recorded have a resubstitution diagonal.
@@ -360,7 +364,7 @@ crissCrossPlot <- function(crissCrossResult,
         # Convert to matrix if needed
         mat <- as.matrix(mat)
         
-        if (isResubstitution && !showResubMetric) {
+        if (!showDiagonal) {
             diag(mat) <- NA
         }
         
@@ -389,7 +393,7 @@ crissCrossPlot <- function(crissCrossResult,
             ) +
             coord_fixed()
         
-        if (!isResubstitution || showResubMetric) {
+        if (showDiagonal) {
             gg <- gg + geom_tile(data = diagonal_df, aes(x = Var1, y = Var2), inherit.aes = FALSE,
                                  fill = NA, colour = "black", linewidth = 0.5) +
                 labs(caption = paste("Diagonal:", diagonalText))

@@ -7,7 +7,8 @@
 crissCrossPlot(
   crissCrossResult,
   includeValues = FALSE,
-  showResubMetric = FALSE
+  showDiagonal = FALSE,
+  showResubMetric
 )
 }
 \arguments{
@@ -15,16 +16,18 @@ crissCrossPlot(
 
 \item{includeValues}{Logical. If \code{TRUE}, numeric values are printed on each tile.}
 
-\item{showResubMetric}{Logical. If \code{FALSE}, the diagonal (resubstitution) cells of a \code{"modelTrain"} result
-are set to \code{NA} and appear grayed-out or blank. Defaults to \code{FALSE}.}
+\item{showDiagonal}{Logical. If \code{FALSE}, the diagonal cells are set to \code{NA} and appear grayed-out.
+Defaults to \code{FALSE}.}
+
+\item{showResubMetric}{Deprecated name of \code{showDiagonal}.}
 }
 \value{
 A \code{ggplot} object, or a combined plot of two heatmaps if random features were evaluated.
 }
 \description{
 This function generates a heatmap of the cross-validation results from
-\code{\link{crissCrossValidate}}. For \code{trainType = "modelTrain"}, the diagonal
-(where the training set is the test set) is resubstitution and is hidden unless \code{showResubMetric = TRUE}.
-For \code{trainType = "modelTest"}, the diagonal is cross-validation within each data set; it is shown and
-outlined in black.
+\code{\link{crissCrossValidate}}. The diagonal, where the features are chosen or the model is trained in the data set
+that is tested, is hidden unless \code{showDiagonal = TRUE}. For \code{trainType = "modelTrain"}, it is
+resubstitution. For \code{trainType = "modelTest"}, it is cross-validation within each data set. If shown, it is
+outlined in black and a caption says how it was evaluated.
 }
