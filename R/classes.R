@@ -811,8 +811,8 @@ setClass("ModellingParams", representation(
 #' @rdname ModellingParams-class
 #' @aliases ModellingParams ModellingParams-class
 #' @docType class
-#' @param balancing Default: \code{"downsample"}. A character value specifying what kind
-#' of class balancing to do, if any.
+#' @param balancing Default: \code{"none"}. A character value specifying what kind of class balancing to do to the
+#' training samples, if any: \code{"none"}, \code{"downsample"} or \code{"upsample"}.
 #' @param transformParams Parameters used for feature transformation inside of C.V.
 #' specified by a \code{\link{TransformParams}} instance. Optional, can be \code{NULL}.
 #' @param selectParams Parameters used during feature selection specified
@@ -836,7 +836,7 @@ setClass("ModellingParams", representation(
 #'                      predictParams = PredictParams("randomForest"))
 #'   #}
 #' @export
-ModellingParams <- function(balancing = c("downsample", "upsample", "none"),
+ModellingParams <- function(balancing = c("none", "downsample", "upsample"),
                             transformParams = NULL, selectParams = SelectParams("t-test"),
                             trainParams = TrainParams("DLDA"), predictParams = PredictParams("DLDA"),
                             doImportance = FALSE)
