@@ -101,6 +101,52 @@ test_that("penalised GLM fits a logistic model for two classes and a multinomial
   expect_identical(colnames(ClassifyR:::penalisedGLMpredictInterface(model, data$measurements[1:5, ], returnType = "score", verbose = 0)), c("A", "B", "C"))
 })
 
+test_that("penalised GLM chooses lambda by cross-validation unless resubstitution is asked for", {
+  set.seed(8)
+  classes <- factor(rep(c("A", "B"), each = 40))
+  measurements <- matrix(rnorm(80 * 30), 80, 30, dimnames = list(paste0("s", 1:80), paste0("g", 1:30)))
+  measurements[classes == "B", 1:3] <- measurements[classes == "B", 1:3] + 1
+  measurements <- asDataFrame(measurements)
+  set.seed(9)
+  model <- ClassifyR:::penalisedGLMtrainInterface(measurements, classes, alpha = 0.5, verbose = 0)
+  set.seed(9)
+  again <- ClassifyR:::penalisedGLMtrainInterface(measurements, classes, alpha = 0.5, verbose = 0)
+  expect_identical(attr(model, "tune"), attr(again, "tune"))
+  expect_true(attr(model, "tune")[["lambda"]] %in% model[["lambda"]])
+
+  # Resubstitution: the smallest balanced error of the training samples, the largest lambda among ties.
+  resubstitution <- ClassifyR:::penalisedGLMtrainInterface(measurements, classes, alpha = 0.5, lambdaTuning = "resubstitution", verbose = 0)
+  lambdas <- resubstitution[["lambda"]][-1]
+  errors <- sapply(lambdas, function(lambda)
+    calcExternalPerformance(classes, factor(predict(resubstitution, as.matrix(measurements), s = lambda, type = "class"), levels = levels(classes)), "Balanced Error"))
+  expect_equal(attr(resubstitution, "tune")[["lambda"]], lambdas[which.min(errors)])
+})
+
+test_that("penalised GLM considers every lambda at which any class has a coefficient", {
+  set.seed(10)
+  classes <- factor(rep(c("A", "B", "C"), each = 50))
+  measurements <- matrix(rnorm(150 * 40), 150, 40, dimnames = list(paste0("s", 1:150), paste0("g", 1:40)))
+  measurements[classes == "B", 1:5] <- measurements[classes == "B", 1:5] + 1
+  measurements[classes == "C", 6:10] <- measurements[classes == "C", 6:10] + 1
+  path <- glmnet::glmnet(measurements, classes, family = "multinomial", alpha = 0.5)
+  firstClassEmpty <- colSums(abs(as.matrix(path[["beta"]][["A"]]))) == 0
+  anyClassUsed <- Reduce(`|`, lapply(path[["beta"]], function(coefficients) colSums(abs(as.matrix(coefficients))) != 0))
+  # Lambdas at which class A, the first, has no coefficients but classes B and C do.
+  lambdas <- path[["lambda"]][firstClassEmpty & anyClassUsed]
+  expect_gt(length(lambdas), 1)
+  model <- ClassifyR:::penalisedGLMtrainInterface(asDataFrame(measurements), classes, lambda = lambdas, alpha = 0.5,
+                                                  lambdaTuning = "resubstitution", verbose = 0)
+  expect_true(attr(model, "tune")[["lambda"]] %in% lambdas)
+})
+
+test_that("penalised GLM falls back to resubstitution for a class with fewer than three samples", {
+  set.seed(11)
+  classes <- factor(c(rep("A", 20), "B", "B"))
+  measurements <- asDataFrame(matrix(rnorm(22 * 5), 22, 5, dimnames = list(paste0("s", 1:22), paste0("g", 1:5))))
+  expect_warning(model <- ClassifyR:::penalisedGLMtrainInterface(measurements, classes, verbose = 0), "resubstitution")
+  expect_true(attr(model, "tune")[["lambda"]] %in% model[["lambda"]])
+})
+
 test_that("CoxNet encodes test data with the training columns", {
   data <- makeCategorical()
   set.seed(7)
