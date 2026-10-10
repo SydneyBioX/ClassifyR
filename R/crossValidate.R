@@ -967,7 +967,7 @@ predict.trainedByClassifyR <- function(object, newData, outcome, ...)
       measurementsOne
     }, newData, names(newData), SIMPLIFY = FALSE) |> unname())
   }
-  colnames(newData) <- make.names(colnames(newData))
+  colnames(newData) <- make.names(colnames(newData), unique = TRUE)
 
   # Each model predicts from the features it was trained with.
   predictOne <- function(model)

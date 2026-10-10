@@ -283,6 +283,8 @@ input data. Autmomatically reducing to smaller number.")
   tuneList <- lapply(results, "[[", "tune")
   if(length(unlist(tuneList)) == 0)
     tuneList <- NULL
+  else if(crossValParams@tuneMode == "Resubstitution")
+    .warnPerfectResubstitution(tuneList, crossValParams@performanceType)
   importance <- NULL
   if(!is.null(results[[1]][["importance"]]))
     importance <- do.call(rbind, lapply(results, "[[", "importance"))
@@ -321,3 +323,25 @@ setMethod("runTests", c("MultiAssayExperiment"),
   }
   do.call(runTests, runTestsArgs)
 })
+
+# Resubstitution tuning can't distinguish between numbers of features which all fit the training samples
+# perfectly, so the first one tried is chosen. Warn once per cross-validation if this happened.
+.warnPerfectResubstitution <- function(tuneList, performanceType)
+{
+  better <- .ClassifyRenvir[["performanceInfoTable"]][.ClassifyRenvir[["performanceInfoTable"]][, "type"] == performanceType, "better"]
+  if(length(better) != 1) return(invisible(NULL))
+  perfectValue <- if(better == "lower") 0 else 1
+  isTiedPerfect <- sapply(tuneList, function(tune)
+  {
+    combinations <- tune[["tuneCombinations"]]
+    if(is.null(combinations) || !"topN" %in% colnames(combinations) || !performanceType %in% colnames(combinations)) return(FALSE)
+    perfect <- !is.na(combinations[, performanceType]) & abs(combinations[, performanceType] - perfectValue) < 1e-12
+    length(unique(combinations[perfect, "topN"])) > 1
+  })
+  if(any(isTiedPerfect))
+    warning("Tuning the number of features by resubstitution: in ", sum(isTiedPerfect), " of ", length(tuneList),
+            " training sets, several numbers of features fit the training samples perfectly (", performanceType, " of ",
+            perfectValue, "), so the first number tried was chosen. Nested cross-validation (tuneMode = \"Nested CV\") avoids this.",
+            call. = FALSE)
+  invisible(NULL)
+}
