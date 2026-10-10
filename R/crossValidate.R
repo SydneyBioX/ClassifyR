@@ -159,6 +159,8 @@ setMethod("crossValidate", "DataFrame",
                 if(isCategorical) selectionMethod <- "t-test" else selectionMethod <- "CoxPH"
               if(length(classifier) == 1 && classifier == "auto")
                 if(isCategorical) classifier <- "randomForest" else classifier <- "CoxPH"
+              .checkOutcomeType(classifier, outcome, "classifiers")
+              .checkOutcomeType(selectionMethod, outcome, "selections")
               
               
               # Which data-types or data-views are present?
@@ -413,14 +415,16 @@ cleanClassifier <- function(classifier, measurements, nFeatures){
     if(!is.null(names(obsFeatures)) && all(names(obsFeatures) %in% names(classifier)) & is(classifier, "character")) classifier <- as.list(classifier[names(obsFeatures)])
     
     nFeatures <- nFeatures[names(classifier)]
-    checkENs <- which(classifier %in% c("ridgeGLM", "elasticNetGLM", "LASSOGLM"))
-    if(length(checkENs) > 0)
+    # A classifier needing more features than an assay has is replaced by its fallback classifier.
+    for(index in seq_along(classifier))
     {
-      replacements <- sapply(checkENs, function(checkEN) ifelse(any(nFeatures[[checkEN]] == 1), "GLM", classifier[[checkEN]]))
-      classifier[checkENs] <- replacements
-      if(any(replacements == "GLM"))
-        warning("Penalised GLM requires two or more features as input but there is only one.
-Using an ordinary GLM instead.")
+      entry <- if(length(classifier[[index]]) == 1) .ClassifyRenvir[["classifiers"]][[classifier[[index]]]]
+      if(!is.null(entry[["fewFeaturesClassifier"]]) && any(nFeatures[[index]] < entry[["minFeatures"]]))
+      {
+        warning(classifier[[index]], " requires ", entry[["minFeatures"]], " or more features as input but there are fewer.\n",
+                "Using ", entry[["fewFeaturesClassifier"]], " instead.")
+        classifier[[index]] <- entry[["fewFeaturesClassifier"]]
+      }
     }
     classifier
 }
