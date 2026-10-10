@@ -366,3 +366,10 @@ test_that("likelihood ratio ranking agrees with the sum of normal log densities"
   expect_identical(ClassifyR:::likelihoodRatioRanking(asDataFrame(measurements), data$classes, verbose = 0), order(statistics))
   expect_identical(ClassifyR:::likelihoodRatioRanking(asDataFrame(measurements[, 1, drop = FALSE]), data$classes, verbose = 0), 1L)
 })
+
+test_that("XGB fits 100 rounds by default", {
+  skip_if_not_installed("xgboost")
+  data <- makeTwoClass()
+  model <- ClassifyR:::extremeGradientBoostingTrainInterface(asDataFrame(data$measurements), data$classes, verbose = 0)
+  expect_identical(xgboost::xgb.get.num.boosted.rounds(model), 100L)
+})
