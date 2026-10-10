@@ -186,6 +186,8 @@ input data. Autmomatically reducing to smaller number.")
   # tasks given to a worker has a similar amount of work. Each task sets its own random number stream, so the order
   # doesn't change the results.
   taskOrder <- order(tasks[, "split"], tasks[, "crossValidation"])
+  stopSelectionCache <- .useSelectionCache() # Selections are reused between cross-validations sharing splits.
+  on.exit(stopSelectionCache())
   runTask <- function(taskIndex)
   {
     if(!is.null(streams[[taskIndex]])) assign(".Random.seed", streams[[taskIndex]], envir = globalenv())

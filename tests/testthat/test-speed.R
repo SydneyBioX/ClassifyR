@@ -96,3 +96,35 @@ test_that("Cox elastic net ends its path of lambda at 0.05 of the largest value 
   longer <- ClassifyR:::coxnetTrainInterface(measurements, data$outcome, lambda.min.ratio = 0.001, verbose = 0)
   expect_lt(min(longer$lambda) / max(longer$lambda), 0.05)
 })
+
+test_that("merge reuses each assay's selection across combinations with the same results as selecting again", {
+  data <- makeTwoClass()
+  measurementsList <- list(a = data$measurements[, 1:10], b = data$measurements[, 11:20], c = data$measurements[, 21:30])
+  combinations <- list(c("a", "b"), c("a", "c"), c("a", "b", "c"))
+  # A t-test ranking uses no random numbers; tuning the number of features by fitting random forests does.
+  for(settings in list(list(classifier = "DLDA", nFeatures = 3), list(classifier = "randomForest", nFeatures = c(2, 4))))
+  {
+    run <- function(assayCombinations)
+    {
+      set.seed(1)
+      suppressWarnings(crossValidate(measurementsList, data$classes, classifier = settings$classifier, nFeatures = settings$nFeatures,
+                                     multiViewMethod = "merge", assayCombinations = assayCombinations, nRepeats = 2, nFolds = 3))
+    }
+    counter <- new.env()
+    counter$calls <- 0
+    trace(".selectFeatures", bquote(if(!identical(attr(modellingParams@selectParams@featureRanking, "name"), "Union Selection"))
+                                            assign("calls", .(counter)$calls + 1, envir = .(counter))), print = FALSE, where = asNamespace("ClassifyR"))
+    together <- run(combinations)
+    untrace(".selectFeatures", where = asNamespace("ClassifyR"))
+    # Selections within assays. Without the cache, 7 per split and for the final model. With it, each assay is
+    # selected once per split and once for the final model when no random numbers are used.
+    if(settings$classifier == "DLDA") expect_identical(counter$calls, 3 * (2 * 3 + 1)) else
+      expect_lt(counter$calls, 7 * (2 * 3 + 1))
+    for(index in seq_along(combinations))
+    {
+      alone <- run(combinations[index])
+      expect_identical(predictions(together[[index]]), predictions(alone))
+      expect_identical(chosenFeatureNames(together[[index]]), chosenFeatureNames(alone))
+    }
+  }
+})
