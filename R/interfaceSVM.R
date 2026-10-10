@@ -35,9 +35,10 @@ SVMpredictInterface <- function(model, measurementsTest, returnType = c("both", 
   if(verbose == 3)
     message("Predicting classes using trained SVM classifier.")
   
-  if(!is.null(attr(model, "features"))) # Fitted to a matrix of numeric features; give them in the same order.
+  # exact = TRUE: attr() otherwise matches the "featuresForTrain" attribute that runTest gives every model.
+  if(!is.null(attr(model, "features", exact = TRUE))) # Fitted to a matrix of numeric features; give them in the same order.
   {
-    measurementsTest <- as.matrix(measurementsTest[, attr(model, "features"), drop = FALSE])
+    measurementsTest <- as.matrix(measurementsTest[, attr(model, "features", exact = TRUE), drop = FALSE])
   } else { # Fitted with a formula, so prediction on a data frame encodes the features in the same
            # way as for training, matching them by name.
     measurementsTest <- .asDataFrame(measurementsTest)
