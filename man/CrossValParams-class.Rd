@@ -16,7 +16,9 @@ CrossValParams(
   tuneMode = c("none", "Resubstitution", "Nested CV"),
   performanceType = "auto",
   adaptiveResamplingDelta = NULL,
-  parallelParams = bpparam()
+  parallelParams = bpparam(),
+  innerPermutations = 1,
+  innerFolds = 5
 )
 }
 \arguments{
@@ -43,7 +45,8 @@ combination of and use as the test set.  Only relevant if \code{samplesSplits} i
 sometimes written as LOOCV.}
 
 \item{tuneMode}{Default: None. The cross-validation scheme to use for selecting any tuning parameters. Valid values
-are \code{"Resubstitution"}, \code{"Nested CV"}, \code{"none"}.}
+are \code{"Resubstitution"}, \code{"Nested CV"}, \code{"none"}. \code{"Nested CV"} cross-validates each training
+set with \code{innerPermutations} permutations of \code{innerFolds} folds, serially within the outer split.}
 
 \item{performanceType}{Default: \code{"auto"}. The performance metric to use if \code{tuneMode} is not \code{"none"}.}
 
@@ -58,6 +61,12 @@ cores the computer has, if it has four or more cores, otherwise one core, as is 
 default of \code{\link{bpparam}}. To make results fully reproducible, please
 choose a specific back-end depending on your operating system and also set
 \code{RNGseed} to a number.}
+
+\item{innerPermutations}{Default: 1. The number of permutations of the inner cross-validation of each training set
+when \code{tuneMode} is \code{"Nested CV"}.}
+
+\item{innerFolds}{Default: 5. The number of folds of the inner cross-validation of each training set when
+\code{tuneMode} is \code{"Nested CV"}.}
 }
 \description{
 Collects and checks necessary parameters required for cross-validation by
