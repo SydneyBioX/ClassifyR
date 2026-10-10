@@ -10,6 +10,10 @@ available(what = c("classifier", "selectionMethod", "multiViewMethod"))
 \item{what}{Default: \code{"classifier"}. Either \code{"classifier"}, \code{"selectionMethod"}
 or \code{"multiViewMethod"}.}
 }
+\value{
+A data frame of keywords and their descriptions. For classifiers and feature selection methods, the column
+\code{Outcomes} says whether each one accepts classes, survival outcomes or both.
+}
 \description{
 Prints a list of keywords to use with \code{\link{crossValidate}}
 }

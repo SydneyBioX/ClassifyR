@@ -48,9 +48,7 @@ Importantly, ClassifyR implements a number of methods for classification using d
 
 ## Registering the Function
 
-**ClassifyR** keeps track of functions used for model building, to allow automated naming of axes labels or tick marks in a nice format. To do this, each function has a pretty name associated with it in the file *constants.R*. Firstly, find `.ClassifyRenvir[["functionsTable"]]` in that file, which is basically a two-column matrix stored in an environment and add your new function and its pretty name as an additional row of that matrix.
-
-Secondly, there is a convenience cross-validation function named `crossValidate`. It allows convenient specification of feature selection and modelling combinations with keywords. To add a new feature ranking method, add a new entry to `.selectionKeywordToFunction` in `utilities.R` by adding a new keyword and function pair. There is a similar statement in the same R file for modelling functions, in which a new classifier, for instance, would be added.
+Every classifier and feature selection method has one entry in the registry, *R/registry.R*. The entry gives the keyword used by `crossValidate`, `TrainParams`, `PredictParams` and `SelectParams`, the functions it calls, the name shown in axis labels and results, the description listed by `available()`, the kinds of outcome it accepts and its tuning presets. The arguments and return values an interface must have are described in *R/interfaceTemplate.R*. The vignette *Creating a Wrapper for New Functionality and Registering It* gives an example.
 
 ## Documenting the Function
 

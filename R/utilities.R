@@ -633,50 +633,6 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
     )
 }
 
-.selectionKeywordToFunction <- function(keyword)
-{
-  switch(
-        keyword,
-        "none" = NULL,
-        "t-test" = differentMeansRanking,
-        "limma" = limmaRanking,
-        "edgeR" = edgeRranking,
-        "Bartlett" = bartlettRanking,
-        "Levene" = leveneRanking,
-        "DMD" = DMDranking,
-        "likelihoodRatio" = likelihoodRatioRanking,
-        "KS" = KolmogorovSmirnovRanking,
-        "KL" = KullbackLeiblerRanking,
-        "CoxPH" = coxphRanking,
-        "previousSelection" = previousSelection,
-        "randomSelection" = randomSelection,
-        "selectMulti" = selectMulti
-    )
-}
-
-.classifierKeywordToParams <- function(keyword, tuneParams)
-{
-    switch(
-        keyword,
-        "randomForest" = RFparams(tuneParams = tuneParams),
-        "randomSurvivalForest" = RSFparams(tuneParams = tuneParams),
-        "XGB" = XGBparams(tuneParams = tuneParams),
-        "GLM" = GLMparams(),
-        "ridgeGLM" = ridgeGLMparams(),
-        "elasticNetGLM" = elasticNetGLMparams(),
-        "LASSOGLM" = LASSOGLMparams(),
-        "SVM" = SVMparams(tuneParams = tuneParams),
-        "NSC" = NSCparams(),
-        "DLDA" = DLDAparams(),
-        "naiveBayes" = naiveBayesParams(tuneParams = tuneParams),
-        "mixturesNormals" = mixModelsParams(),
-        "kNN" = kNNparams(tuneParams = tuneParams),
-        "CoxPH" = coxphParams(),
-        "CoxNet" = coxnetParams(),
-        "previousTrained" = list(TrainParams(previousTrained), NULL)
-    )    
-}
-
 .dlda <- function(x, y, prior = NULL){ # Remove this once sparsediscrim is reinstated to CRAN.
   obj <- list()
   obj$labels <- y
