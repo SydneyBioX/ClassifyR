@@ -17,6 +17,7 @@ setClassUnion("functionOrNULL", c("function", "NULL"))
 setClassUnion("numericOrNULL", c("numeric", "NULL"))
 
 # Union of a Character and a DataFrame
+#' @importClassesFrom S4Vectors DataFrame
 setClassUnion("characterOrDataFrame", c("character", "DataFrame"))
 
 # Union of a Surv class and a factor for flexibility with sample outcome
@@ -95,7 +96,7 @@ setClassUnion("MultiAssayExperimentOrList", c("MultiAssayExperiment", "list"))
 #' @examples
 #' 
 #'   CrossValParams() # Default is 100 permutations and 5 folds of each.
-#'   snow <- SnowParam(workers = 2, RNGseed = 999)
+#'   snow <- BiocParallel::SnowParam(workers = 2, RNGseed = 999)
 #'   CrossValParams("Leave-k-Out", leave = 2, parallelParams = snow)
 #'   # Fully reproducible Leave-2-out cross-validation on 4 cores,
 #'   # even if feature selection or classifier use random sampling.
