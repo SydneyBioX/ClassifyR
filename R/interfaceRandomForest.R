@@ -1,17 +1,19 @@
 # An Interface for ranger Package's randomForest Function
-randomForestTrainInterface <- function(measurementsTrain, outcomeTrain, mTryProportion = 0.5, ..., verbose = 3)
+randomForestTrainInterface <- function(measurementsTrain, outcomeTrain, mTryProportion = NULL, ..., verbose = 3)
 {
   if(!requireNamespace("ranger", quietly = TRUE))
     stop("The package 'ranger' could not be found. Please install it.")
   if(verbose == 3)
     message(Sys.time(), ": Fitting random forest classifier to training data.")
-  mtry <- round(mTryProportion * ncol(measurementsTrain)) # Number of features to try.
+  # Number of features to try at each split. By default, ranger's own: the square root of the number of features.
+  mtry <- if(!is.null(mTryProportion)) round(mTryProportion * ncol(measurementsTrain))
   # Convert to base data.frame as randomForest doesn't understand DataFrame.
   measurementsTrain <- .asDataFrame(measurementsTrain) # ranger needs a data.frame.
-  fittedModel <- ranger::ranger(x = measurementsTrain, y = outcomeTrain, mtry = mtry, ...)
-  forImportance <- ranger::ranger(x = measurementsTrain, y = outcomeTrain, mtry = mtry, importance = "impurity_corrected", ...)
-  attr(fittedModel, "forImportance") <- forImportance
-  fittedModel
+  # Features are ranked by the impurity importance of the forest itself, unless another importance mode is given.
+  if(is.null(list(...)[["importance"]]))
+    ranger::ranger(x = measurementsTrain, y = outcomeTrain, mtry = mtry, importance = "impurity", ...)
+  else
+    ranger::ranger(x = measurementsTrain, y = outcomeTrain, mtry = mtry, ...)
 }
 attr(randomForestTrainInterface, "name") <- "randomForestTrainInterface"
     
@@ -52,7 +54,9 @@ randomForestPredictInterface <- function(forest, measurementsTest, ..., returnTy
 
 forestFeatures <- function(forest)
                   {
+                    # Models made by earlier versions keep a second forest, grown only to rank features.
                     forImportance <- attr(forest, "forImportance")
+                    if(is.null(forImportance)) forImportance <- forest
                     rankedFeaturesIndices <- order(ranger::importance(forImportance), decreasing = TRUE)
                     selectedFeaturesIndices <- which(ranger::importance(forImportance) > 0)
                     list(rankedFeaturesIndices, selectedFeaturesIndices)
