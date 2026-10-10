@@ -1,7 +1,9 @@
 # An Interface for glmnet Package's glmnet Function. Generalised linear models with sparsity.
 
-penalisedGLMtrainInterface <- function(measurementsTrain, classesTrain, lambda = NULL, ..., verbose = 3)
+penalisedGLMtrainInterface <- function(measurementsTrain, classesTrain, lambda = NULL,
+                                       lambdaTuning = c("CV", "resubstitution"), nFoldsLambda = 5, ..., verbose = 3)
 {
+  lambdaTuning <- match.arg(lambdaTuning)
   if(!requireNamespace("glmnet", quietly = TRUE))
     stop("The package 'glmnet' could not be found. Please install it.")
   if(verbose == 3)
@@ -9,20 +11,37 @@ penalisedGLMtrainInterface <- function(measurementsTrain, classesTrain, lambda =
 
   # One-hot encoding needed.    
   measurementsTrain <- .encodeTrain(measurementsTrain)
-  fitted <- glmnet::glmnet(measurementsTrain, classesTrain, family = "multinomial", lambda = lambda,
-                           weights = as.numeric(1 / (table(classesTrain)[classesTrain] / length(classesTrain))), ...)
   # Inverse class size weighting needed to give decent predictions when class imbalance.
+  weights <- as.numeric(1 / (table(classesTrain)[classesTrain] / length(classesTrain)))
+  fitted <- glmnet::glmnet(measurementsTrain, classesTrain, family = "multinomial", lambda = lambda,
+                           weights = weights, ...)
   
   if(is.null(lambda) || length(lambda) > 1) # fitted has numerous models for a range of lambda values.
-  { # Pick one lambda based on resubstitution performance. But not the one that makes all variables excluded from model.
-    lambdaConsider <- fitted[["lambda"]][colSums(as.matrix(fitted[["beta"]][[1]])) != 0]
-    # Predictions for all lambda values at once. A column for each lambda.
-    lambdasPredictions <- as.matrix(predict(fitted, measurementsTrain, s = lambdaConsider, type = "class"))
-    balancedErrors <- apply(lambdasPredictions, 2, function(lambdaPredictions)
+  { # Pick one lambda, but not one that excludes every variable from the model of every class.
+    nonEmpty <- Reduce(`|`, lapply(fitted[["beta"]], function(classCoefficients) colSums(abs(as.matrix(classCoefficients))) != 0))
+    lambdaConsider <- fitted[["lambda"]][nonEmpty]
+    nFoldsLambda <- min(nFoldsLambda, table(classesTrain))
+    if(lambdaTuning == "CV" && nFoldsLambda < 3)
     {
-      classPredictions <- factor(as.character(lambdaPredictions), levels = fitted[["classnames"]])
-      calcExternalPerformance(classesTrain, classPredictions, "Balanced Error")
-    })
+      warning("A class has fewer than three training samples, so lambda is chosen by resubstitution.")
+      lambdaTuning <- "resubstitution"
+    }
+    if(lambdaTuning == "CV")
+    { # Class-weighted misclassification of the inner folds, which is the balanced error. Folds stratified by class.
+      foldsIDs <- integer(length(classesTrain))
+      for(classIndices in split(seq_along(classesTrain), classesTrain))
+        foldsIDs[classIndices] <- sample(rep_len(seq_len(nFoldsLambda), length(classIndices)))
+      fittedCV <- glmnet::cv.glmnet(measurementsTrain, classesTrain, family = "multinomial", lambda = fitted[["lambda"]],
+                                    weights = weights, foldid = foldsIDs, type.measure = "class", ...)
+      balancedErrors <- fittedCV[["cvm"]][match(lambdaConsider, fittedCV[["lambda"]])]
+    } else { # Resubstitution. Predictions for all lambda values at once. A column for each lambda.
+      lambdasPredictions <- as.matrix(predict(fitted, measurementsTrain, s = lambdaConsider, type = "class"))
+      balancedErrors <- apply(lambdasPredictions, 2, function(lambdaPredictions)
+      {
+        classPredictions <- factor(as.character(lambdaPredictions), levels = fitted[["classnames"]])
+        calcExternalPerformance(classesTrain, classPredictions, "Balanced Error")
+      })
+    }
     bestLambda <- lambdaConsider[which.min(balancedErrors)[1]] # Largest Lambda with minimum balanced error rate.
     attr(fitted, "tune") <- list(lambda = bestLambda)
   } else { # The user specified exactly one lambda value. Record it.
