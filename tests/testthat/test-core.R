@@ -89,6 +89,18 @@ test_that("preset tuning ranges are used and not passed on as a setting", {
   expect_true("mTryProportion" %in% colnames(tunedParameters(result)[[1]][["tuneCombinations"]]))
 })
 
+test_that("resubstitution tuning warns once when several numbers of features fit the training set perfectly", {
+  data <- makeTwoClass(shift = 6)
+  set.seed(1)
+  expect_warning(result <- crossValidate(data$measurements, data$classes, classifier = "randomForest", nFeatures = c(2, 3, 5),
+                                         nRepeats = 1, nFolds = 3, verbose = 0),
+                 "in 3 of 3 training sets, several numbers of features fit the training samples perfectly")
+  # Not when only one number of features is tried.
+  set.seed(1)
+  expect_no_warning(crossValidate(data$measurements, data$classes, classifier = "randomForest", nFeatures = 3,
+                                  nRepeats = 1, nFolds = 3, verbose = 0))
+})
+
 test_that("nFeatures = 1 works", {
   data <- makeTwoClass()
   set.seed(1)

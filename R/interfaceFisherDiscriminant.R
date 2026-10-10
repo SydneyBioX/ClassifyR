@@ -27,14 +27,12 @@ fisherDiscriminant <- function(measurementsTrain, classesTrain, measurementsTest
   if(verbose == 3)
     message("Critical value calculated.")
   
-  classesPredicted <- factor(apply(testingMatrix, 1, function(testSample)
-  {
-    if(aT %*% as.matrix(testSample) >= criticalValue)
-      levels(classesTrain)[1]
-    else
-      levels(classesTrain)[2]
-  }), levels = levels(classesTrain))
-  scores <- apply(testingMatrix, 1, function(testSample) -1 * (aT %*% as.matrix(testSample))) # In reference to the second level of 'classes'. 
+  projections <- apply(testingMatrix, 1, function(testSample) aT %*% as.matrix(testSample))
+  classesPredicted <- factor(ifelse(projections >= as.vector(criticalValue), levels(classesTrain)[1], levels(classesTrain)[2]),
+                             levels = levels(classesTrain))
+  # In reference to the second level of 'classes'. Centred on the critical value, so a positive score
+  # predicts the second class and scores from models trained on different samples are comparable.
+  scores <- as.vector(criticalValue) - projections
   
   switch(returnType, class = classesPredicted,
                      score = scores,

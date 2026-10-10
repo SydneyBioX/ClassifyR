@@ -140,6 +140,18 @@ test_that("kNN returns a factor with the training levels, also for one test samp
   }
 })
 
+test_that("weighted kNN lets training samples identical to a test sample take the vote", {
+  data <- makeTwoClass(shift = 5)
+  train <- asDataFrame(data$measurements[1:50, ])
+  # The first test sample duplicates training sample 2 (class B); the others are new.
+  test <- asDataFrame(rbind(data$measurements[2, , drop = FALSE], data$measurements[51:52, ]))
+  predicted <- ClassifyR:::kNNinterface(train, data$classes[1:50], test, k = 5, mode = "weighted", verbose = 0)
+  expect_equal(unlist(predicted[1, c("A", "B")]), c(A = 0, B = 1))
+  expect_equal(as.character(predicted[1, "class"]), "B")
+  expect_false(anyNA(predicted[, c("A", "B")]))
+  expect_equal(unname(rowSums(predicted[, c("A", "B")])), rep(1, 3))
+})
+
 test_that("Fisher discriminant classifies two classes and rejects more", {
   data <- makeTwoClass(shift = 3)
   train <- asDataFrame(data$measurements[1:40, 1:5])
@@ -152,7 +164,10 @@ test_that("Fisher discriminant classifies two classes and rejects more", {
   isA <- data$classes[1:40] == "A"
   pooled <- (19 * apply(trainMatrix[isA, ], 2, var) + 19 * apply(trainMatrix[!isA, ], 2, var)) / 38
   direction <- (colMeans(trainMatrix[isA, ]) - colMeans(trainMatrix[!isA, ])) / pooled
-  expect_equal(unname(predicted[, "score"]), unname(-1 * as.matrix(test) %*% direction)[, 1])
+  # The score is centred on the critical value, so its sign gives the predicted class.
+  critical <- 0.5 * sum(direction * (colMeans(trainMatrix[isA, ]) + colMeans(trainMatrix[!isA, ])))
+  expect_equal(unname(predicted[, "score"]), unname(critical - as.matrix(test) %*% direction)[, 1])
+  expect_equal(as.character(predicted[, "class"]), ifelse(predicted[, "score"] > 0, "B", "A"))
   threeClasses <- factor(rep(c("A", "B", "C"), length.out = 40))
   expect_error(ClassifyR:::fisherDiscriminant(train, threeClasses, test, verbose = 0), "two classes")
 })
@@ -209,6 +224,22 @@ test_that("naive Bayes and mixtures of normals run with crossover distance weigh
     expect_equal(nrow(predicted), 20)
     expect_gt(mean(predicted[, "class"] == data$classes[41:60]), 0.7)
   }
+})
+
+test_that("naive Bayes finds crossover points of the class densities scaled by class size", {
+  # Class B is three times as common. Scaled by class size, the densities of N(0, 1) and N(1, 1) cross at
+  # 0.5 + log(1/3) = -0.6; unscaled, they cross at 0.5.
+  set.seed(11)
+  classes <- factor(rep(c("A", "B"), c(1000, 3000)))
+  values <- c(rnorm(1000, 0), rnorm(3000, 1))
+  train <- asDataFrame(matrix(values, ncol = 1, dimnames = list(NULL, "g1")))
+  test <- asDataFrame(matrix(c(-1.5, 0.5), ncol = 1, dimnames = list(c("t1", "t2"), "g1")))
+  predicted <- ClassifyR:::naiveBayesKernel(train, classes, test, weighting = "crossover distance",
+                                            minDifference = 0.3, verbose = 0)
+  # Both samples are far enough from the crossover of the scaled densities to vote. Measured from the
+  # unscaled crossover, t2 would be too close and get the class proportions as its scores.
+  expect_equal(as.character(predicted[, "class"]), c("A", "B"))
+  expect_equal(unname(unlist(predicted[2, c("A", "B")])), c(0, 1))
 })
 
 test_that("colCoxTests handles one feature, and the slow option agrees with the fast one", {
@@ -316,6 +347,41 @@ test_that("previousSelection warns when few previous features are in the current
                  "40% of the previously selected features")
   expect_equal(colnames(current)[selected], previous[4:5])
   expect_no_warning(ClassifyR:::previousSelection(asDataFrame(data$measurements), data$classes, result, .iteration = 1, verbose = 0))
+})
+
+test_that("previousSelection matches non-syntactic feature names and needs no intermediate setting", {
+  data <- makeTwoClass(shift = 3)
+  measurements <- data$measurements
+  # "g-1" and "g.1" are different features with the same syntactic name; both carry the class difference.
+  colnames(measurements) <- paste0("g-", seq_len(ncol(measurements)))
+  colnames(measurements)[2] <- "g.1"
+  crossValParams <- CrossValParams(permutations = 1, folds = 2, parallelParams = SerialParam(RNGseed = 1))
+  first <- suppressWarnings(runTests(asDataFrame(measurements), data$classes, crossValParams,
+             ModellingParams(selectParams = SelectParams("t-test", nFeatures = 3), balancing = "none"), verbose = 0))
+  expect_setequal(chosenFeatureNames(first)[[1]], c("g-1", "g.1", "g-3"))
+  second <- suppressWarnings(runTests(asDataFrame(measurements), data$classes, crossValParams,
+              ModellingParams(selectParams = SelectParams("previousSelection", classifyResult = first), balancing = "none"),
+              verbose = 0))
+  expect_equal(lapply(chosenFeatureNames(second), sort), lapply(chosenFeatureNames(first), sort))
+})
+
+test_that("ensemble selection keeps features ranked highly by enough of the ranking functions", {
+  data <- makeTwoClass(shift = 2)
+  measurements <- asDataFrame(data$measurements)
+  crossValParams <- CrossValParams(permutations = 1, folds = 2, parallelParams = SerialParam(RNGseed = 1))
+  # Both rankings agree on the top three, which carry the class difference.
+  ensemble <- SelectParams(list("t-test", "limma"), nFeatures = 3, minPresence = 2)
+  result <- runTests(measurements, data$classes, crossValParams,
+                     ModellingParams(selectParams = ensemble, balancing = "none"), verbose = 0)
+  expect_s4_class(result, "ClassifyResult")
+  for(chosen in chosenFeatureNames(result)) expect_setequal(chosen, paste0("g", 1:3))
+  # With tuning, the number of top features is chosen by resubstitution.
+  ensembleTuned <- SelectParams(list("t-test", "limma"), minPresence = 2, tuneParams = list(nFeatures = c(3, 10)))
+  tuned <- suppressWarnings(runTests(measurements, data$classes,
+             CrossValParams(permutations = 1, folds = 2, tuneMode = "Resubstitution", parallelParams = SerialParam(RNGseed = 1)),
+             ModellingParams(selectParams = ensembleTuned, balancing = "none"), verbose = 0))
+  expect_true(all(lengths(chosenFeatureNames(tuned)) >= 3))
+  expect_equal(colnames(tunedParameters(tuned)[[1]][["tuneCombinations"]])[1], "topN")
 })
 
 test_that("two-class rankings stop for more than two classes", {
