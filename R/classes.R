@@ -74,12 +74,17 @@ setClassUnion("MultiAssayExperimentOrList", c("MultiAssayExperiment", "list"))
 #' \code{"Leave-k-Out"}. If set to 1, it is the traditional leave-one-out cross-validation,
 #' sometimes written as LOOCV.
 #' @param tuneMode Default: None. The cross-validation scheme to use for selecting any tuning parameters. Valid values
-#' are \code{"Resubstitution"}, \code{"Nested CV"}, \code{"none"}.
+#' are \code{"Resubstitution"}, \code{"Nested CV"}, \code{"none"}. \code{"Nested CV"} cross-validates each training
+#' set with \code{innerPermutations} permutations of \code{innerFolds} folds, serially within the outer split.
 #' @param performanceType Default: \code{"auto"}. The performance metric to use if \code{tuneMode} is not \code{"none"}.
 #' @param adaptiveResamplingDelta Default: \code{NULL}. If not null, adaptive resampling of training
 #' samples is performed and this number is the difference in consecutive iterations that the
 #' class probability or risk of all samples must change less than for the iterative process to stop. 0.01
 #' was used in the original publication.
+#' @param innerPermutations Default: 1. The number of permutations of the inner cross-validation of each training set
+#' when \code{tuneMode} is \code{"Nested CV"}.
+#' @param innerFolds Default: 5. The number of folds of the inner cross-validation of each training set when
+#' \code{tuneMode} is \code{"Nested CV"}.
 #' @param parallelParams An instance of \code{\link{BiocParallelParam}} specifying
 #' the kind of parallelisation to use. Default is to use two cores less than the total number of
 #' cores the computer has, if it has four or more cores, otherwise one core, as is the
@@ -106,7 +111,9 @@ setClass("CrossValParams", representation(
     tuneMode = "character",
     performanceType = "character",
     adaptiveResamplingDelta = "numericOrNULL",
-    parallelParams = "BiocParallelParam"
+    parallelParams = "BiocParallelParam",
+    innerPermutations = "numeric",
+    innerFolds = "numeric"
 )
 )
 
@@ -115,7 +122,8 @@ setClass("CrossValParams", representation(
 #' @rdname CrossValParams-class
 CrossValParams <- function(samplesSplits = c("Permute k-Fold", "Permute Percentage Split", "Leave-k-Out", "k-Fold"),
                            permutations = 100, percentTest = 25, folds = 5, leave = 2,
-                           tuneMode = c("none", "Resubstitution", "Nested CV"), performanceType = "auto", adaptiveResamplingDelta = NULL, parallelParams = bpparam())
+                           tuneMode = c("none", "Resubstitution", "Nested CV"), performanceType = "auto", adaptiveResamplingDelta = NULL, parallelParams = bpparam(),
+                           innerPermutations = 1, innerFolds = 5)
 {
   samplesSplits <- match.arg(samplesSplits)
   tuneMode <- match.arg(tuneMode)
@@ -138,7 +146,8 @@ CrossValParams <- function(samplesSplits = c("Permute k-Fold", "Permute Percenta
 
   new("CrossValParams", samplesSplits = samplesSplits, permutations = permutations,
       percentTest = percentTest, folds = folds, leave = leave, tuneMode = tuneMode, performanceType = performanceType,
-      adaptiveResamplingDelta = adaptiveResamplingDelta, parallelParams = parallelParams)
+      adaptiveResamplingDelta = adaptiveResamplingDelta, parallelParams = parallelParams,
+      innerPermutations = innerPermutations, innerFolds = innerFolds)
 }
 
 ##### StageParams #####

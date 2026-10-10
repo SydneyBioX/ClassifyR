@@ -85,6 +85,22 @@ test_that("penalised GLM encodes test data with the training columns", {
   expect_equal(reordered, testScores)
 })
 
+test_that("penalised GLM fits a logistic model for two classes and a multinomial model for more", {
+  data <- makeTwoClass()
+  model <- ClassifyR:::penalisedGLMtrainInterface(data$measurements, data$classes, verbose = 0)
+  expect_s3_class(model, "lognet")
+  predicted <- ClassifyR:::penalisedGLMpredictInterface(model, data$measurements[1:5, ], verbose = 0)
+  expect_identical(colnames(predicted), c("class", "A", "B"))
+  expect_equal(rowSums(predicted[, c("A", "B")]), rep(1, 5), ignore_attr = TRUE)
+  expect_identical(as.character(predicted[["class"]]), c("A", "B")[(predicted[["B"]] > 0.5) + 1])
+  one <- ClassifyR:::penalisedGLMpredictInterface(model, data$measurements[1, , drop = FALSE], returnType = "score", verbose = 0)
+  expect_equal(unname(one), unname(as.matrix(predicted[1, c("A", "B")])))
+  threeClasses <- factor(rep(c("A", "B", "C"), length.out = nrow(data$measurements)))
+  model <- ClassifyR:::penalisedGLMtrainInterface(data$measurements, threeClasses, verbose = 0)
+  expect_s3_class(model, "multnet")
+  expect_identical(colnames(ClassifyR:::penalisedGLMpredictInterface(model, data$measurements[1:5, ], returnType = "score", verbose = 0)), c("A", "B", "C"))
+})
+
 test_that("CoxNet encodes test data with the training columns", {
   data <- makeCategorical()
   set.seed(7)
@@ -338,4 +354,22 @@ test_that("Levene ranking agrees with car::leveneTest", {
   pValues <- apply(measurements, 2, function(featureColumn) car::leveneTest(featureColumn, classes)[["Pr(>F)"]][1])
   expect_equal(ClassifyR:::leveneRanking(asDataFrame(measurements), classes, verbose = 0), order(pValues))
   expect_equal(ClassifyR:::leveneRanking(asDataFrame(measurements[, 1, drop = FALSE]), classes, verbose = 0), 1)
+})
+
+test_that("likelihood ratio ranking agrees with the sum of normal log densities", {
+  data <- makeTwoClass()
+  measurements <- data$measurements
+  measurements[data$classes == "B", 4:6] <- 2 * measurements[data$classes == "B", 4:6]
+  logLikelihood <- function(values) sum(dnorm(values, mean(values), sd(values), log = TRUE))
+  statistics <- apply(measurements, 2, logLikelihood) -
+                Reduce(`+`, lapply(levels(data$classes), function(class) apply(measurements[data$classes == class, ], 2, logLikelihood)))
+  expect_identical(ClassifyR:::likelihoodRatioRanking(asDataFrame(measurements), data$classes, verbose = 0), order(statistics))
+  expect_identical(ClassifyR:::likelihoodRatioRanking(asDataFrame(measurements[, 1, drop = FALSE]), data$classes, verbose = 0), 1L)
+})
+
+test_that("XGB fits 100 rounds by default", {
+  skip_if_not_installed("xgboost")
+  data <- makeTwoClass()
+  model <- ClassifyR:::extremeGradientBoostingTrainInterface(asDataFrame(data$measurements), data$classes, verbose = 0)
+  expect_identical(xgboost::xgb.get.num.boosted.rounds(model), 100L)
 })
