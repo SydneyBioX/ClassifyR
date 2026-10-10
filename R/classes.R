@@ -86,11 +86,10 @@ setClassUnion("MultiAssayExperimentOrList", c("MultiAssayExperiment", "list"))
 #' @param innerFolds Default: 5. The number of folds of the inner cross-validation of each training set when
 #' \code{tuneMode} is \code{"Nested CV"}.
 #' @param parallelParams An instance of \code{\link{BiocParallelParam}} specifying
-#' the kind of parallelisation to use. Default is to use two cores less than the total number of
-#' cores the computer has, if it has four or more cores, otherwise one core, as is the
-#' default of \code{\link{bpparam}}. To make results fully reproducible, please
-#' choose a specific back-end depending on your operating system and also set
-#' \code{RNGseed} to a number.
+#' the kind of parallelisation to use. Default: \code{SerialParam()}, one core, whose results are reproducible after
+#' \code{set.seed}. To use several cores, choose a back-end for your operating system, such as
+#' \code{MulticoreParam(workers = 4, RNGseed = 1)}. Setting \code{RNGseed} makes the results reproducible and the
+#' same for any number of workers.
 #' 
 #' @author Dario Strbenac
 #' @examples
@@ -122,7 +121,7 @@ setClass("CrossValParams", representation(
 #' @rdname CrossValParams-class
 CrossValParams <- function(samplesSplits = c("Permute k-Fold", "Permute Percentage Split", "Leave-k-Out", "k-Fold"),
                            permutations = 100, percentTest = 25, folds = 5, leave = 2,
-                           tuneMode = c("none", "Resubstitution", "Nested CV"), performanceType = "auto", adaptiveResamplingDelta = NULL, parallelParams = bpparam(),
+                           tuneMode = c("none", "Resubstitution", "Nested CV"), performanceType = "auto", adaptiveResamplingDelta = NULL, parallelParams = SerialParam(),
                            innerPermutations = 1, innerFolds = 5)
 {
   samplesSplits <- match.arg(samplesSplits)
