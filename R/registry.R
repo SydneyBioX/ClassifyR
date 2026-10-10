@@ -97,7 +97,8 @@
                       tunePresets = list(type = c(0, 6)))
   .registerClassifier("ncvreg", ncvregTrainInterface, ncvregPredictInterface, ncvregFeatures,
                       "MCP Penalised Regression",
-                      "Logistic (two classes) or Cox regression with an MCP penalty (ncvreg), lambda chosen by cross-validation.",
+                      paste("Logistic (two classes) or Cox regression with an MCP penalty (ncvreg), lambda chosen by cross-validation.",
+                            "With few events, the Cox model often keeps very few features."),
                       c("classes", "survival"), list(penalty = c("MCP", "SCAD", "lasso")))
   # Uses the models trained in the same iteration of a previous cross-validation.
   .registerClassifier("previousTrained", previousTrained, displayName = "Previous Trained",
