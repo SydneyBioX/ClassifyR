@@ -22,8 +22,8 @@
   yMax = 100,
   title = if (comparison[1] == "within") "Feature Ranking Stability" else
     "Feature Ranking Commonality",
-  yLabel = if (is.null(referenceLevel)) "Average Common Features (\%)" else
-    paste("Average Common Features with", referenceLevel, "(\%)"),
+  yLabel = if (is.null(referenceLevel)) "Average Top Features in Common (\%)" else
+    paste("Average Top Features in Common with", referenceLevel, "(\%)"),
   margin = grid::unit(c(1, 1, 1, 1), "lines"),
   showLegend = TRUE,
   parallelParams = bpparam()
@@ -80,7 +80,8 @@ palette will be used.}
 
 \item{title}{An overall title for the plot.}
 
-\item{yLabel}{Label to be used for the y-axis of overlap percentages.}
+\item{yLabel}{Label to be used for the y-axis of overlap percentages. By default, it states that the percentage of
+top features in common is shown.}
 
 \item{margin}{The margin to have around the plot.}
 
@@ -103,7 +104,9 @@ commonality are possible to analyse. One summary is the average pair-wise
 overlap between all possible pairs of results. The second kind of summary is
 the pair-wise overlap of each level of the comparison factor that is not the
 reference level against the reference level. The overlaps are converted to
-percentages and plotted as lineplots.
+percentages and plotted as lineplots. The overlap of two rankings at a number of top features is the number of features
+in both lists of top features, divided by the length of the shorter list (which is shorter than the number of top
+features only if a ranking has fewer features than it).
 }
 \details{
 If \code{comparison} is \code{"within"}, then the feature selection overlaps

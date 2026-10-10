@@ -34,13 +34,13 @@ makeRiskResult <- function(nSamples = 30, nPermutations = 3, seed = 2)
                  list(function(oracle){}), NULL, S4Vectors::DataFrame(predictions), outcome)
 }
 
-# Sample-wise C-index computed pair by pair. Tied times or tied risks count as neither concordant nor discordant.
+# Sample-wise C-index computed pair by pair. Pairs with tied times are not comparable; tied risks count as half concordant.
 referenceSampleCindex <- function(result)
 {
   predictions <- as.data.frame(predictions(result))
   outcome <- as.matrix(actualOutcome(result))
   rownames(outcome) <- sampleNames(result)
-  counts <- matrix(0, length(sampleNames(result)), 2, dimnames = list(sampleNames(result), c("concordant", "discordant")))
+  counts <- matrix(0, length(sampleNames(result)), 2, dimnames = list(sampleNames(result), c("concordant", "comparable")))
   for(permutationPredictions in split(predictions, predictions[, "permutation"]))
   {
     for(sampleID in permutationPredictions[, "sample"])
@@ -51,18 +51,18 @@ referenceSampleCindex <- function(result)
         events <- outcome[c(sampleID, otherID), "status"]
         risks <- permutationPredictions[match(c(sampleID, otherID), permutationPredictions[, "sample"]), "risk"]
         earlier <- which.min(times)
-        if(times[1] == times[2] || events[earlier] != 1 || risks[1] == risks[2]) next
-        concordant <- risks[earlier] > risks[-earlier]
-        counts[sampleID, ] <- counts[sampleID, ] + c(concordant, !concordant)
+        if(times[1] == times[2] || events[earlier] != 1) next
+        concordant <- if(risks[1] == risks[2]) 0.5 else as.numeric(risks[earlier] > risks[-earlier])
+        counts[sampleID, ] <- counts[sampleID, ] + c(concordant, 1)
       }
     }
   }
-  Cindex <- round(counts[, "concordant"] / rowSums(counts), 2)
+  Cindex <- counts[, "concordant"] / counts[, "comparable"]
   Cindex[is.nan(Cindex)] <- NA
   Cindex
 }
 
-# AUC of each class by the trapezoid rule over the ROC curve, rounded and then averaged over classes.
+# AUC of each class by the trapezoid rule over the ROC curve, averaged over classes.
 referenceAUC <- function(classes, scores)
 {
   mean(sapply(levels(classes), function(class)
@@ -70,7 +70,7 @@ referenceAUC <- function(classes, scores)
     thresholds <- sort(unique(scores[, class]), decreasing = TRUE)
     TPR <- c(0, sapply(thresholds, function(threshold) mean(scores[classes == class, class] >= threshold)))
     FPR <- c(0, sapply(thresholds, function(threshold) mean(scores[classes != class, class] >= threshold)))
-    round(sum(diff(FPR) * (TPR[-1] + TPR[-length(TPR)]) / 2), 2)
+    sum(diff(FPR) * (TPR[-1] + TPR[-length(TPR)]) / 2)
   }))
 }
 
@@ -80,6 +80,17 @@ test_that("sample-wise C-index matches the pair-by-pair definition, including sa
   expect_equal(values, referenceSampleCindex(result))
   expect_true(is.na(values[["s1"]]))
   expect_identical(names(values), sampleNames(result))
+})
+
+test_that("sample-wise C-index counts tied risks as half concordant and is not rounded", {
+  outcome <- survival::Surv(c(1, 2, 3), c(1, 1, 1))
+  predictions <- S4Vectors::DataFrame(sample = c("a", "b", "c"), permutation = 1, fold = 1, risk = c(2, 2, 1))
+  result <- ClassifyResult(S4Vectors::DataFrame(characteristic = "Assay Name", value = "x"), c("a", "b", "c"), "g1",
+                           list("g1"), list("g1"), list(function(oracle){}), NULL, predictions, outcome)
+  values <- performance(calcCVperformance(result, "Sample C-index"))[["Sample C-index"]]
+  # Pairs: a-b tied (1/2), a-c concordant, b-c concordant.
+  expect_equal(unname(values), c(0.75, 0.75, 1))
+  expect_equal(survival::concordance(outcome ~ I(-c(2, 2, 1)))$concordance, 2.5 / 3)
 })
 
 test_that("sample-wise C-index is NA for a sample which was never predicted", {
@@ -118,11 +129,52 @@ test_that("AUC with three classes is the mean of one-versus-rest AUCs", {
   expect_equal(unname(calcExternalPerformance(classes, scores, "AUC")), referenceAUC(classes, scores))
 })
 
-test_that("AUC fails clearly if a class is absent from a group", {
+test_that("AUC is NaN with a warning if a class is absent from a group", {
   result <- makeScoresResult(nSamples = 8, nPermutations = 1, nFolds = 2)
   result@predictions <- result@predictions[order(as.character(actualOutcome(result))[match(result@predictions[, "sample"], sampleNames(result))]), ]
   result@predictions[, "fold"] <- rep(1:2, each = 4) # Each fold has samples of only one class.
-  expect_error(calcCVperformance(result, "AUC", grouping = "fold"), "missing rates")
+  expect_warning(AUC <- performance(calcCVperformance(result, "AUC", grouping = "fold"))[["AUC"]], "2 of 2 groups")
+  expect_true(is.nan(AUC[["1"]]))
+  byPermutation <- performance(calcCVperformance(result, "AUC"))[["AUC"]] # Each permutation has both classes.
+  expect_equal(unname(byPermutation), referenceAUC(actualOutcome(result)[match(result@predictions[, "sample"], sampleNames(result))],
+                                                   as.data.frame(result@predictions[, c("No", "Yes")])))
+})
+
+test_that("AUC is not rounded", {
+  set.seed(7)
+  classes <- factor(rep(c("No", "Yes"), 13))
+  scores <- data.frame(No = runif(26))
+  scores[, "Yes"] <- 1 - scores[, "No"]
+  value <- unname(calcExternalPerformance(classes, scores, "AUC"))
+  expect_equal(value, referenceAUC(classes, scores))
+  expect_false(isTRUE(all.equal(value, round(value, 2))))
+})
+
+test_that("macro precision and F1 count a class which is never predicted as precision 0", {
+  actual <- factor(c("A", "A", "B", "B", "C", "C"))
+  predicted <- factor(c("A", "A", "B", "A", "B", "B"), levels = levels(actual)) # C is never predicted.
+  values <- calcExternalPerformance(actual, predicted, c("Macro Precision", "Macro Recall", "Macro F1"))
+  precision <- mean(c(2 / 3, 1 / 3, 0))
+  recall <- mean(c(1, 1 / 2, 0))
+  expect_equal(values[["Macro Precision"]], precision)
+  expect_equal(values[["Macro Recall"]], recall)
+  expect_equal(values[["Macro F1"]], 2 * precision * recall / (precision + recall))
+})
+
+test_that("grouping by fold averages balanced accuracy and other class metrics within each permutation", {
+  result <- makeScoresResult(nPermutations = 3)
+  predictions <- as.data.frame(predictions(result))
+  classes <- actualOutcome(result)[match(predictions[, "sample"], sampleNames(result))]
+  for(metric in c("Balanced Accuracy", "Macro F1"))
+  {
+    byFold <- performance(calcCVperformance(result, metric, grouping = "fold"))[[metric]]
+    expect_identical(names(byFold), as.character(1:3))
+    rows <- which(predictions[, "permutation"] == 2)
+    foldValues <- sapply(split(rows, predictions[rows, "fold"]), function(foldRows)
+      unname(calcExternalPerformance(classes[foldRows], predictions[foldRows, "class"], metric)))
+    expect_equal(byFold[["2"]], mean(foldValues))
+  }
+  expect_length(performance(calcCVperformance(result, "Sample Accuracy", grouping = "fold"))[["Sample Accuracy"]], 40)
 })
 
 test_that("AUC of a realistic result takes well under a second per hundred permutations", {
