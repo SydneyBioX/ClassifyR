@@ -520,7 +520,7 @@ setMethod("easyHard", "MultiAssayExperimentOrList",
   } else { # Penalised regression.
     samplePerformanceM <- matrix(c(1 - samplePerformance, samplePerformance), ncol = 2)
     fitted <- glmnet::glmnet(assayOHE, samplePerformanceM, family = "binomial")
-    lambdaConsider <- colSums(as.matrix(fitted[["beta"]])) != 0
+    lambdaConsider <- colSums(abs(as.matrix(fitted[["beta"]]))) != 0 # Lambdas at which any coefficient is not zero.
     bestLambda <- fitted[["lambda"]][lambdaConsider][which.min(sapply(fitted[["lambda"]][lambdaConsider], function(lambda) # Largest Lambda with minimum balanced error rate.
     {
         predictions <- predict(fitted, assayOHE, s = lambda, type = "response")
