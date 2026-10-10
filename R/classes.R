@@ -17,6 +17,7 @@ setClassUnion("functionOrNULL", c("function", "NULL"))
 setClassUnion("numericOrNULL", c("numeric", "NULL"))
 
 # Union of a Character and a DataFrame
+#' @importClassesFrom S4Vectors DataFrame
 setClassUnion("characterOrDataFrame", c("character", "DataFrame"))
 
 # Union of a Surv class and a factor for flexibility with sample outcome
@@ -86,17 +87,16 @@ setClassUnion("MultiAssayExperimentOrList", c("MultiAssayExperiment", "list"))
 #' @param innerFolds Default: 5. The number of folds of the inner cross-validation of each training set when
 #' \code{tuneMode} is \code{"Nested CV"}.
 #' @param parallelParams An instance of \code{\link{BiocParallelParam}} specifying
-#' the kind of parallelisation to use. Default is to use two cores less than the total number of
-#' cores the computer has, if it has four or more cores, otherwise one core, as is the
-#' default of \code{\link{bpparam}}. To make results fully reproducible, please
-#' choose a specific back-end depending on your operating system and also set
-#' \code{RNGseed} to a number.
+#' the kind of parallelisation to use. Default: \code{SerialParam()}, one core, whose results are reproducible after
+#' \code{set.seed}. To use several cores, choose a back-end for your operating system, such as
+#' \code{MulticoreParam(workers = 4, RNGseed = 1)}. Setting \code{RNGseed} makes the results reproducible and the
+#' same for any number of workers.
 #' 
 #' @author Dario Strbenac
 #' @examples
 #' 
 #'   CrossValParams() # Default is 100 permutations and 5 folds of each.
-#'   snow <- SnowParam(workers = 2, RNGseed = 999)
+#'   snow <- BiocParallel::SnowParam(workers = 2, RNGseed = 999)
 #'   CrossValParams("Leave-k-Out", leave = 2, parallelParams = snow)
 #'   # Fully reproducible Leave-2-out cross-validation on 4 cores,
 #'   # even if feature selection or classifier use random sampling.
@@ -122,7 +122,7 @@ setClass("CrossValParams", representation(
 #' @rdname CrossValParams-class
 CrossValParams <- function(samplesSplits = c("Permute k-Fold", "Permute Percentage Split", "Leave-k-Out", "k-Fold"),
                            permutations = 100, percentTest = 25, folds = 5, leave = 2,
-                           tuneMode = c("none", "Resubstitution", "Nested CV"), performanceType = "auto", adaptiveResamplingDelta = NULL, parallelParams = bpparam(),
+                           tuneMode = c("none", "Resubstitution", "Nested CV"), performanceType = "auto", adaptiveResamplingDelta = NULL, parallelParams = SerialParam(),
                            innerPermutations = 1, innerFolds = 5)
 {
   samplesSplits <- match.arg(samplesSplits)
@@ -811,8 +811,8 @@ setClass("ModellingParams", representation(
 #' @rdname ModellingParams-class
 #' @aliases ModellingParams ModellingParams-class
 #' @docType class
-#' @param balancing Default: \code{"downsample"}. A character value specifying what kind
-#' of class balancing to do, if any.
+#' @param balancing Default: \code{"none"}. A character value specifying what kind of class balancing to do to the
+#' training samples, if any: \code{"none"}, \code{"downsample"} or \code{"upsample"}.
 #' @param transformParams Parameters used for feature transformation inside of C.V.
 #' specified by a \code{\link{TransformParams}} instance. Optional, can be \code{NULL}.
 #' @param selectParams Parameters used during feature selection specified
@@ -836,7 +836,7 @@ setClass("ModellingParams", representation(
 #'                      predictParams = PredictParams("randomForest"))
 #'   #}
 #' @export
-ModellingParams <- function(balancing = c("downsample", "upsample", "none"),
+ModellingParams <- function(balancing = c("none", "downsample", "upsample"),
                             transformParams = NULL, selectParams = SelectParams("t-test"),
                             trainParams = TrainParams("DLDA"), predictParams = PredictParams("DLDA"),
                             doImportance = FALSE)
