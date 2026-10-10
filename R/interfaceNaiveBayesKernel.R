@@ -29,12 +29,22 @@ naiveBayesKernel <- function(measurementsTrain, classesTrain, measurementsTest,
   })
 
   classesScaleFactors <- classesSizes / nrow(trainingMatrix)
-  splines <- lapply(featuresDensities, function(featureDensities) 
+  # Scale each class's density by its class size, so that the crossover points and the vertical distances
+  # are both calculated from the same densities.
+  featuresDensities <- lapply(featuresDensities, function(featureDensities)
+  {
+    mapply(function(featureDensity, scaleFactor)
+    {
+      featureDensity[['y']] <- featureDensity[['y']] * scaleFactor
+      featureDensity
+    }, featureDensities, classesScaleFactors, SIMPLIFY = FALSE)
+  })
+  splines <- lapply(featuresDensities, function(featureDensities)
              {
-               mapply(function(featureDensity, scaleFactor)
+               lapply(featureDensities, function(featureDensity)
                {
-                 splinefun(featureDensity[['x']], featureDensity[['y']] * scaleFactor, "natural")
-               }, featureDensities, classesScaleFactors)
+                 splinefun(featureDensity[['x']], featureDensity[['y']], "natural")
+               })
              })
   
   if(verbose == 3)
