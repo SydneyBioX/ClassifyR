@@ -85,6 +85,68 @@ test_that("penalised GLM encodes test data with the training columns", {
   expect_equal(reordered, testScores)
 })
 
+test_that("penalised GLM fits a logistic model for two classes and a multinomial model for more", {
+  data <- makeTwoClass()
+  model <- ClassifyR:::penalisedGLMtrainInterface(data$measurements, data$classes, verbose = 0)
+  expect_s3_class(model, "lognet")
+  predicted <- ClassifyR:::penalisedGLMpredictInterface(model, data$measurements[1:5, ], verbose = 0)
+  expect_identical(colnames(predicted), c("class", "A", "B"))
+  expect_equal(rowSums(predicted[, c("A", "B")]), rep(1, 5), ignore_attr = TRUE)
+  expect_identical(as.character(predicted[["class"]]), c("A", "B")[(predicted[["B"]] > 0.5) + 1])
+  one <- ClassifyR:::penalisedGLMpredictInterface(model, data$measurements[1, , drop = FALSE], returnType = "score", verbose = 0)
+  expect_equal(unname(one), unname(as.matrix(predicted[1, c("A", "B")])))
+  threeClasses <- factor(rep(c("A", "B", "C"), length.out = nrow(data$measurements)))
+  model <- ClassifyR:::penalisedGLMtrainInterface(data$measurements, threeClasses, verbose = 0)
+  expect_s3_class(model, "multnet")
+  expect_identical(colnames(ClassifyR:::penalisedGLMpredictInterface(model, data$measurements[1:5, ], returnType = "score", verbose = 0)), c("A", "B", "C"))
+})
+
+test_that("penalised GLM chooses lambda by cross-validation unless resubstitution is asked for", {
+  set.seed(8)
+  classes <- factor(rep(c("A", "B"), each = 40))
+  measurements <- matrix(rnorm(80 * 30), 80, 30, dimnames = list(paste0("s", 1:80), paste0("g", 1:30)))
+  measurements[classes == "B", 1:3] <- measurements[classes == "B", 1:3] + 1
+  measurements <- asDataFrame(measurements)
+  set.seed(9)
+  model <- ClassifyR:::penalisedGLMtrainInterface(measurements, classes, alpha = 0.5, verbose = 0)
+  set.seed(9)
+  again <- ClassifyR:::penalisedGLMtrainInterface(measurements, classes, alpha = 0.5, verbose = 0)
+  expect_identical(attr(model, "tune"), attr(again, "tune"))
+  expect_true(attr(model, "tune")[["lambda"]] %in% model[["lambda"]])
+
+  # Resubstitution: the smallest balanced error of the training samples, the largest lambda among ties.
+  resubstitution <- ClassifyR:::penalisedGLMtrainInterface(measurements, classes, alpha = 0.5, lambdaTuning = "resubstitution", verbose = 0)
+  lambdas <- resubstitution[["lambda"]][-1]
+  errors <- sapply(lambdas, function(lambda)
+    calcExternalPerformance(classes, factor(predict(resubstitution, as.matrix(measurements), s = lambda, type = "class"), levels = levels(classes)), "Balanced Error"))
+  expect_equal(attr(resubstitution, "tune")[["lambda"]], lambdas[which.min(errors)])
+})
+
+test_that("penalised GLM considers every lambda at which any class has a coefficient", {
+  set.seed(10)
+  classes <- factor(rep(c("A", "B", "C"), each = 50))
+  measurements <- matrix(rnorm(150 * 40), 150, 40, dimnames = list(paste0("s", 1:150), paste0("g", 1:40)))
+  measurements[classes == "B", 1:5] <- measurements[classes == "B", 1:5] + 1
+  measurements[classes == "C", 6:10] <- measurements[classes == "C", 6:10] + 1
+  path <- glmnet::glmnet(measurements, classes, family = "multinomial", alpha = 0.5)
+  firstClassEmpty <- colSums(abs(as.matrix(path[["beta"]][["A"]]))) == 0
+  anyClassUsed <- Reduce(`|`, lapply(path[["beta"]], function(coefficients) colSums(abs(as.matrix(coefficients))) != 0))
+  # Lambdas at which class A, the first, has no coefficients but classes B and C do.
+  lambdas <- path[["lambda"]][firstClassEmpty & anyClassUsed]
+  expect_gt(length(lambdas), 1)
+  model <- ClassifyR:::penalisedGLMtrainInterface(asDataFrame(measurements), classes, lambda = lambdas, alpha = 0.5,
+                                                  lambdaTuning = "resubstitution", verbose = 0)
+  expect_true(attr(model, "tune")[["lambda"]] %in% lambdas)
+})
+
+test_that("penalised GLM falls back to resubstitution for a class with fewer than three samples", {
+  set.seed(11)
+  classes <- factor(c(rep("A", 20), "B", "B"))
+  measurements <- asDataFrame(matrix(rnorm(22 * 5), 22, 5, dimnames = list(paste0("s", 1:22), paste0("g", 1:5))))
+  expect_warning(model <- ClassifyR:::penalisedGLMtrainInterface(measurements, classes, verbose = 0), "resubstitution")
+  expect_true(attr(model, "tune")[["lambda"]] %in% model[["lambda"]])
+})
+
 test_that("CoxNet encodes test data with the training columns", {
   data <- makeCategorical()
   set.seed(7)
@@ -140,6 +202,18 @@ test_that("kNN returns a factor with the training levels, also for one test samp
   }
 })
 
+test_that("weighted kNN lets training samples identical to a test sample take the vote", {
+  data <- makeTwoClass(shift = 5)
+  train <- asDataFrame(data$measurements[1:50, ])
+  # The first test sample duplicates training sample 2 (class B); the others are new.
+  test <- asDataFrame(rbind(data$measurements[2, , drop = FALSE], data$measurements[51:52, ]))
+  predicted <- ClassifyR:::kNNinterface(train, data$classes[1:50], test, k = 5, mode = "weighted", verbose = 0)
+  expect_equal(unlist(predicted[1, c("A", "B")]), c(A = 0, B = 1))
+  expect_equal(as.character(predicted[1, "class"]), "B")
+  expect_false(anyNA(predicted[, c("A", "B")]))
+  expect_equal(unname(rowSums(predicted[, c("A", "B")])), rep(1, 3))
+})
+
 test_that("Fisher discriminant classifies two classes and rejects more", {
   data <- makeTwoClass(shift = 3)
   train <- asDataFrame(data$measurements[1:40, 1:5])
@@ -152,7 +226,10 @@ test_that("Fisher discriminant classifies two classes and rejects more", {
   isA <- data$classes[1:40] == "A"
   pooled <- (19 * apply(trainMatrix[isA, ], 2, var) + 19 * apply(trainMatrix[!isA, ], 2, var)) / 38
   direction <- (colMeans(trainMatrix[isA, ]) - colMeans(trainMatrix[!isA, ])) / pooled
-  expect_equal(unname(predicted[, "score"]), unname(-1 * as.matrix(test) %*% direction)[, 1])
+  # The score is centred on the critical value, so its sign gives the predicted class.
+  critical <- 0.5 * sum(direction * (colMeans(trainMatrix[isA, ]) + colMeans(trainMatrix[!isA, ])))
+  expect_equal(unname(predicted[, "score"]), unname(critical - as.matrix(test) %*% direction)[, 1])
+  expect_equal(as.character(predicted[, "class"]), ifelse(predicted[, "score"] > 0, "B", "A"))
   threeClasses <- factor(rep(c("A", "B", "C"), length.out = 40))
   expect_error(ClassifyR:::fisherDiscriminant(train, threeClasses, test, verbose = 0), "two classes")
 })
@@ -209,6 +286,22 @@ test_that("naive Bayes and mixtures of normals run with crossover distance weigh
     expect_equal(nrow(predicted), 20)
     expect_gt(mean(predicted[, "class"] == data$classes[41:60]), 0.7)
   }
+})
+
+test_that("naive Bayes finds crossover points of the class densities scaled by class size", {
+  # Class B is three times as common. Scaled by class size, the densities of N(0, 1) and N(1, 1) cross at
+  # 0.5 + log(1/3) = -0.6; unscaled, they cross at 0.5.
+  set.seed(11)
+  classes <- factor(rep(c("A", "B"), c(1000, 3000)))
+  values <- c(rnorm(1000, 0), rnorm(3000, 1))
+  train <- asDataFrame(matrix(values, ncol = 1, dimnames = list(NULL, "g1")))
+  test <- asDataFrame(matrix(c(-1.5, 0.5), ncol = 1, dimnames = list(c("t1", "t2"), "g1")))
+  predicted <- ClassifyR:::naiveBayesKernel(train, classes, test, weighting = "crossover distance",
+                                            minDifference = 0.3, verbose = 0)
+  # Both samples are far enough from the crossover of the scaled densities to vote. Measured from the
+  # unscaled crossover, t2 would be too close and get the class proportions as its scores.
+  expect_equal(as.character(predicted[, "class"]), c("A", "B"))
+  expect_equal(unname(unlist(predicted[2, c("A", "B")])), c(0, 1))
 })
 
 test_that("colCoxTests handles one feature, and the slow option agrees with the fast one", {
@@ -318,6 +411,47 @@ test_that("previousSelection warns when few previous features are in the current
   expect_no_warning(ClassifyR:::previousSelection(asDataFrame(data$measurements), data$classes, result, .iteration = 1, verbose = 0))
 })
 
+test_that("previousSelection matches non-syntactic feature names and needs no intermediate setting", {
+  data <- makeTwoClass(shift = 3)
+  measurements <- data$measurements
+  # "g-1" and "g.1" are different features with the same syntactic name; both carry the class difference.
+  colnames(measurements) <- paste0("g-", seq_len(ncol(measurements)))
+  colnames(measurements)[2] <- "g.1"
+  crossValParams <- CrossValParams(permutations = 1, folds = 2, parallelParams = SerialParam(RNGseed = 1))
+  first <- suppressWarnings(runTests(asDataFrame(measurements), data$classes, crossValParams,
+             ModellingParams(selectParams = SelectParams("t-test", nFeatures = 3), balancing = "none"), verbose = 0))
+  expect_setequal(chosenFeatureNames(first)[[1]], c("g-1", "g.1", "g-3"))
+  second <- suppressWarnings(runTests(asDataFrame(measurements), data$classes, crossValParams,
+              ModellingParams(selectParams = SelectParams("previousSelection", classifyResult = first), balancing = "none"),
+              verbose = 0))
+  expect_equal(lapply(chosenFeatureNames(second), sort), lapply(chosenFeatureNames(first), sort))
+})
+
+test_that("ensemble selection keeps features ranked highly by enough of the ranking functions", {
+  data <- makeTwoClass(shift = 2)
+  measurements <- asDataFrame(data$measurements)
+  crossValParams <- CrossValParams(permutations = 1, folds = 2, parallelParams = SerialParam(RNGseed = 1))
+  # Both rankings agree on the top three, which carry the class difference.
+  ensemble <- SelectParams(list("t-test", "limma"), nFeatures = 3, minPresence = 2)
+  result <- runTests(measurements, data$classes, crossValParams,
+                     ModellingParams(selectParams = ensemble, balancing = "none"), verbose = 0)
+  expect_s4_class(result, "ClassifyResult")
+  for(chosen in chosenFeatureNames(result)) expect_setequal(chosen, paste0("g", 1:3))
+  # With tuning, the number of top features is chosen by resubstitution.
+  ensembleTuned <- SelectParams(list("t-test", "limma"), minPresence = 2, tuneParams = list(nFeatures = c(3, 10)))
+  tuned <- suppressWarnings(runTests(measurements, data$classes,
+             CrossValParams(permutations = 1, folds = 2, tuneMode = "Resubstitution", parallelParams = SerialParam(RNGseed = 1)),
+             ModellingParams(selectParams = ensembleTuned, balancing = "none"), verbose = 0))
+  expect_true(all(lengths(chosenFeatureNames(tuned)) >= 3))
+  expect_equal(colnames(tunedParameters(tuned)[[1]][["tuneCombinations"]])[1], "topN")
+  # Nested-CV tuning uses the inner scheme of the training set.
+  nested <- suppressWarnings(runTests(measurements, data$classes,
+              CrossValParams(permutations = 1, folds = 2, tuneMode = "Nested CV", innerFolds = 2, parallelParams = SerialParam(RNGseed = 1)),
+              ModellingParams(selectParams = ensembleTuned, balancing = "none"), verbose = 0))
+  expect_s4_class(nested, "ClassifyResult")
+  expect_true(all(lengths(chosenFeatureNames(nested)) >= 3))
+})
+
 test_that("two-class rankings stop for more than two classes", {
   data <- makeTwoClass()
   train <- asDataFrame(data$measurements)
@@ -338,4 +472,22 @@ test_that("Levene ranking agrees with car::leveneTest", {
   pValues <- apply(measurements, 2, function(featureColumn) car::leveneTest(featureColumn, classes)[["Pr(>F)"]][1])
   expect_equal(ClassifyR:::leveneRanking(asDataFrame(measurements), classes, verbose = 0), order(pValues))
   expect_equal(ClassifyR:::leveneRanking(asDataFrame(measurements[, 1, drop = FALSE]), classes, verbose = 0), 1)
+})
+
+test_that("likelihood ratio ranking agrees with the sum of normal log densities", {
+  data <- makeTwoClass()
+  measurements <- data$measurements
+  measurements[data$classes == "B", 4:6] <- 2 * measurements[data$classes == "B", 4:6]
+  logLikelihood <- function(values) sum(dnorm(values, mean(values), sd(values), log = TRUE))
+  statistics <- apply(measurements, 2, logLikelihood) -
+                Reduce(`+`, lapply(levels(data$classes), function(class) apply(measurements[data$classes == class, ], 2, logLikelihood)))
+  expect_identical(ClassifyR:::likelihoodRatioRanking(asDataFrame(measurements), data$classes, verbose = 0), order(statistics))
+  expect_identical(ClassifyR:::likelihoodRatioRanking(asDataFrame(measurements[, 1, drop = FALSE]), data$classes, verbose = 0), 1L)
+})
+
+test_that("XGB fits 100 rounds by default", {
+  skip_if_not_installed("xgboost")
+  data <- makeTwoClass()
+  model <- ClassifyR:::extremeGradientBoostingTrainInterface(asDataFrame(data$measurements), data$classes, verbose = 0)
+  expect_identical(xgboost::xgb.get.num.boosted.rounds(model), 100L)
 })

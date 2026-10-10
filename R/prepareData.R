@@ -63,6 +63,8 @@ setMethod("prepareData", "data.frame",
 setMethod("prepareData", "DataFrame",
   function(measurements, outcome, useFeatures = NULL, maxMissingProp = 0.0, maxSimilarity = 1, topNvariance = NULL)
 {
+  if(missing(outcome) || length(outcome) == 0) # e.g. NULL from looking up a list element by a name it doesn't have.
+    stop("'outcome' is missing or empty. Provide one class or survival time per sample, or column name(s) of 'measurements'.")
   if(is.null(rownames(measurements)))
   {
     warning("'measurements' DataFrame must have sample identifiers as its row names. Generating generic ones.")
@@ -82,12 +84,15 @@ setMethod("prepareData", "DataFrame",
       
   # Won't ever be true if input data was MultiAssayExperiment because wideFormat already produces valid names.  
   # Need to check if input data was DataFrame because names might not be valid from user.
-  if(!all(colnames(measurements) == make.names(colnames(measurements))))
+  # Unique, because different names such as "a-b" and "a.b" can have the same safe name.
+  if(!all(colnames(measurements) == make.names(colnames(measurements), unique = TRUE)))
   {
     warning("Unsafe feature names in input data. Converted into safe names.")
-    S4Vectors::mcols(measurements)$feature <- colnames(measurements) # Save the originals.
-    colnames(measurements) <- make.names(colnames(measurements)) # Ensure column names are safe names.
-    if(is.character(outcome)) outcome <- make.names(outcome) # Also, the outcome column name might need taming.
+    originalNames <- colnames(measurements)
+    S4Vectors::mcols(measurements)$feature <- originalNames # Save the originals.
+    colnames(measurements) <- make.names(originalNames, unique = TRUE) # Ensure column names are safe names.
+    if(is.character(outcome)) # Also, the outcome column name might need taming.
+      outcome <- ifelse(outcome %in% originalNames, colnames(measurements)[match(outcome, originalNames)], make.names(outcome))
   }
       
  # DataFrame's outcome variable can be character or factor, so it is a bit involved.

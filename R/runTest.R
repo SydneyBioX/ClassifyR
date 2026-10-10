@@ -108,7 +108,7 @@ function(measurementsTrain, outcomeTrain, measurementsTest, outcomeTest,
     measurementsTrain <- splitDatasetTrain[["measurements"]]
     outcomeTrain <- splitDatasetTrain[["outcome"]]
     # Feature names of the test data must be made safe in the same way as those of the training data.
-    colnames(measurementsTest) <- make.names(colnames(measurementsTest))
+    colnames(measurementsTest) <- make.names(colnames(measurementsTest), unique = TRUE)
     
     # Rebalance the class sizes of the training samples by either downsampling or upsampling
     # or leave untouched if balancing is none.
@@ -286,7 +286,7 @@ input data. Autmomatically reducing to smaller number.")
     
     if(!is.null(ncol(predictedOutcome)))
         predictedOutcome <- predictedOutcome[, na.omit(match(c("class", "risk"), colnames(predictedOutcome)))]
-    performanceChanges <- round(performancesWithoutEach - calcExternalPerformance(outcomeTest, predictedOutcome, performanceType), 2)
+    performanceChanges <- performancesWithoutEach - calcExternalPerformance(outcomeTest, predictedOutcome, performanceType)
 
     if(is.null(S4Vectors::mcols(measurementsTrain)) || !any(c("assay", "feature") %in% colnames(S4Vectors::mcols(measurementsTrain))))
     {

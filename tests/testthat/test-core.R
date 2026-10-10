@@ -89,6 +89,18 @@ test_that("preset tuning ranges are used and not passed on as a setting", {
   expect_true("mTryProportion" %in% colnames(tunedParameters(result)[[1]][["tuneCombinations"]]))
 })
 
+test_that("resubstitution tuning warns once when several numbers of features fit the training set perfectly", {
+  data <- makeTwoClass(shift = 6)
+  set.seed(1)
+  expect_warning(result <- crossValidate(data$measurements, data$classes, classifier = "randomForest", nFeatures = c(2, 3, 5),
+                                         nRepeats = 1, nFolds = 3, verbose = 0),
+                 "in 3 of 3 training sets, several numbers of features fit the training samples perfectly")
+  # Not when only one number of features is tried.
+  set.seed(1)
+  expect_no_warning(crossValidate(data$measurements, data$classes, classifier = "randomForest", nFeatures = 3,
+                                  nRepeats = 1, nFolds = 3, verbose = 0))
+})
+
 test_that("nFeatures = 1 works", {
   data <- makeTwoClass()
   set.seed(1)
@@ -161,6 +173,17 @@ test_that("prepareData keeps the most variable features and drops similar ones",
   expect_true("g1" %in% colnames(prepared$measurements))
   expect_false("g2" %in% colnames(prepared$measurements))
   expect_equal(ncol(prepared$measurements), ncol(measurements) - 1)
+})
+
+test_that("a missing or empty outcome is an error before any modelling", {
+  data <- makeTwoClass()
+  outcomes <- list(cohortA = data$classes)
+  # A list looked up by a name it doesn't have gives NULL.
+  expect_error(prepareData(data$measurements, outcomes[["cohortB"]]), "'outcome' is missing or empty")
+  expect_error(prepareData(data$measurements), "'outcome' is missing or empty")
+  set.seed(1)
+  expect_error(crossValidate(data$measurements, outcomes[["cohortB"]], nFolds = 2, nRepeats = 1), "'outcome' is missing or empty")
+  expect_error(crossValidate(as.matrix(data$measurements), factor(character()), nFolds = 2, nRepeats = 1), "'outcome' is missing or empty")
 })
 
 test_that("all assays, classifiers and combinations share the same splits", {

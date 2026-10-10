@@ -138,11 +138,73 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
 }
 
 
+# Feature selection, reusing an earlier identical selection when the selection cache is active.
+.doSelection <- function(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
+{
+  cache <- .ClassifyRenvir[["selectionCache"]]
+  # Merge selects within each assay, and those selections are the ones cached.
+  if(is.null(cache) || identical(attr(modellingParams@selectParams@featureRanking, "name"), "Union Selection"))
+    return(.selectFeatures(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose))
+  .cachedSelection(cache, measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
+}
+
+# Cache of feature selections, active while .runTestsSplits runs. With the folds shared by all cross-validations of a
+# crossValidate call, an assay is selected from the same training samples in every combination of assays that
+# contains it, so the selection is made once per training set and reused.
+# - An entry is reused only for identical data, outcome and settings.
+# - Selections that use random numbers are reused only when they start from the same random number state, and the
+#   state after the selection is restored, so results are identical to selecting again.
+# - Only the selections of the current training samples are kept. The tasks are ordered by split, so those of one
+#   split follow each other.
+.useSelectionCache <- function()
+{
+  if(!is.null(.ClassifyRenvir[["selectionCache"]])) return(function() NULL) # Already active (e.g. nested CV).
+  cache <- new.env(parent = emptyenv())
+  cache[["entries"]] <- list()
+  assign("selectionCache", cache, envir = .ClassifyRenvir)
+  function() assign("selectionCache", NULL, envir = .ClassifyRenvir)
+}
+
+.cachedSelection <- function(cache, measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
+{
+  # What the selection depends on besides the data. Classifier settings matter only when the number of features is
+  # tuned by fitting it.
+  tuneMode <- crossValParams@tuneMode
+  settings <- list(modellingParams@selectParams, tuneMode)
+  if(tuneMode != "none")
+    settings <- c(settings, modellingParams, crossValParams@performanceType, if(tuneMode == "Nested CV") crossValParams)
+  randomState <- function() if(exists(".Random.seed", envir = globalenv())) get(".Random.seed", envir = globalenv())
+  stateBefore <- randomState()
+  
+  if(!identical(rownames(measurementsTrain), cache[["samples"]]))
+  {
+    cache[["entries"]] <- list()
+    cache[["samples"]] <- rownames(measurementsTrain)
+  }
+  for(entry in cache[["entries"]])
+  {
+    if(identical(entry[["settings"]], settings) && identical(entry[["outcome"]], outcomeTrain) &&
+       (entry[["noRandom"]] || identical(entry[["stateBefore"]], stateBefore)) &&
+       identical(entry[["measurements"]], measurementsTrain))
+    {
+      if(!entry[["noRandom"]]) assign(".Random.seed", entry[["stateAfter"]], envir = globalenv())
+      return(entry[["selection"]])
+    }
+  }
+  
+  selection <- .selectFeatures(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
+  stateAfter <- randomState()
+  cache[["entries"]] <- c(cache[["entries"]], list(list(measurements = measurementsTrain, outcome = outcomeTrain, settings = settings,
+                          noRandom = identical(stateBefore, stateAfter), stateBefore = stateBefore, stateAfter = stateAfter,
+                          selection = selection)))
+  selection
+}
+
 # Carries out one iteration of feature selection. Basically, a ranking function is used to rank
 # the features in the training set from best to worst and different top sets are used either for
 # predicting on the training set (resubstitution) or nested cross-validation of the training set,
 # to find the set of top features which give the best (user-specified) performance measure.
-.doSelection <- function(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
+.selectFeatures <- function(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
 {
   tuneParams <- modellingParams@selectParams@tuneParams
   performanceType <- crossValParams@performanceType
@@ -155,6 +217,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
   featureRanking <- modellingParams@selectParams@featureRanking
   otherParams <- modellingParams@selectParams@otherParams
   doSubset <- modellingParams@selectParams@subsetToSelections 
+  minPresence <- modellingParams@selectParams@minPresence
   modellingParams@selectParams <- NULL
   betterValues <- .ClassifyRenvir[["performanceInfoTable"]][.ClassifyRenvir[["performanceInfoTable"]][, "type"] == performanceType, "better"]
   if(is.function(featureRanking)) # Not a list for ensemble selection.
@@ -221,10 +284,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
            predictedOutcome <- predictions
           calcExternalPerformance(outcomeTrain, predictedOutcome, performanceType)
         } else {
-           result <- runTests(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose = verbose)
-           if(is.character(result)[[1]]) stop(result)
-           result <- calcCVperformance(result, performanceType)
-           median(performance(result)[[performanceType]])
+           .innerCVperformance(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
          }
        })
 
@@ -247,51 +307,79 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
       colnames(tuneDetails[[1]])[ncol(tuneDetails[[1]])] <- performanceType
       list(ranked = rankingUse, selected = selectionIndices, tune = tuneDetails)
     } else if(is.list(featureRanking)) { # It is a list of functions for ensemble selection.
-      featuresIndiciesLists <- mapply(function(selector, selParams)
+      # Other parameters are either one list for each ranking function or shared by all of them.
+      if(length(otherParams) == length(featureRanking) && all(sapply(otherParams, is.list)))
+        rankingsParams <- otherParams
+      else
+        rankingsParams <- rep(list(otherParams), length(featureRanking))
+      rankings <- mapply(function(ranking, rankingParams)
       {
-        paramList <- list(measurementsTrain, outcomeTrain, trainParams = trainParams,
-                          predictParams = predictParams, verbose = verbose)
-        paramList <- append(paramList, selParams)
-        do.call(selector, paramList)
-      }, modellingParams@selectParams@featureRanking, modellingParams@selectParams@otherParams, SIMPLIFY = FALSE)
+        paramList <- append(list(measurementsTrain, outcomeTrain, verbose = verbose), rankingParams)
+        do.call(ranking, paramList)
+      }, featureRanking, rankingsParams, SIMPLIFY = FALSE)
 
-      performances <- sapply(topNfeatures, function(topN)
+      # Features in the top n of at least minPresence of the rankings, in order of first appearance.
+      ensembleSelect <- function(topN)
       {
-        topIndices <- unlist(lapply(featuresIndiciesLists, function(featuresIndicies) featuresIndicies[1:topN]))
-        topIndicesCounts <- table(topIndices)
-        keep <- names(topIndicesCounts)[topIndicesCounts >= modellingParams@selectParams@minPresence]
-        measurementsTrain <- measurementsTrain[, as.numeric(keep), drop = FALSE] # Features in columns
-        
+        tops <- lapply(rankings, function(ranking) ranking[seq_len(min(topN, length(ranking)))])
+        candidates <- unique(unlist(tops))
+        presence <- sapply(candidates, function(candidate) sum(sapply(tops, function(top) candidate %in% top)))
+        candidates[presence >= minPresence]
+      }
+      selections <- lapply(topNfeatures, ensembleSelect)
+      if(all(lengths(selections) == 0))
+        stop("No feature is in the top features of at least ", minPresence, " of the ensemble's rankings.")
+
+      if(crossValParams@tuneMode == "none" || length(topNfeatures) == 1) # No parameters to choose between.
+        return(list(ranked = NULL, selected = selections[[1]], tune = NULL))
+
+      performances <- sapply(selections, function(selection)
+      {
+        if(length(selection) == 0) return(NA)
+        measurementsTrain <- measurementsTrain[, selection, drop = FALSE] # Features in columns
         if(crossValParams@tuneMode == "Resubstitution")
         {
-          result <- runTest(measurementsTrain, outcomeTrain,
-                            measurementsTrain, outcomeTrain,
-                            crossValParams = NULL, modellingParams,
+          result <- runTest(measurementsTrain, outcomeTrain, measurementsTrain, outcomeTrain,
+                            crossValParams = NULL, modellingParams = modellingParams,
                             verbose = verbose, .iteration = "internal")
           if(is.character(result)) stop(result)
 
           predictions <- result[["predictions"]]
-          if(class(predictions) == "data.frame")
-            predictedOutcome <- predictions[, "class"]
+          if(is.data.frame(predictions))
+            predictedOutcome <- predictions[, na.omit(match(c("class", "risk"), colnames(predictions)))]
           else
             predictedOutcome <- predictions
           calcExternalPerformance(outcomeTrain, predictedOutcome, performanceType)
         } else {
-          result <- runTests(measurementsSubset, outcomeTrain, crossValParams, modellingParams, verbose = verbose)
-          if(is.character(result[[1]])) stop(result)
-          result <- calcCVperformance(result, performanceType)
-          median(performance(aResult)[[performanceType]])
+          .innerCVperformance(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
         }
       })
       bestOne <- ifelse(betterValues == "lower", which.min(performances)[1], which.max(performances)[1])
+      tuneDetails <- list(tuneCombinations = setNames(data.frame(topN = topNfeatures, performances), c("topN", performanceType)),
+                          bestIndex = bestOne)
 
-      selectionIndices <- unlist(lapply(featuresLists, function(featuresList) featuresList[1:topNfeatures[bestOne]]))
-      names(table(selectionIndices))[table(selectionIndices) >= modellingParams@selectParams@minPresence]
-
-      list(NULL, selectionIndices, NULL)
+      if(verbose == 3)
+         message("Features selected.")
+      list(ranked = NULL, selected = selections[[bestOne]], tune = tuneDetails)
     } else { # Previous selection
       selectedFeatures <- list(NULL, selectionIndices, NULL)
     }
+}
+
+# Performance of a model in the nested cross-validation of a training set, for choosing tuning parameters: the
+# median over permutations. The inner scheme is set by innerPermutations and innerFolds of crossValParams and runs
+# serially, as it is already inside a split of the outer cross-validation. No model of all training samples is fitted.
+.innerCVperformance <- function(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
+{
+  performanceType <- crossValParams@performanceType
+  innerParams <- CrossValParams(permutations = crossValParams@innerPermutations, folds = crossValParams@innerFolds,
+                                performanceType = performanceType, parallelParams = BiocParallel::SerialParam())
+  crossValidation <- .prepareTests(measurementsTrain, outcomeTrain, innerParams, modellingParams, S4Vectors::DataFrame(), verbose,
+                                   finalModel = FALSE)
+  result <- .assembleTests(crossValidation, .runTestsSplits(list(crossValidation), innerParams@parallelParams)[[1]])
+  if(is.list(result) && is.character(result[[1]])) stop(result[[1]])
+  result <- calcCVperformance(result, performanceType)
+  median(performance(result)[[performanceType]])
 }
 
 # Only for transformations that need to be done within cross-validation.
@@ -332,12 +420,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
           predictedOutcome <- predictions
         calcExternalPerformance(outcomeTrain, predictedOutcome, performanceType)
       } else if(crossValParams@tuneMode == "Nested CV") {
-        result <- runTests(measurementsTrain, outcomeTrain,
-                           crossValParams, modellingParams,
-                           verbose = verbose)
-        if(is.list(result) && is.character(result[[1]])) stop(result[[1]])
-        result <- calcCVperformance(result, performanceType)
-        median(performance(result)[[performanceType]])
+        .innerCVperformance(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
       } else {
         stop("Tuning parameter(s) are specified but 'tuneMode' is 'none'. Please see ?CrossValParams for options.") 
       }
@@ -423,7 +506,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
                        (FPR[current] - FPR[previous]) * TPR[current]) # Line went either up or right, but not both.
     areaSum <- 0
     for(newArea in newAreas) areaSum <- areaSum + newArea # Same order of addition as the trapezoid sum.
-    data.frame(classTable, AUC = round(areaSum, 2), check.names = FALSE)
+    data.frame(classTable, AUC = areaSum, check.names = FALSE)
   }))
 }
 
