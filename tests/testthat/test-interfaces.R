@@ -398,6 +398,12 @@ test_that("ensemble selection keeps features ranked highly by enough of the rank
              ModellingParams(selectParams = ensembleTuned, balancing = "none"), verbose = 0))
   expect_true(all(lengths(chosenFeatureNames(tuned)) >= 3))
   expect_equal(colnames(tunedParameters(tuned)[[1]][["tuneCombinations"]])[1], "topN")
+  # Nested-CV tuning uses the inner scheme of the training set.
+  nested <- suppressWarnings(runTests(measurements, data$classes,
+              CrossValParams(permutations = 1, folds = 2, tuneMode = "Nested CV", innerFolds = 2, parallelParams = SerialParam(RNGseed = 1)),
+              ModellingParams(selectParams = ensembleTuned, balancing = "none"), verbose = 0))
+  expect_s4_class(nested, "ClassifyResult")
+  expect_true(all(lengths(chosenFeatureNames(nested)) >= 3))
 })
 
 test_that("two-class rankings stop for more than two classes", {
