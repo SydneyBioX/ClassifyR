@@ -355,3 +355,14 @@ test_that("Levene ranking agrees with car::leveneTest", {
   expect_equal(ClassifyR:::leveneRanking(asDataFrame(measurements), classes, verbose = 0), order(pValues))
   expect_equal(ClassifyR:::leveneRanking(asDataFrame(measurements[, 1, drop = FALSE]), classes, verbose = 0), 1)
 })
+
+test_that("likelihood ratio ranking agrees with the sum of normal log densities", {
+  data <- makeTwoClass()
+  measurements <- data$measurements
+  measurements[data$classes == "B", 4:6] <- 2 * measurements[data$classes == "B", 4:6]
+  logLikelihood <- function(values) sum(dnorm(values, mean(values), sd(values), log = TRUE))
+  statistics <- apply(measurements, 2, logLikelihood) -
+                Reduce(`+`, lapply(levels(data$classes), function(class) apply(measurements[data$classes == class, ], 2, logLikelihood)))
+  expect_identical(ClassifyR:::likelihoodRatioRanking(asDataFrame(measurements), data$classes, verbose = 0), order(statistics))
+  expect_identical(ClassifyR:::likelihoodRatioRanking(asDataFrame(measurements[, 1, drop = FALSE]), data$classes, verbose = 0), 1L)
+})
