@@ -8,10 +8,11 @@ randomForestTrainInterface <- function(measurementsTrain, outcomeTrain, mTryProp
   mtry <- round(mTryProportion * ncol(measurementsTrain)) # Number of features to try.
   # Convert to base data.frame as randomForest doesn't understand DataFrame.
   measurementsTrain <- .asDataFrame(measurementsTrain) # ranger needs a data.frame.
-  fittedModel <- ranger::ranger(x = measurementsTrain, y = outcomeTrain, mtry = mtry, ...)
-  forImportance <- ranger::ranger(x = measurementsTrain, y = outcomeTrain, mtry = mtry, importance = "impurity_corrected", ...)
-  attr(fittedModel, "forImportance") <- forImportance
-  fittedModel
+  # Features are ranked by the impurity importance of the forest itself, unless another importance mode is given.
+  if(is.null(list(...)[["importance"]]))
+    ranger::ranger(x = measurementsTrain, y = outcomeTrain, mtry = mtry, importance = "impurity", ...)
+  else
+    ranger::ranger(x = measurementsTrain, y = outcomeTrain, mtry = mtry, ...)
 }
 attr(randomForestTrainInterface, "name") <- "randomForestTrainInterface"
     
@@ -52,7 +53,9 @@ randomForestPredictInterface <- function(forest, measurementsTest, ..., returnTy
 
 forestFeatures <- function(forest)
                   {
+                    # Models made by earlier versions keep a second forest, grown only to rank features.
                     forImportance <- attr(forest, "forImportance")
+                    if(is.null(forImportance)) forImportance <- forest
                     rankedFeaturesIndices <- order(ranger::importance(forImportance), decreasing = TRUE)
                     selectedFeaturesIndices <- which(ranger::importance(forImportance) > 0)
                     list(rankedFeaturesIndices, selectedFeaturesIndices)
