@@ -86,7 +86,8 @@ setMethod("runTests", "DataFrame", function(measurements, outcome, crossValParam
 # Each split uses the random number stream that bpmapply with the cross-validation's RNGseed would give it, so the
 # results don't depend on how the splits are distributed among workers.
 
-.prepareTests <- function(measurements, outcome, crossValParams, modellingParams, characteristics, verbose, ..., splits = NULL, deferFinal = FALSE)
+.prepareTests <- function(measurements, outcome, crossValParams, modellingParams, characteristics, verbose, ..., splits = NULL, deferFinal = FALSE,
+                          finalModel = TRUE)
 {
   if(is.null(rownames(measurements)))
   {
@@ -132,12 +133,14 @@ input data. Autmomatically reducing to smaller number.")
   # The final model is fitted with the random number state that follows making the splits. If deferred, it is
   # fitted alongside the splits (by .runTestsSplits) from that state.
   finalState <- if(exists(".Random.seed", envir = globalenv())) get(".Random.seed", envir = globalenv())
-  if(deferFinal) fullResult <- NULL else
+  # Without a final model (for nested cross-validation), the cross-validation is used only for its performance.
+  if(deferFinal || !finalModel) fullResult <- NULL else
   fullResult <- runTest(measurements, outcome, measurements, outcome, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics, .iteration = 1)
 
   list(measurements = measurements, outcome = outcome, originalFeatures = originalFeatures, crossValParams = crossValParams,
        modellingParams = modellingParams, characteristics = characteristics, verbose = verbose,
-       splits = samplesSplitsList, splitsInfo = splitsTestInfoTable, fullResult = fullResult, finalState = finalState)
+       splits = samplesSplitsList, splitsInfo = splitsTestInfoTable, fullResult = fullResult, finalState = finalState,
+       finalModel = finalModel)
 }
 
 # Random number streams of the elements of a bplapply or bpmapply call with RNGseed equal to seed.
@@ -161,6 +164,9 @@ input data. Autmomatically reducing to smaller number.")
   streams
 }
 
+# Whether a cross-validation's final model is still to be fitted.
+.deferredFinal <- function(crossValidation) is.null(crossValidation[["fullResult"]]) && !isFALSE(crossValidation[["finalModel"]])
+
 # Runs every split of the cross-validations, and their deferred final models (split 0), in one call of bplapply.
 # Returns, for each cross-validation, its list of split results with the final model's result as attribute
 # "fullResult" when it was deferred.
@@ -170,7 +176,7 @@ input data. Autmomatically reducing to smaller number.")
   {
     crossValidation <- crossValidations[[index]]
     splitNumbers <- seq_along(crossValidation[["splits"]][["train"]])
-    if(is.null(crossValidation[["fullResult"]])) splitNumbers <- c(0L, splitNumbers)
+    if(.deferredFinal(crossValidation)) splitNumbers <- c(0L, splitNumbers)
     data.frame(crossValidation = index, split = splitNumbers)
   }))
   streams <- unlist(lapply(seq_along(crossValidations), function(index)
@@ -178,7 +184,7 @@ input data. Autmomatically reducing to smaller number.")
     crossValidation <- crossValidations[[index]]
     splitStreams <- .splitStreams(BiocParallel::bpRNGseed(crossValidation[["crossValParams"]]@parallelParams),
                                   length(crossValidation[["splits"]][["train"]]))
-    if(is.null(crossValidation[["fullResult"]])) splitStreams <- c(list(crossValidation[["finalState"]]), splitStreams)
+    if(.deferredFinal(crossValidation)) splitStreams <- c(list(crossValidation[["finalState"]]), splitStreams)
     splitStreams
   }), recursive = FALSE)
 
@@ -186,6 +192,8 @@ input data. Autmomatically reducing to smaller number.")
   # tasks given to a worker has a similar amount of work. Each task sets its own random number stream, so the order
   # doesn't change the results.
   taskOrder <- order(tasks[, "split"], tasks[, "crossValidation"])
+  stopSelectionCache <- .useSelectionCache() # Selections are reused between cross-validations sharing splits.
+  on.exit(stopSelectionCache())
   runTask <- function(taskIndex)
   {
     if(!is.null(streams[[taskIndex]])) assign(".Random.seed", streams[[taskIndex]], envir = globalenv())
@@ -201,14 +209,10 @@ input data. Autmomatically reducing to smaller number.")
     trainingSamples <- crossValidation[["splits"]][["train"]][[setNumber]]
     testSamples <- crossValidation[["splits"]][["test"]][[setNumber]]
     # crossValParams is needed at least for nested feature tuning.
-    result <- runTest(crossValidation[["measurements"]][trainingSamples, , drop = FALSE], crossValidation[["outcome"]][trainingSamples],
-                      crossValidation[["measurements"]][testSamples, , drop = FALSE], crossValidation[["outcome"]][testSamples],
-                      crossValidation[["crossValParams"]], crossValidation[["modellingParams"]], crossValidation[["characteristics"]],
-                      crossValidation[["verbose"]], .iteration = setNumber)
-    # A random forest grown only to rank features has been used by now; fold models don't keep it.
-    if(is.list(result) && !is.null(attr(result[["models"]], "forImportance")))
-      attr(result[["models"]], "forImportance") <- NULL
-    result
+    runTest(crossValidation[["measurements"]][trainingSamples, , drop = FALSE], crossValidation[["outcome"]][trainingSamples],
+            crossValidation[["measurements"]][testSamples, , drop = FALSE], crossValidation[["outcome"]][testSamples],
+            crossValidation[["crossValParams"]], crossValidation[["modellingParams"]], crossValidation[["characteristics"]],
+            crossValidation[["verbose"]], .iteration = setNumber)
   }
   results <- if(inherits(parallelParams, "workerPool")) .poolApply(taskOrder, runTask, parallelParams) else
                bplapply(taskOrder, runTask, BPPARAM = parallelParams)
