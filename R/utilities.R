@@ -155,6 +155,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
   featureRanking <- modellingParams@selectParams@featureRanking
   otherParams <- modellingParams@selectParams@otherParams
   doSubset <- modellingParams@selectParams@subsetToSelections 
+  minPresence <- modellingParams@selectParams@minPresence
   modellingParams@selectParams <- NULL
   betterValues <- .ClassifyRenvir[["performanceInfoTable"]][.ClassifyRenvir[["performanceInfoTable"]][, "type"] == performanceType, "better"]
   if(is.function(featureRanking)) # Not a list for ensemble selection.
@@ -247,48 +248,63 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
       colnames(tuneDetails[[1]])[ncol(tuneDetails[[1]])] <- performanceType
       list(ranked = rankingUse, selected = selectionIndices, tune = tuneDetails)
     } else if(is.list(featureRanking)) { # It is a list of functions for ensemble selection.
-      featuresIndiciesLists <- mapply(function(selector, selParams)
+      # Other parameters are either one list for each ranking function or shared by all of them.
+      if(length(otherParams) == length(featureRanking) && all(sapply(otherParams, is.list)))
+        rankingsParams <- otherParams
+      else
+        rankingsParams <- rep(list(otherParams), length(featureRanking))
+      rankings <- mapply(function(ranking, rankingParams)
       {
-        paramList <- list(measurementsTrain, outcomeTrain, trainParams = trainParams,
-                          predictParams = predictParams, verbose = verbose)
-        paramList <- append(paramList, selParams)
-        do.call(selector, paramList)
-      }, modellingParams@selectParams@featureRanking, modellingParams@selectParams@otherParams, SIMPLIFY = FALSE)
+        paramList <- append(list(measurementsTrain, outcomeTrain, verbose = verbose), rankingParams)
+        do.call(ranking, paramList)
+      }, featureRanking, rankingsParams, SIMPLIFY = FALSE)
 
-      performances <- sapply(topNfeatures, function(topN)
+      # Features in the top n of at least minPresence of the rankings, in order of first appearance.
+      ensembleSelect <- function(topN)
       {
-        topIndices <- unlist(lapply(featuresIndiciesLists, function(featuresIndicies) featuresIndicies[1:topN]))
-        topIndicesCounts <- table(topIndices)
-        keep <- names(topIndicesCounts)[topIndicesCounts >= modellingParams@selectParams@minPresence]
-        measurementsTrain <- measurementsTrain[, as.numeric(keep), drop = FALSE] # Features in columns
-        
+        tops <- lapply(rankings, function(ranking) ranking[seq_len(min(topN, length(ranking)))])
+        candidates <- unique(unlist(tops))
+        presence <- sapply(candidates, function(candidate) sum(sapply(tops, function(top) candidate %in% top)))
+        candidates[presence >= minPresence]
+      }
+      selections <- lapply(topNfeatures, ensembleSelect)
+      if(all(lengths(selections) == 0))
+        stop("No feature is in the top features of at least ", minPresence, " of the ensemble's rankings.")
+
+      if(crossValParams@tuneMode == "none" || length(topNfeatures) == 1) # No parameters to choose between.
+        return(list(ranked = NULL, selected = selections[[1]], tune = NULL))
+
+      performances <- sapply(selections, function(selection)
+      {
+        if(length(selection) == 0) return(NA)
+        measurementsTrain <- measurementsTrain[, selection, drop = FALSE] # Features in columns
         if(crossValParams@tuneMode == "Resubstitution")
         {
-          result <- runTest(measurementsTrain, outcomeTrain,
-                            measurementsTrain, outcomeTrain,
-                            crossValParams = NULL, modellingParams,
+          result <- runTest(measurementsTrain, outcomeTrain, measurementsTrain, outcomeTrain,
+                            crossValParams = NULL, modellingParams = modellingParams,
                             verbose = verbose, .iteration = "internal")
           if(is.character(result)) stop(result)
 
           predictions <- result[["predictions"]]
-          if(class(predictions) == "data.frame")
-            predictedOutcome <- predictions[, "class"]
+          if(is.data.frame(predictions))
+            predictedOutcome <- predictions[, na.omit(match(c("class", "risk"), colnames(predictions)))]
           else
             predictedOutcome <- predictions
           calcExternalPerformance(outcomeTrain, predictedOutcome, performanceType)
         } else {
-          result <- runTests(measurementsSubset, outcomeTrain, crossValParams, modellingParams, verbose = verbose)
+          result <- runTests(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose = verbose)
           if(is.character(result[[1]])) stop(result)
           result <- calcCVperformance(result, performanceType)
-          median(performance(aResult)[[performanceType]])
+          median(performance(result)[[performanceType]])
         }
       })
       bestOne <- ifelse(betterValues == "lower", which.min(performances)[1], which.max(performances)[1])
+      tuneDetails <- list(tuneCombinations = setNames(data.frame(topN = topNfeatures, performances), c("topN", performanceType)),
+                          bestIndex = bestOne)
 
-      selectionIndices <- unlist(lapply(featuresLists, function(featuresList) featuresList[1:topNfeatures[bestOne]]))
-      names(table(selectionIndices))[table(selectionIndices) >= modellingParams@selectParams@minPresence]
-
-      list(NULL, selectionIndices, NULL)
+      if(verbose == 3)
+         message("Features selected.")
+      list(ranked = NULL, selected = selections[[bestOne]], tune = tuneDetails)
     } else { # Previous selection
       selectedFeatures <- list(NULL, selectionIndices, NULL)
     }

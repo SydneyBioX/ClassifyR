@@ -6,18 +6,20 @@ previousSelection <- function(measurementsTrain, classesTrain, classifyResult, m
     message("Choosing previous features.")
 
   previousIDs <- chosenFeatureNames(classifyResult)[[.iteration]]
-  featuresIDs <- colnames(measurementsTrain)
+  # Match on the original feature names, which prepareData keeps when it makes the column names syntactic.
+  featuresInfo <- S4Vectors::mcols(measurementsTrain)
   if(is.character(previousIDs))
   {
-    safeIDs <- unique(make.names(previousIDs))
+    wantedIDs <- unique(previousIDs)
+    if(!is.null(featuresInfo) && "feature" %in% colnames(featuresInfo)) featuresIDs <- featuresInfo[, "feature"] else featuresIDs <- colnames(measurementsTrain)
   } else { # A data frame describing the assay and variable name of the chosen feature.
-    oldSafeIDs <- rownames(previousIDs)
-    safeIDs <- unique(gsub("clinical_", '', oldSafeIDs)) # wideFormat doesn't prefix the clinical data, unlike all assays.
+    wantedIDs <- unique(paste(previousIDs[, "assay"], previousIDs[, "feature"], sep = '\r'))
+    featuresIDs <- paste(featuresInfo[, "assay"], featuresInfo[, "feature"], sep = '\r')
   }
 
   # Percentage of the previously selected features which are in the current data set.
-  commonFeatures <- intersect(safeIDs, featuresIDs)
-  overlapPercent <- length(commonFeatures) / length(safeIDs) * 100
+  commonFeatures <- intersect(wantedIDs, featuresIDs)
+  overlapPercent <- length(commonFeatures) / length(wantedIDs) * 100
   if(overlapPercent < minimumOverlapPercent)
     warning("Only ", round(overlapPercent), "% of the previously selected features are in the current data set, ",
             "fewer than the minimum of ", minimumOverlapPercent, "%.")
