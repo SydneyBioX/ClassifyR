@@ -67,6 +67,14 @@ test_that("random forest ranks features by the impurity importance of the forest
   expect_identical(ClassifyR:::forestFeatures(forest)[[1]], order(ranger::importance(forest), decreasing = TRUE))
 })
 
+test_that("random forests try the square root of the number of features unless a proportion is given", {
+  data <- makeTwoClass()
+  forest <- ClassifyR:::randomForestTrainInterface(data$measurements, data$classes, verbose = 0)
+  expect_equal(forest[["mtry"]], floor(sqrt(ncol(data$measurements))))
+  forest <- ClassifyR:::randomForestTrainInterface(data$measurements, data$classes, mTryProportion = 0.5, verbose = 0)
+  expect_equal(forest[["mtry"]], round(0.5 * ncol(data$measurements)))
+})
+
 test_that("Cox elastic net can be tuned by partial likelihood deviance", {
   skip_if_not_installed("glmnet")
   data <- makeSurvival(nSamples = 100, nFeatures = 15)
