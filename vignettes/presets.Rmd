@@ -19,6 +19,10 @@ k Nearest Neighbours | `"kNN"` | `k = 1:5` | See `?BiocNeighbors::queryKNN`
 Support Vector Machine | `"SVM"` | `kernel = c("linear", "polynomial", "radial", "sigmoid")` and  `cost = 10^(-3:3))` | See `?e1071::svm`
 naive Bayes Kernel | `"naiveBayes"` | `difference = c("unweighted", "weighted")` | `weighting = c("height difference", "crossover distance")` and `minDifference`, a number 0 or higher.
 Mixtures of Normals | `"mixturesNormals"` | `nbCluster = 1:2` | `difference = c("unweighted", "weighted")` and `weighting = c("height difference", "crossover distance")` and `minDifference`, a number 0 or higher.
+Oblique Random Forest | `"aorsf"` | `mTryProportion = c(0.10, 0.25, 0.33, 0.5)` | `n_tree` (500) and `importance` (`"anova"`). See `?aorsf::orsf`
+Boosted Cox Proportional Hazards | `"glmboost"` | `mstop = c(50, 100, 200)` | `nu` (0.1). See `?mboost::glmboost`
+LIBLINEAR Logistic Regression | `"LiblineaR"` | `type = c(0, 6)` (L2 or L1 penalty) | `cost`, chosen by five-fold cross-validation of the training samples from `costs = 10^(-3:2)` unless it is given. See `?LiblineaR::LiblineaR`
+MCP Penalised Regression | `"ncvreg"` | `penalty = c("MCP", "SCAD", "lasso")` | `nfolds` (5) of the cross-validation choosing lambda. See `?ncvreg::cv.ncvreg`
 
 Without tuning, the random forests try the square root of the number of features at each split, the default of ranger and randomForestSRC. A proportion of the features can be set instead, for example `extraParams = list(train = list(mTryProportion = 0.5))`. Extreme gradient boosting fits 100 rounds by default (`nrounds`).
 
