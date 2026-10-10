@@ -63,6 +63,8 @@ setMethod("prepareData", "data.frame",
 setMethod("prepareData", "DataFrame",
   function(measurements, outcome, useFeatures = NULL, maxMissingProp = 0.0, maxSimilarity = 1, topNvariance = NULL)
 {
+  if(missing(outcome) || length(outcome) == 0) # e.g. NULL from looking up a list element by a name it doesn't have.
+    stop("'outcome' is missing or empty. Provide one class or survival time per sample, or column name(s) of 'measurements'.")
   if(is.null(rownames(measurements)))
   {
     warning("'measurements' DataFrame must have sample identifiers as its row names. Generating generic ones.")
