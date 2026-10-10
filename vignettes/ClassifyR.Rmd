@@ -205,7 +205,7 @@ CVparams <- CrossValParams(parallelParams = SnowParam(16, RNGseed = 123))
 CVparams
 ```
 
-For the actual operations to do to the data to build a model of it, each of the stages should be specified by an object of class *ModellingParams*. This controls how class imbalance is handled (default is to downsample to the smallest class), any transformation that needs to be done inside of cross-validation (i.e. involving a computed value from the training set), any feature selection and the training and prediction functions to be used. The default is to do an ordinary t-test (two groups) or ANOVA (three or more groups) and classification using diagonal LDA.
+For the actual operations to do to the data to build a model of it, each of the stages should be specified by an object of class *ModellingParams*. This controls how class imbalance is handled (by default, the training samples are not rebalanced), any transformation that needs to be done inside of cross-validation (i.e. involving a computed value from the training set), any feature selection and the training and prediction functions to be used. The default is to do an ordinary t-test (two groups) or ANOVA (three or more groups) and classification using diagonal LDA.
 
 ```{r}
 ModellingParams()
