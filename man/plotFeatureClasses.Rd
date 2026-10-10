@@ -184,8 +184,8 @@ drawn.
   plotFeatureClasses(clinicalData, classes, useFeatures = "Infection", groupBy = "Gender")
   
   genesMatrix <- t(genesMatrix) # MultiAssayExperiment needs features in rows.
-  dataContainer <- MultiAssayExperiment(list(RNA = genesMatrix),
-                                        colData = cbind(clinicalData, class = classes))
+  dataContainer <- MultiAssayExperiment::MultiAssayExperiment(list(RNA = genesMatrix),
+                                                              colData = cbind(clinicalData, class = classes))
   targetFeatures <- DataFrame(assay = "RNA", feature = "Gene 50")                                     
   plotFeatureClasses(dataContainer, useFeatures = targetFeatures, classesColumn = "class",
                      groupBy = c("clinical", "Gender"), # Table name, feature name.

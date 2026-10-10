@@ -40,7 +40,7 @@
 #' Issue 2, \url{https://www.nature.com/articles/nbt.1522}.
 #' @examples
 #' 
-#'   pairs <- Pairs(rep(c('A', 'G'), each = 3), c('B', 'C', 'D', 'H', 'I', 'J'))
+#'   pairs <- S4Vectors::Pairs(rep(c('A', 'G'), each = 3), c('B', 'C', 'D', 'H', 'I', 'J'))
 #'                            
 #'   # Consistent differences for interactors of A.                                           
 #'   measurements <- matrix(c(5.7, 10.1, 6.9, 7.7, 8.8, 9.1, 11.2, 6.4, 7.0, 5.5,
