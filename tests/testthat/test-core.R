@@ -222,3 +222,25 @@ test_that("train and predict match the samples of a list of tables by name", {
   fromShuffled <- train(shuffled, data$classes, classifier = "DLDA", multiViewMethod = "merge", nFeatures = 3)
   expect_equal(predict(fromShuffled, shuffled), predict(fromAligned, aligned))
 })
+
+test_that("class balancing of ModellingParams is applied in cross-validation", {
+  data <- makeTwoClass()
+  imbalanced <- c(which(data$classes == "A"), which(data$classes == "B")[1:8])
+  measurements <- S4Vectors::DataFrame(data$measurements[imbalanced, 1:5])
+  classes <- droplevels(data$classes[imbalanced])
+  trainSizes <- function(balancing) {
+    sizes <- integer()
+    counting <- function(measurementsTrain, classesTrain, ...) {
+      sizes <<- c(sizes, length(classesTrain))
+      ClassifyR:::DLDAtrainInterface(measurementsTrain, classesTrain, ...)
+    }
+    params <- ModellingParams(balancing = balancing, selectParams = NULL, trainParams = TrainParams(counting),
+                              predictParams = PredictParams("DLDA"))
+    set.seed(1)
+    runTests(measurements, classes, CrossValParams(permutations = 1, folds = 4, parallelParams = BiocParallel::SerialParam()), params)
+    sizes
+  }
+  none <- trainSizes("none"); down <- trainSizes("downsample")
+  expect_true(all(down < none))
+  expect_true(all(down %% 2 == 0)) # Equal numbers of each class.
+})

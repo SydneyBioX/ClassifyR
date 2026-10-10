@@ -109,15 +109,15 @@ function(measurementsTrain, outcomeTrain, measurementsTest, outcomeTest,
     outcomeTrain <- splitDatasetTrain[["outcome"]]
     # Feature names of the test data must be made safe in the same way as those of the training data.
     colnames(measurementsTest) <- make.names(colnames(measurementsTest), unique = TRUE)
-    
-    # Rebalance the class sizes of the training samples by either downsampling or upsampling
-    # or leave untouched if balancing is none.
-    if(!is(outcomeTrain, "Surv"))
-    {
-      rebalancedTrain <- .rebalanceTrainingClasses(measurementsTrain, outcomeTrain, modellingParams@balancing)
-      measurementsTrain <- rebalancedTrain[["measurementsTrain"]]
-      outcomeTrain <- rebalancedTrain[["classesTrain"]]
-    }
+  }
+
+  # Rebalance the class sizes of the training samples by either downsampling or upsampling, also when called by
+  # runTests. Within runTests and with no balancing, the training samples are left as they are (and in the same order).
+  if((is.null(.iteration) || modellingParams@balancing != "none") && !is(outcomeTrain, "Surv"))
+  {
+    rebalancedTrain <- .rebalanceTrainingClasses(measurementsTrain, outcomeTrain, modellingParams@balancing)
+    measurementsTrain <- rebalancedTrain[["measurementsTrain"]]
+    outcomeTrain <- rebalancedTrain[["classesTrain"]]
   }
   
   if("feature" %in% colnames(S4Vectors::mcols(measurementsTrain))) originalFeatures <- S4Vectors::mcols(measurementsTrain)[, na.omit(match(c("assay", "feature"), colnames(S4Vectors::mcols(measurementsTrain))))]    
