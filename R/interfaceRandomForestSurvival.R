@@ -1,5 +1,5 @@
 # An Interface for randomForestSRC Package's rfsrc random forest survival Function
-rfsrcTrainInterface <- function(measurementsTrain, survivalTrain, mTryProportion = 0.5, ..., verbose = 3)
+rfsrcTrainInterface <- function(measurementsTrain, survivalTrain, mTryProportion = NULL, ..., verbose = 3)
 {
   if(!requireNamespace("randomForestSRC", quietly = TRUE))
     stop("The package 'randomForestSRC' could not be found. Please install it.")
@@ -10,7 +10,8 @@ rfsrcTrainInterface <- function(measurementsTrain, survivalTrain, mTryProportion
   bindedMeasurements <- .asDataFrame(measurementsTrain)
   bindedMeasurements[["time"]] <- survivalTrain[, 1]
   bindedMeasurements[["event"]] <- survivalTrain[, 2]
-  mtry <- round(mTryProportion * ncol(measurementsTrain)) # Number of features to try.
+  # Number of features to try at each split. By default, randomForestSRC's own: the square root of the number of features.
+  mtry <- if(!is.null(mTryProportion)) round(mTryProportion * ncol(measurementsTrain))
   randomForestSRC::rfsrc(Surv(time, event) ~ ., data = bindedMeasurements, mtry = mtry,
                           var.used = "all.trees", importance = TRUE, ...)
 }
