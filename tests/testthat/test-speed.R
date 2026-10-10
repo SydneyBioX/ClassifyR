@@ -56,13 +56,15 @@ test_that("an SVM fitted to a matrix of numeric features predicts as one fitted 
   expect_identical(unname(as.matrix(predicted[, levels(data$classes)])), unname(attr(expected, "probabilities")[, levels(data$classes)]))
 })
 
-test_that("random forest fold models don't keep the forest grown for feature ranking", {
+test_that("random forest ranks features by the impurity importance of the forest it predicts with", {
   data <- makeTwoClass()
   set.seed(1)
   result <- crossValidate(data$measurements, data$classes, classifier = "randomForest", nFeatures = 5, nRepeats = 1, nFolds = 3)
   expect_true(all(sapply(models(result), function(model) is.null(attr(model, "forImportance")))))
-  expect_false(is.null(attr(result@finalModel, "forImportance")))
+  expect_identical(models(result)[[1]][["importance.mode"]], "impurity")
   expect_true(all(lengths(chosenFeatureNames(result)) > 0))
+  forest <- models(result)[[1]]
+  expect_identical(ClassifyR:::forestFeatures(forest)[[1]], order(ranger::importance(forest), decreasing = TRUE))
 })
 
 test_that("Cox elastic net can be tuned by partial likelihood deviance", {

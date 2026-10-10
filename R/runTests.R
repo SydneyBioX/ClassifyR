@@ -201,14 +201,10 @@ input data. Autmomatically reducing to smaller number.")
     trainingSamples <- crossValidation[["splits"]][["train"]][[setNumber]]
     testSamples <- crossValidation[["splits"]][["test"]][[setNumber]]
     # crossValParams is needed at least for nested feature tuning.
-    result <- runTest(crossValidation[["measurements"]][trainingSamples, , drop = FALSE], crossValidation[["outcome"]][trainingSamples],
-                      crossValidation[["measurements"]][testSamples, , drop = FALSE], crossValidation[["outcome"]][testSamples],
-                      crossValidation[["crossValParams"]], crossValidation[["modellingParams"]], crossValidation[["characteristics"]],
-                      crossValidation[["verbose"]], .iteration = setNumber)
-    # A random forest grown only to rank features has been used by now; fold models don't keep it.
-    if(is.list(result) && !is.null(attr(result[["models"]], "forImportance")))
-      attr(result[["models"]], "forImportance") <- NULL
-    result
+    runTest(crossValidation[["measurements"]][trainingSamples, , drop = FALSE], crossValidation[["outcome"]][trainingSamples],
+            crossValidation[["measurements"]][testSamples, , drop = FALSE], crossValidation[["outcome"]][testSamples],
+            crossValidation[["crossValParams"]], crossValidation[["modellingParams"]], crossValidation[["characteristics"]],
+            crossValidation[["verbose"]], .iteration = setNumber)
   }
   results <- if(inherits(parallelParams, "workerPool")) .poolApply(taskOrder, runTask, parallelParams) else
                bplapply(taskOrder, runTask, BPPARAM = parallelParams)
