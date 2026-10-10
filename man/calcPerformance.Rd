@@ -77,7 +77,8 @@ Must be one of the following options:
 \item{\code{"Micro F1"}: F1 score obtained by calculating the
 harmonic mean of micro precision and micro recall.}
 \item{\code{"Macro Precision"}: Sum of the ratios of the number of correct predictions in each
-class to the number of samples predicted to be in each class, divided by the number of classes.}
+class to the number of samples predicted to be in each class, divided by the number of classes. A class which is never
+predicted has a precision of 0.}
 \item{\code{"Macro Recall"}: Sum of the ratios of the number of correct predictions
 in each class to the number of samples in each class, divided by the number of classes.}
 \item{\code{"Macro F1"}: F1 score obtained by calculating the harmonic mean of macro precision
@@ -85,17 +86,21 @@ and macro recall.}
 \item{\code{"Matthews Correlation Coefficient"}: Matthews Correlation Coefficient (MCC). A score
 between -1 and 1 indicating how concordant the predicted classes are to the actual classes. Only defined if
 there are two classes.}
-\item{\code{"AUC"}: Area Under the Curve. An area ranging from 0 to 1, under the ROC.}
+\item{\code{"AUC"}: Area Under the Curve. An area ranging from 0 to 1, under the ROC. For more than two classes,
+        the mean of the one-versus-rest areas. If a group of predictions lacks a sample of some class, its AUC is
+        \code{NaN}, with a warning.}
 \item{\code{"C-index"}: For survival data, the concordance index, for models which produce risk scores. Ranges from 0 to 1.}
-\item{\code{"Sample C-index"}: Per-individual C-index.}
+\item{\code{"Sample C-index"}: Per-individual C-index. For each sample, the proportion of comparable pairs it
+        belongs to which are concordant, with a pair of tied risk scores counting as half concordant, as for the C-index.}
 }}
 
 \item{result}{An object of class \code{\link{ClassifyResult}}.}
 
 \item{grouping}{Default: \code{"permutation"}. If the cross-validation was k-fold, then this determines whether the metric will be calculated for samples
 grouped by permutation or by fold, if the value is \code{"fold"}. For small sample sizes, \code{"permutation"} would suit. But, for large sample sizes,
-\code{"fold"} would be preferable, as class membership probabilities or risk scores are not directly comparable between folds. This setting makes
-no difference to error or accuracy metrics, apart from their variability.}
+\code{"fold"} would be preferable, as class membership probabilities or risk scores are not directly comparable between folds. If
+\code{"fold"}, the metric is calculated for each fold and the folds' values are averaged, giving one value for each permutation.
+Metrics are not rounded.}
 
 \item{resultsList}{A list of modelling results. Each element must be of type \code{\link{ClassifyResult}}.}
 

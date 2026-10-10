@@ -101,6 +101,22 @@ test_that("performancePlot uses the user's yLimits when rotated", {
   expect_false(anyNA(rotated$layers[[2]]$data[, "Assay Name"]))
 })
 
+test_that("performancePlot draws the chance level of the metric", {
+  results <- lapply(list(makePlotResult("x"), makePlotResult("y", seed = 2)), calcCVperformance, performanceTypes = "Balanced Accuracy")
+  chanceLine <- function(plot) unname(unlist(lapply(plot$layers, function(layer) if(is(layer$geom, "GeomHline")) layer$data$yintercept)))
+  nClasses <- length(levels(actualOutcome(results[[1]])))
+  expect_equal(chanceLine(performancePlot(results)), 1 / nClasses)
+  expect_equal(chanceLine(suppressWarnings(performancePlot(results, metric = "Balanced Error"))), 1 - 1 / nClasses)
+  expect_equal(ClassifyR:::.chanceLevel("AUC", results[[1]]), 0.5)
+  expect_equal(ClassifyR:::.chanceLevel("Matthews Correlation Coefficient", results[[1]]), 0)
+  expect_true(is.na(ClassifyR:::.chanceLevel("Unknown", results[[1]])))
+})
+
+test_that("ranking overlap divides by the length of the shorter list of top features", {
+  expect_equal(ClassifyR:::.topOverlap(paste0("g", 1:3), paste0("g", c(1, 2, 9, 10)), 5), 2 / 3 * 100)
+  expect_equal(ClassifyR:::.topOverlap(paste0("g", 1:10), paste0("g", c(1, 2, 11:18)), 5), 2 / 5 * 100)
+})
+
 test_that("rankingPlot uses its fonts, row and column characteristics, ordering and short rankings", {
   results <- list(makePlotResult("x", classifier = "DLDA", selection = "t-test"),
                   makePlotResult("x", classifier = "SVM", selection = "t-test", seed = 2),

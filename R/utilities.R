@@ -423,7 +423,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
                        (FPR[current] - FPR[previous]) * TPR[current]) # Line went either up or right, but not both.
     areaSum <- 0
     for(newArea in newAreas) areaSum <- areaSum + newArea # Same order of addition as the trapezoid sum.
-    data.frame(classTable, AUC = round(areaSum, 2), check.names = FALSE)
+    data.frame(classTable, AUC = areaSum, check.names = FALSE)
   }))
 }
 

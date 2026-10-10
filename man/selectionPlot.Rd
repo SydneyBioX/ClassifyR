@@ -24,9 +24,9 @@
     == "size") "Feature Selection Size" else if (comparison == "importance")
     "Variable Importance" else "Feature Selection Commonality",
   yLabel = if (is.null(referenceLevel) && !comparison \%in\% c("size", "importance"))
-    "Common Features (\%)" else if (comparison == "size") "Set Size" else if (comparison
-    == "importance") tail(names(results[[1]]@importance), 1) else
-    paste("Common Features with", referenceLevel, "(\%)"),
+    "Jaccard Similarity (\%)" else if (comparison == "size") "Set Size" else if
+    (comparison == "importance") tail(names(results[[1]]@importance), 1) else
+    paste("Jaccard Similarity with", referenceLevel, "(\%)"),
   margin = grid::unit(c(1, 1, 1, 1), "lines"),
   rotate90 = FALSE,
   showLegend = TRUE,
@@ -145,7 +145,7 @@ features being selected by different classifications.
 
 Calculating all pair-wise set overlaps can be time-consuming. This stage can
 be done on multiple CPUs by providing the relevant options to
-\code{parallelParams}. The percentage is calculated as the intersection of
+\code{parallelParams}. The percentage is the Jaccard similarity: the intersection of
 two sets of features divided by the union of the sets, multiplied by 100.
 
 For the feature selection size mode, \code{binsList} is used to create bins

@@ -37,7 +37,7 @@ test_that("the modelTest diagonal is cross-validation within the data set", {
   crossValidated <- crossValidate(first$measurements, first$classes, nFeatures = 20, selectionMethod = "t-test",
                                   classifier = "DLDA", multiViewMethod = "none", nFolds = 5, nRepeats = 3)
   expect_equal(result[["real"]][1, 1],
-               round(mean(performance(calcCVperformance(crossValidated, "Balanced Accuracy"))[["Balanced Accuracy"]]), 2))
+               mean(performance(calcCVperformance(crossValidated, "Balanced Accuracy"))[["Balanced Accuracy"]]))
 })
 
 test_that("performance type and outcome type are resolved for every data set", {
@@ -66,5 +66,12 @@ test_that("random features work with several values of nFeatures, and the plot i
   result[["random"]] <- NULL
   plotted <- crissCrossPlot(result)
   expect_s3_class(plotted, "ggplot")
-  expect_match(plotted[["labels"]][["caption"]], "cross-validation")
+  expect_true(all(is.na(plotted$data[plotted$data[, "Var1"] == rownames(result[["real"]])[1] &
+                                     plotted$data[, "Var2"] == colnames(result[["real"]])[1], "value"])))
+  expect_null(plotted[["labels"]][["caption"]])
+  withDiagonal <- crissCrossPlot(result, showDiagonal = TRUE)
+  expect_match(withDiagonal[["labels"]][["caption"]], "cross-validation")
+  expect_false(anyNA(withDiagonal$data[, "value"]))
+  expect_warning(oldName <- crissCrossPlot(result, showResubMetric = TRUE), "deprecated")
+  expect_equal(oldName$data, withDiagonal$data)
 })
