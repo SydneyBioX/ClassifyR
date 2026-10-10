@@ -9,7 +9,9 @@
 #' overlap between all possible pairs of results. The second kind of summary is
 #' the pair-wise overlap of each level of the comparison factor that is not the
 #' reference level against the reference level. The overlaps are converted to
-#' percentages and plotted as lineplots.
+#' percentages and plotted as lineplots. The overlap of two rankings at a number of top features is the number of features
+#' in both lists of top features, divided by the length of the shorter list (which is shorter than the number of top
+#' features only if a ranking has fewer features than it).
 #' 
 #' If \code{comparison} is \code{"within"}, then the feature selection overlaps
 #' are compared within a particular analysis. The result will inform how stable
@@ -60,7 +62,8 @@
 #' @param xLabelPositions Locations where to put labels on the x-axis.
 #' @param yMax The maximum value of the percentage to plot.
 #' @param title An overall title for the plot.
-#' @param yLabel Label to be used for the y-axis of overlap percentages.
+#' @param yLabel Label to be used for the y-axis of overlap percentages. By default, it states that the percentage of
+#' top features in common is shown.
 #' @param margin The margin to have around the plot.
 #' @param showLegend If \code{TRUE}, a legend is plotted next to the plot. If
 #' FALSE, it is hidden.
@@ -121,7 +124,7 @@ setMethod("rankingPlot", "list",
                                     fonts = c(24, 16, 12, 12, 12, 16)),
                    lineColours = NULL, xLabelPositions = seq(10, 100, 10), yMax = 100,
                    title = if(comparison[1] == "within") "Feature Ranking Stability" else "Feature Ranking Commonality",
-                   yLabel = if(is.null(referenceLevel)) "Average Common Features (%)" else paste("Average Common Features with", referenceLevel, "(%)"),
+                   yLabel = if(is.null(referenceLevel)) "Average Top Features in Common (%)" else paste("Average Top Features in Common with", referenceLevel, "(%)"),
                    margin = grid::unit(c(1, 1, 1, 1), "lines"),
                    showLegend = TRUE, parallelParams = bpparam())
 {
@@ -184,7 +187,7 @@ setMethod("rankingPlot", "list",
         {
           sapply(topRanked, function(top)
           {
-            length(intersect(head(features, top), head(other, top))) / top * 100
+            .topOverlap(features, other, top)
           })
         })
       }, rankedList[1:(length(rankedList) - 1)], 1:(length(rankedList) - 1), SIMPLIFY = FALSE)))
@@ -234,7 +237,7 @@ setMethod("rankingPlot", "list",
             {
               sapply(topRanked, function(top)
               {
-                length(intersect(head(rankings, top), head(otherRanked, top))) / top * 100
+                .topOverlap(rankings, otherRanked, top)
               })          
             })
           })))
@@ -291,3 +294,12 @@ setMethod("rankingPlot", "list",
   
   overlapPlot
 })
+
+# Percentage of the top features of two rankings which are in common. The denominator is the length of the shorter
+# list of top features, so that a ranking with fewer features than top is not penalised.
+.topOverlap <- function(ranking, otherRanking, top)
+{
+  ranking <- head(ranking, top)
+  otherRanking <- head(otherRanking, top)
+  length(intersect(ranking, otherRanking)) / min(length(ranking), length(otherRanking)) * 100
+}

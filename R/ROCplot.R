@@ -203,10 +203,10 @@ setMethod("ROCplot", "list",
     if(numberDistinctClasses == 2)
     {
       plotData <- subset(plotData, class == distinctClasses[2])
-      plotData[, comparisonName] <- paste(plotData[, comparisonName], " (AUC ", plotData[, "AUC"], ')', sep = '')
+      plotData[, comparisonName] <- paste(plotData[, comparisonName], " (AUC ", round(plotData[, "AUC"], 2), ')', sep = '')
       plotData[, comparisonName] <- factor(plotData[, comparisonName], levels = unique(plotData[, comparisonName]))
     } else {
-      plotData[, "class"] <- paste(plotData[, "class"], " (AUC ", plotData[, "AUC"], ')', sep = '')
+      plotData[, "class"] <- paste(plotData[, "class"], " (AUC ", round(plotData[, "AUC"], 2), ')', sep = '')
       plotData[, "class"] <- factor(plotData[, "class"], levels = unique(plotData[, "class"]))
     }
   }
@@ -231,7 +231,7 @@ setMethod("ROCplot", "list",
                   ROCplot <- ROCplot + ggplot2::xlab(xLabel) + ggplot2::ylab(yLabel) + ggplot2::ggtitle(plotTitle) + ggplot2::theme(axis.title = ggplot2::element_text(size = fontSizes[2]), plot.title = ggplot2::element_text(size = fontSizes[1], hjust = 0.5))
                 
                 if(length(results) == 1 && showAUC == TRUE && numberDistinctClasses == 2)
-                  ROCplot <- ROCplot + ggplot2::annotate("text", x = Inf, y = 0, label = paste("AUC =", plotData[1, "AUC"]), hjust = 1.1, size = fontSizes[2] * 5/14) + ggplot2::theme(legend.position = "none")
+                  ROCplot <- ROCplot + ggplot2::annotate("text", x = Inf, y = 0, label = paste("AUC =", round(plotData[1, "AUC"], 2)), hjust = 1.1, size = fontSizes[2] * 5/14) + ggplot2::theme(legend.position = "none")
                 
                 if(length(results) > 1 && numberDistinctClasses > 2)
                   ROCplot <- ROCplot + ggplot2::facet_wrap(ggplot2::vars(!!comparison))
