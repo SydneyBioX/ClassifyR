@@ -190,6 +190,11 @@ If \code{nFeatures} has several values and no tuning mode is given in \code{extr
 chosen by resubstitution: the classifier is trained and evaluated on the training samples for each value. Classifiers
 that fit their training samples perfectly (e.g. random forest) give every value the same performance, and then the
 smallest value is chosen.
+
+The penalised GLM classifiers (\code{"ridgeGLM"}, \code{"elasticNetGLM"} and \code{"LASSOGLM"}) choose lambda by
+5-fold cross-validation of the balanced error within each training set. \code{extraParams = list(train =
+list(lambdaTuning = "resubstitution"))} chooses it by the balanced error of the training samples instead, and
+\code{nFoldsLambda} sets the number of folds.
 }
 \examples{
 
