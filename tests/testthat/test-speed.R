@@ -128,3 +128,18 @@ test_that("merge reuses each assay's selection across combinations with the same
     }
   }
 })
+
+test_that("nested cross-validation uses its own light scheme and fits no model of all training samples", {
+  data <- makeTwoClass()
+  expect_identical(c(CrossValParams()@innerPermutations, CrossValParams()@innerFolds), c(1, 5))
+  counter <- new.env()
+  counter$calls <- 0
+  trace("runTest", bquote(assign("calls", .(counter)$calls + 1, envir = .(counter))), print = FALSE, where = asNamespace("ClassifyR"))
+  set.seed(1)
+  result <- crossValidate(data$measurements, data$classes, classifier = "DLDA", nFeatures = c(2, 4), nRepeats = 1, nFolds = 3,
+                          extraParams = list(tuneCross = list(tuneMode = "Nested CV", performanceType = "Balanced Accuracy")))
+  untrace("runTest", where = asNamespace("ClassifyR"))
+  # 3 outer splits and the final model, each choosing between 2 values by 1 x 5 inner cross-validation.
+  expect_identical(counter$calls, 4 + 4 * 2 * 5)
+  expect_true(all(sapply(tunedParameters(result), function(tune) tune[["tuneCombinations"]][tune[["bestIndex"]], "topN"]) %in% c(2, 4)))
+})

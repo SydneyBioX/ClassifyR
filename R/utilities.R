@@ -283,10 +283,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
            predictedOutcome <- predictions
           calcExternalPerformance(outcomeTrain, predictedOutcome, performanceType)
         } else {
-           result <- runTests(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose = verbose)
-           if(is.character(result)[[1]]) stop(result)
-           result <- calcCVperformance(result, performanceType)
-           median(performance(result)[[performanceType]])
+           .innerCVperformance(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
          }
        })
 
@@ -356,6 +353,22 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
     }
 }
 
+# Performance of a model in the nested cross-validation of a training set, for choosing tuning parameters: the
+# median over permutations. The inner scheme is set by innerPermutations and innerFolds of crossValParams and runs
+# serially, as it is already inside a split of the outer cross-validation. No model of all training samples is fitted.
+.innerCVperformance <- function(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
+{
+  performanceType <- crossValParams@performanceType
+  innerParams <- CrossValParams(permutations = crossValParams@innerPermutations, folds = crossValParams@innerFolds,
+                                performanceType = performanceType, parallelParams = BiocParallel::SerialParam())
+  crossValidation <- .prepareTests(measurementsTrain, outcomeTrain, innerParams, modellingParams, S4Vectors::DataFrame(), verbose,
+                                   finalModel = FALSE)
+  result <- .assembleTests(crossValidation, .runTestsSplits(list(crossValidation), innerParams@parallelParams)[[1]])
+  if(is.list(result) && is.character(result[[1]])) stop(result[[1]])
+  result <- calcCVperformance(result, performanceType)
+  median(performance(result)[[performanceType]])
+}
+
 # Only for transformations that need to be done within cross-validation.
 .doTransform <- function(measurementsTrain, measurementsTest, transformParams, verbose)
 {
@@ -394,12 +407,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
           predictedOutcome <- predictions
         calcExternalPerformance(outcomeTrain, predictedOutcome, performanceType)
       } else if(crossValParams@tuneMode == "Nested CV") {
-        result <- runTests(measurementsTrain, outcomeTrain,
-                           crossValParams, modellingParams,
-                           verbose = verbose)
-        if(is.list(result) && is.character(result[[1]])) stop(result[[1]])
-        result <- calcCVperformance(result, performanceType)
-        median(performance(result)[[performanceType]])
+        .innerCVperformance(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
       } else {
         stop("Tuning parameter(s) are specified but 'tuneMode' is 'none'. Please see ?CrossValParams for options.") 
       }
