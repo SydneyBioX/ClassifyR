@@ -351,10 +351,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
             predictedOutcome <- predictions
           calcExternalPerformance(outcomeTrain, predictedOutcome, performanceType)
         } else {
-          result <- runTests(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose = verbose)
-          if(is.character(result[[1]])) stop(result)
-          result <- calcCVperformance(result, performanceType)
-          median(performance(result)[[performanceType]])
+          .innerCVperformance(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
         }
       })
       bestOne <- ifelse(betterValues == "lower", which.min(performances)[1], which.max(performances)[1])
