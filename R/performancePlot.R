@@ -9,6 +9,11 @@
 #' \code{characteristicsList[["x"]]} is one of \code{aggregate}, its values
 #' are averaged to a single number and a bar is plotted.
 #' 
+#' A dashed line shows the metric's expected value for predictions made by chance: 0.5 for AUC and C-index, 0 for
+#' Matthews Correlation Coefficient and, with k classes, 1/k for accuracy, precision, recall and F1 metrics and 1 - 1/k for
+#' error metrics. This is the value expected from predicting classes uniformly at random. No line is drawn for
+#' other metrics.
+#' 
 #' @aliases performancePlot performancePlot,list-method
 #' @param results A list of \code{\link{ClassifyResult}} objects.
 #' @param aggregate A character vector of the levels of
@@ -145,7 +150,7 @@ setMethod("performancePlot", "list",
     results <- lapply(results, function(result) calcCVperformance(result, metric))
   }
   
-  ifelse(metric == "Matthews Correlation Coefficient", baseline <- 0, baseline <- 0.5)
+  baseline <- .chanceLevel(metric, results[[1]])
  
   plotData <- do.call(rbind, mapply(function(result, index)
                     {
@@ -182,8 +187,8 @@ setMethod("performancePlot", "list",
   legendPosition <- ifelse(showLegend == TRUE, "right", "none")
   characteristicsList <- lapply(characteristicsList, rlang::sym)
 
-  performancePlot <- ggplot2::ggplot() + ggplot2::theme_classic() + ggplot2::theme(panel.border = ggplot2::element_rect(fill = NA)) +
-                     ggplot2::geom_hline(yintercept = baseline, linetype = 2)
+  performancePlot <- ggplot2::ggplot() + ggplot2::theme_classic() + ggplot2::theme(panel.border = ggplot2::element_rect(fill = NA))
+  if(!is.na(baseline)) performancePlot <- performancePlot + ggplot2::geom_hline(yintercept = baseline, linetype = 2)
 
   if(!is.null(yLimits) && rotate90 == FALSE) performancePlot <- performancePlot + ggplot2::coord_cartesian(ylim = yLimits)
   if("fillColour" %in% names(characteristicsList))
@@ -215,3 +220,17 @@ setMethod("performancePlot", "list",
   
   performancePlot
 })
+
+# Expected value of a metric for predictions made by chance. For classes, predictions are uniformly random.
+.chanceLevel <- function(metric, result)
+{
+  if(metric %in% c("AUC", "C-index", "Sample C-index")) return(0.5)
+  if(metric == "Matthews Correlation Coefficient") return(0)
+  outcome <- actualOutcome(result)
+  if(!is.factor(outcome)) return(NA)
+  nClasses <- length(levels(outcome))
+  if(metric %in% c("Accuracy", "Balanced Accuracy", "Sample Accuracy", "Micro Precision", "Micro Recall", "Micro F1",
+                   "Macro Precision", "Macro Recall", "Macro F1")) return(1 / nClasses)
+  if(metric %in% c("Error", "Balanced Error", "Sample Error")) return(1 - 1 / nClasses)
+  NA
+}

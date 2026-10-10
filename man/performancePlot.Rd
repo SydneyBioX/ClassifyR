@@ -102,6 +102,11 @@ object, they are plotted as a box plot or, if \code{densityStyle} is
 \code{"violin"}, a violin plot. If a result's value of
 \code{characteristicsList[["x"]]} is one of \code{aggregate}, its values
 are averaged to a single number and a bar is plotted.
+
+A dashed line shows the metric's expected value for predictions made by chance: 0.5 for AUC and C-index, 0 for
+Matthews Correlation Coefficient and, with k classes, 1/k for accuracy, precision, recall and F1 metrics and 1 - 1/k for
+error metrics. This is the value expected from predicting classes uniformly at random. No line is drawn for
+other metrics.
 }
 \examples{
 
