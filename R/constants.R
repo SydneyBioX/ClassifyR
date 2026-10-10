@@ -1,5 +1,6 @@
-#' @importFrom stats aggregate binomial chisq.test density dist dnorm fisher.test glm hclust mad median model.frame
-#' model.matrix na.omit na.pass pnorm prcomp predict quantile quasibinomial sd setNames splinefun var weighted.mean
+#' @importFrom stats aggregate as.formula binomial chisq.test coef density dist dnorm fisher.test glm hclust mad median
+#' model.frame model.matrix na.omit na.pass pnorm prcomp predict quantile quasibinomial sd setNames splinefun var
+#' weighted.mean
 #' @importFrom utils combn head tail
 #' @importFrom S4Vectors first second mcols<-
 NULL

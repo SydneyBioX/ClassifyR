@@ -84,6 +84,21 @@
   .registerClassifier("XGB", extremeGradientBoostingTrainInterface, extremeGradientBoostingPredictInterface,
                       XGBfeatures, "Extreme Gradient Boosting", "Extreme gradient booster.", c("classes", "survival"),
                       list(mTryProportion = c(0.10, 0.25, 0.33, 0.5), nrounds = c(5, 10)))
+  .registerClassifier("aorsf", obliqueForestTrainInterface, obliqueForestPredictInterface, obliqueForestFeatures,
+                      "Oblique Random Forest", "Oblique random forest (aorsf).", c("classes", "survival"),
+                      list(mTryProportion = c(0.10, 0.25, 0.33, 0.5)))
+  .registerClassifier("glmboost", boostedCoxTrainInterface, boostedCoxPredictInterface, boostedCoxFeatures,
+                      "Boosted Cox Proportional Hazards",
+                      "Componentwise boosted Cox proportional hazards (mboost's glmboost).", "survival",
+                      list(mstop = c(50, 100, 200)))
+  .registerClassifier("LiblineaR", LiblineaRtrainInterface, LiblineaRpredictInterface, LiblineaRfeatures,
+                      "LIBLINEAR Logistic Regression",
+                      "Logistic regression with an L2 or L1 penalty (LiblineaR), cost chosen by cross-validation.",
+                      tunePresets = list(type = c(0, 6)))
+  .registerClassifier("ncvreg", ncvregTrainInterface, ncvregPredictInterface, ncvregFeatures,
+                      "MCP Penalised Regression",
+                      "Logistic (two classes) or Cox regression with an MCP penalty (ncvreg), lambda chosen by cross-validation.",
+                      c("classes", "survival"), list(penalty = c("MCP", "SCAD", "lasso")))
   # Uses the models trained in the same iteration of a previous cross-validation.
   .registerClassifier("previousTrained", previousTrained, displayName = "Previous Trained",
                       description = "The models of a previous cross-validation.", outcomes = c("classes", "survival"),
