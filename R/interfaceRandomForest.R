@@ -1,11 +1,12 @@
 # An Interface for ranger Package's randomForest Function
-randomForestTrainInterface <- function(measurementsTrain, outcomeTrain, mTryProportion = 0.5, ..., verbose = 3)
+randomForestTrainInterface <- function(measurementsTrain, outcomeTrain, mTryProportion = NULL, ..., verbose = 3)
 {
   if(!requireNamespace("ranger", quietly = TRUE))
     stop("The package 'ranger' could not be found. Please install it.")
   if(verbose == 3)
     message(Sys.time(), ": Fitting random forest classifier to training data.")
-  mtry <- round(mTryProportion * ncol(measurementsTrain)) # Number of features to try.
+  # Number of features to try at each split. By default, ranger's own: the square root of the number of features.
+  mtry <- if(!is.null(mTryProportion)) round(mTryProportion * ncol(measurementsTrain))
   # Convert to base data.frame as randomForest doesn't understand DataFrame.
   measurementsTrain <- .asDataFrame(measurementsTrain) # ranger needs a data.frame.
   # Features are ranked by the impurity importance of the forest itself, unless another importance mode is given.
