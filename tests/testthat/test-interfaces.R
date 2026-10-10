@@ -85,6 +85,22 @@ test_that("penalised GLM encodes test data with the training columns", {
   expect_equal(reordered, testScores)
 })
 
+test_that("penalised GLM fits a logistic model for two classes and a multinomial model for more", {
+  data <- makeTwoClass()
+  model <- ClassifyR:::penalisedGLMtrainInterface(data$measurements, data$classes, verbose = 0)
+  expect_s3_class(model, "lognet")
+  predicted <- ClassifyR:::penalisedGLMpredictInterface(model, data$measurements[1:5, ], verbose = 0)
+  expect_identical(colnames(predicted), c("class", "A", "B"))
+  expect_equal(rowSums(predicted[, c("A", "B")]), rep(1, 5), ignore_attr = TRUE)
+  expect_identical(as.character(predicted[["class"]]), c("A", "B")[(predicted[["B"]] > 0.5) + 1])
+  one <- ClassifyR:::penalisedGLMpredictInterface(model, data$measurements[1, , drop = FALSE], returnType = "score", verbose = 0)
+  expect_equal(unname(one), unname(as.matrix(predicted[1, c("A", "B")])))
+  threeClasses <- factor(rep(c("A", "B", "C"), length.out = nrow(data$measurements)))
+  model <- ClassifyR:::penalisedGLMtrainInterface(data$measurements, threeClasses, verbose = 0)
+  expect_s3_class(model, "multnet")
+  expect_identical(colnames(ClassifyR:::penalisedGLMpredictInterface(model, data$measurements[1:5, ], returnType = "score", verbose = 0)), c("A", "B", "C"))
+})
+
 test_that("CoxNet encodes test data with the training columns", {
   data <- makeCategorical()
   set.seed(7)
