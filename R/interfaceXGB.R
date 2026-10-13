@@ -1,4 +1,4 @@
-# An Interface for xgboost Package's xgboost Function
+# An Interface for xgboost Package's xgb.train Function
 extremeGradientBoostingTrainInterface <- function(measurementsTrain, outcomeTrain, mTryProportion = 0.5, nrounds = 10, ..., verbose = 3)
 {
   if(!requireNamespace("xgboost", quietly = TRUE))
@@ -6,35 +6,44 @@ extremeGradientBoostingTrainInterface <- function(measurementsTrain, outcomeTrai
   if(verbose == 3)
     message(Sys.time(), ": Fitting extreme gradient boosting classifier to training data and making predictions on test
             data.")
-  measurementsTrain <- as(measurementsTrain, "data.frame")
-  # Convert to one-hot encoding as xgboost doesn't understand factors. Need to get rid of intercept afterwards.
-  measurementsTrain <- MatrixModels::model.Matrix(~ 0 + ., data = measurementsTrain, sparse = TRUE)
+  # Convert to one-hot encoding as xgboost doesn't understand factors. A sparse matrix, so that zeros are
+  # treated as missing values by xgboost.
+  measurementsTrain <- .encodeTrain(measurementsTrain)
+  trainMatrix <- as(measurementsTrain, "CsparseMatrix")
+  
+  # Other arguments are booster parameters, unless they are arguments of xgb.train or xgb.DMatrix.
+  extras <- list(...)
+  trainArguments <- intersect(names(extras), setdiff(names(formals(xgboost::xgb.train)), c("params", "data", "nrounds", "verbose", "...")))
+  dataArguments <- intersect(names(extras), c("missing", "weight"))
+  params <- list(colsample_bynode = mTryProportion, nthread = 1)
+  isParameter <- setdiff(names(extras), c(trainArguments, dataArguments))
+  params[isParameter] <- extras[isParameter] # User-specified parameters, such as nthread, take precedence.
   
   isClassification <- FALSE
-  numClasses <- NULL
   if(is(outcomeTrain, "Surv")) # xgboost only knows about numeric vectors.
   {
     time <- outcomeTrain[, "time"]
     event <- as.numeric(outcomeTrain[, "status"])
     if(max(event) == 2) event <- event - 1
     outcomeTrain <- time * ifelse(event == 1, 1, -1) # Negative for censoring.
-    objective <- "survival:cox"
-    trained <- xgboost::xgboost(measurementsTrain, outcomeTrain, objective = objective, nrounds = nrounds,
-                                colsample_bynode = mTryProportion, verbose = 0, nthread = 1, ...)
+    params[["objective"]] <- "survival:cox"
   } else { # Classification task.
     isClassification <- TRUE
     classes <- levels(outcomeTrain)
-    numClasses <- length(classes)
-    objective <- "multi:softprob"
+    params[["objective"]] <- "multi:softprob"
+    params[["num_class"]] <- length(classes)
     outcomeTrain <- as.numeric(outcomeTrain) - 1 # Classes are represented as 0, 1, 2, ...
-    trained <- xgboost::xgboost(measurementsTrain, outcomeTrain, objective = objective, nrounds = nrounds,
-                              num_class = numClasses, colsample_bynode = mTryProportion, nthread = 1, verbose = 0, ...)
   }
+  trainData <- do.call(xgboost::xgb.DMatrix, c(list(trainMatrix, label = outcomeTrain, nthread = params[["nthread"]]),
+                                               extras[dataArguments]))
+  trained <- do.call(xgboost::xgb.train, c(list(params = params, data = trainData, nrounds = nrounds, verbose = 0),
+                                           extras[trainArguments]))
 
   if(isClassification)
     attr(trained, "classes") <- classes # Useful for factor predictions in predict method.
   attr(trained, "featureNames") <- colnames(measurementsTrain)
-  attr(trained, "featureGroups") <- measurementsTrain@assign
+  attr(trained, "featureGroups") <- attr(measurementsTrain, "assign")
+  attr(trained, "encoding") <- attr(measurementsTrain, "encoding")
 
   trained
 }
@@ -46,23 +55,22 @@ extremeGradientBoostingPredictInterface <- function(booster, measurementsTest, .
   returnType <- match.arg(returnType)
   if(verbose == 3)
     message("Predicting using boosted random forest.")  
-  measurementsTest <- as(measurementsTest, "data.frame")
-  # Convert to one-hot encoding as xgboost doesn't understand factors. Need to get rid of intercept afterwards.
-  measurementsTest <- MatrixModels::model.Matrix(~ 0 + ., data = measurementsTest, sparse = TRUE)
-  measurementsTest <- measurementsTest[, attr(booster, "featureNames")]
+  # Same one-hot encoding, columns and column order as the training data.
+  measurementsTest <- .encodeTest(measurementsTest, booster)
+  testMatrix <- as(measurementsTest, "CsparseMatrix")
   
-  scores <- predict(booster, measurementsTest, reshape = TRUE)
-  colnames(scores) <- attr(booster, "classes")
+  scores <- predict(booster, testMatrix)
   if(!is.null(attr(booster, "classes"))) # It is a classification task.
   {
+    scores <- matrix(scores, nrow = nrow(measurementsTest), dimnames = list(rownames(measurementsTest), attr(booster, "classes")))
     classPredictions <- attr(booster, "classes")[apply(scores, 1, function(sampleRow) which.max(sampleRow)[1])]
     classPredictions <- factor(classPredictions, levels = attr(booster, "classes"))
-    rownames(scores) <- names(classPredictions) <- rownames(measurementsTest)
+    names(classPredictions) <- rownames(measurementsTest)
     result <- switch(returnType, class = classPredictions,
                      score = scores,
                      both = data.frame(class = classPredictions, scores, check.names = FALSE))
   } else { # A survival task.
-     result <- scores
+     result <- setNames(as.numeric(scores), rownames(measurementsTest))
   }
   result
 }

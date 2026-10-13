@@ -7,8 +7,9 @@ randomForestTrainInterface <- function(measurementsTrain, outcomeTrain, mTryProp
     message(Sys.time(), ": Fitting random forest classifier to training data.")
   mtry <- round(mTryProportion * ncol(measurementsTrain)) # Number of features to try.
   # Convert to base data.frame as randomForest doesn't understand DataFrame.
-  fittedModel <- ranger::ranger(x = as(measurementsTrain, "data.frame"), y = outcomeTrain, mtry = mtry, ...)
-  forImportance <- ranger::ranger(x = as(measurementsTrain, "data.frame"), y = outcomeTrain, mtry = mtry, importance = "impurity_corrected", ...)
+  measurementsTrain <- .asDataFrame(measurementsTrain) # ranger needs a data.frame.
+  fittedModel <- ranger::ranger(x = measurementsTrain, y = outcomeTrain, mtry = mtry, ...)
+  forImportance <- ranger::ranger(x = measurementsTrain, y = outcomeTrain, mtry = mtry, importance = "impurity_corrected", ...)
   attr(fittedModel, "forImportance") <- forImportance
   fittedModel
 }
@@ -17,18 +18,23 @@ attr(randomForestTrainInterface, "name") <- "randomForestTrainInterface"
 # forest is of class ranger
 randomForestPredictInterface <- function(forest, measurementsTest, ..., returnType = c("both", "class", "score"), verbose = 3)
 {
+  if(!requireNamespace("ranger", quietly = TRUE))
+    stop("The package 'ranger' could not be found. Please install it.")
   returnType <- match.arg(returnType)
   classes <- forest$forest$levels
   if(verbose == 3)
     message("Predicting using random forest.")  
-  measurementsTest <- as.data.frame(measurementsTest)
+  measurementsTest <- .asDataFrame(measurementsTest)
   
   predictions <- predict(forest, measurementsTest)
   if(predictions$treetype == "Classification")
   {
     classPredictions <- predictions$predictions
     classScores <- predict(forest, measurementsTest, predict.all = TRUE)[[1]]
-    classScores <- t(apply(classScores, 1, function(sampleRow) table(factor(classes[sampleRow], levels = classes)) / forest$forest$num.trees))
+    # Share of trees voting for each class.
+    classScores <- vapply(seq_along(classes), function(classIndex) rowSums(classScores == classIndex), numeric(nrow(classScores))) / forest$forest$num.trees
+    if(!is.matrix(classScores)) classScores <- matrix(classScores, nrow = 1)
+    colnames(classScores) <- classes
     rownames(classScores) <- names(classPredictions) <- rownames(measurementsTest)
     switch(returnType, class = classPredictions,
            score = classScores,

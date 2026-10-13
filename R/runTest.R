@@ -105,11 +105,16 @@ function(measurementsTrain, outcomeTrain, measurementsTest, outcomeTest,
         crossValParams@performanceType <- "C-index"    
     }
       
+    measurementsTrain <- splitDatasetTrain[["measurements"]]
+    outcomeTrain <- splitDatasetTrain[["outcome"]]
+    # Feature names of the test data must be made safe in the same way as those of the training data.
+    colnames(measurementsTest) <- make.names(colnames(measurementsTest))
+    
     # Rebalance the class sizes of the training samples by either downsampling or upsampling
     # or leave untouched if balancing is none.
     if(!is(outcomeTrain, "Surv"))
     {
-      rebalancedTrain <- .rebalanceTrainingClasses(splitDatasetTrain[["measurements"]], splitDatasetTrain[["outcome"]], modellingParams@balancing)
+      rebalancedTrain <- .rebalanceTrainingClasses(measurementsTrain, outcomeTrain, modellingParams@balancing)
       measurementsTrain <- rebalancedTrain[["measurementsTrain"]]
       outcomeTrain <- rebalancedTrain[["classesTrain"]]
     }
@@ -259,8 +264,10 @@ input data. Autmomatically reducing to smaller number.")
   importanceTable <- NULL
   if(is.numeric(.iteration) && modellingParams@doImportance == TRUE)
   {
-    performanceMP <- modellingParams@selectParams@tuneParams[["performanceType"]]
-    performanceType <- ifelse(!is.null(performanceMP), performanceMP, "Balanced Error")
+    # The performance type chosen for the cross-validation, otherwise balanced error or C-index.
+    performanceType <- if(is(outcomeTrain, "Surv")) "C-index" else "Balanced Error"
+    if(!is.null(crossValParams) && crossValParams@performanceType %in% .ClassifyRenvir[["performanceTypes"]])
+      performanceType <- crossValParams@performanceType
     performancesWithoutEach <- sapply(selectedFeaturesIndices, function(selectedIndex)
     {
       measurementsTrainLess1 <- measurementsTrain[, -selectedIndex, drop = FALSE]
@@ -405,26 +412,10 @@ input data. Autmomatically reducing to smaller number.")
 setMethod("runTest", c("MultiAssayExperiment"),
           function(measurementsTrain, measurementsTest, outcomeColumns, ...)
 {
-  prepArgsTrain <- list(measurementsTrain, outcomeColumns)
-  prepArgsTest <- list(measurementsTest, outcomeColumns)
   extraInputs <- list(...)
-  prepExtras <- numeric()
-  if(length(extraInputs) > 0)
-    prepExtras <- which(names(extrasInputs) %in% .ClassifyRenvir[["prepareDataFormals"]])
-  if(length(prepExtras) > 0)
-  {      
-    prepArgsTrain <- append(prepArgsTrain, extraInputs[prepExtras])
-    prepArgsTest <- append(prepArgsTest, extraInputs[prepExtras])
-  }
-  measurementsAndOutcomeTrain <- do.call(prepareData, prepArgs)
-  measurementsAndOutcomeTest <- do.call(prepareData, prepArgs)
-  
-  runTestArgs <- list(measurementsAndOutcomeTrain[["measurements"]], measurementsAndOutcomeTrain[["outcome"]],
-                      measurementsAndOutcomeTest[["measurements"]], measurementsAndOutcomeTest[["outcome"]])
-  if(length(extraInputs) > 0 && (length(prepExtras) == 0 || length(extraInputs[-prepExtras]) > 0))
-  {
-    if(length(prepExtras) == 0) runTestArgs <- append(runTestArgs, extraInputs) else
-    runTestArgs <- append(runTestArgs, extraInputs[-prepExtras])
-  }
-  do.call(runTest, runTestArgs)
+  isPrepare <- names(extraInputs) %in% .ClassifyRenvir[["prepareDataFormals"]]
+  train <- do.call(prepareData, c(list(measurementsTrain, outcomeColumns), extraInputs[isPrepare]))
+  test <- do.call(prepareData, c(list(measurementsTest, outcomeColumns), extraInputs[isPrepare]))
+  do.call(runTest, c(list(train[["measurements"]], train[["outcome"]], test[["measurements"]], test[["outcome"]]),
+                     extraInputs[!isPrepare]))
 })

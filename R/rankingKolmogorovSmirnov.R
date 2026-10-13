@@ -3,6 +3,8 @@ KolmogorovSmirnovRanking <- function(measurementsTrain, classesTrain, ..., verbo
 {
   if(verbose == 3)
     message(Sys.time(), ": Ranking features by Kolmogorov Smirnov distance between classes.")
+  if(nlevels(classesTrain) != 2)
+    stop("Kolmogorov-Smirnov ranking is for two classes but 'classesTrain' has ", nlevels(classesTrain), " levels.")
 
   oneClass <- classesTrain == levels(classesTrain)[1]
   otherClass <- classesTrain == levels(classesTrain)[2]

@@ -67,8 +67,7 @@
 #' @param parallelParams An object of class \code{\link{MulticoreParam}} or
 #' \code{\link{SnowParam}}.
 #' @param ... Not used by end user.
-#' @return An object of class \code{ggplot} and a plot on the current graphics
-#' device, if \code{plot} is \code{TRUE}.
+#' @return An object of class \code{ggplot}.
 #' @author Dario Strbenac
 #' @examples
 #' 
@@ -143,16 +142,16 @@ setMethod("rankingPlot", "list",
     error <- paste(error, "but there are only", nFeatures, "features in the data set.")
     stop(error)
   }
-  ggplot2::theme_set(ggplot2::theme_classic() + ggplot2::theme(panel.border = ggplot2::element_rect(fill = NA)))
+  fontSizes <- sizesList[["fonts"]]
 
   if(!is.null(characteristicsList[["lineColour"]]))
     lineColourValues <- sapply(results, function(result) result@characteristics[result@characteristics[, "characteristic"] == characteristicsList[["lineColour"]], "value"])
   if(!is.null(characteristicsList[["pointType"]]))
     pointTypeValues <- sapply(results, function(result) result@characteristics[result@characteristics[, "characteristic"] == characteristicsList[["pointType"]], "value"])
   if(!is.null(characteristicsList[["row"]]))
-    rowValues <- sapply(results, function(result) result@characteristics[result@characteristics[, "characteristic"] == characteristicsList, "value"])
+    rowValues <- sapply(results, function(result) result@characteristics[result@characteristics[, "characteristic"] == characteristicsList[["row"]], "value"])
   if(!is.null(characteristicsList[["column"]]))
-    columnValues <- sapply(results, function(result) result@characteristics[result@characteristics[, "characteristic"] == characteristicsList, "value"])
+    columnValues <- sapply(results, function(result) result@characteristics[result@characteristics[, "characteristic"] == characteristicsList[["column"]], "value"])
   if(comparison != "within")
     referenceVar <- sapply(results, function(result) result@characteristics[result@characteristics[, "characteristic"] == comparison, "value"])
   
@@ -185,7 +184,7 @@ setMethod("rankingPlot", "list",
         {
           sapply(topRanked, function(top)
           {
-            length(intersect(features[1:top], other[1:top])) / top * 100
+            length(intersect(head(features, top), head(other, top))) / top * 100
           })
         })
       }, rankedList[1:(length(rankedList) - 1)], 1:(length(rankedList) - 1), SIMPLIFY = FALSE)))
@@ -235,7 +234,7 @@ setMethod("rankingPlot", "list",
             {
               sapply(topRanked, function(top)
               {
-                length(intersect(rankings[1:top], otherRanked[1:top])) / top * 100
+                length(intersect(head(rankings, top), head(otherRanked, top))) / top * 100
               })          
             })
           })))
@@ -277,17 +276,18 @@ setMethod("rankingPlot", "list",
     lineColours <- scales::hue_pal()(length(unique(plotData[, characteristicsList[["lineColour"]]])))
   legendPosition <- ifelse(showLegend == TRUE, "right", "none")
   
-  if(length(orderingList) > 0) plotData <- .addUserLevels(plotData, orderingList)
+  if(length(orderingList) > 0) plotData <- .addUserLevels(plotData, orderingList, "overlap")
   if(length(characteristicsList) > 0) characteristicsList <- lapply(characteristicsList, rlang::sym)
   
   overlapPlot <- ggplot2::ggplot(plotData, ggplot2::aes(x = top, y = overlap, colour = !!lineVariable, shape = !!pointTypeVariable)) +
-                          ggplot2::geom_line(size = sizesList[["lineWidth"]]) + ggplot2::geom_point(size = sizesList[["pointSize"]]) + ggplot2::scale_x_continuous(breaks = xLabelPositions, limits = range(xLabelPositions)) + ggplot2::coord_cartesian(ylim = c(0, yMax)) +
+                          ggplot2::theme_classic() + ggplot2::theme(panel.border = ggplot2::element_rect(fill = NA)) +
+                          ggplot2::geom_line(linewidth = sizesList[["lineWidth"]]) + ggplot2::geom_point(size = sizesList[["pointSize"]]) + ggplot2::scale_x_continuous(breaks = xLabelPositions, limits = range(xLabelPositions)) + ggplot2::coord_cartesian(ylim = c(0, yMax)) +
                           ggplot2::xlab("Top Features") + ggplot2::ylab(yLabel) + ggplot2::ggtitle(title) + ggplot2::scale_colour_manual(values = lineColours) +
-                          ggplot2::theme(axis.title = ggplot2::element_text(size = sizesList[["fontSizes"]][2]), axis.text = ggplot2::element_text(colour = "black", size = sizesList[["fontSizes"]][3]), legend.position = legendPosition, legend.title = ggplot2::element_text(size = sizesList[["fontSizes"]][4]), legend.text = ggplot2::element_text(size = sizesList[["fontSizes"]][5]), plot.title = ggplot2::element_text(size = sizesList[["fontSizes"]][1], hjust = 0.5), plot.margin = margin) +
+                          ggplot2::theme(axis.title = ggplot2::element_text(size = fontSizes[2]), axis.text = ggplot2::element_text(colour = "black", size = fontSizes[3]), legend.position = legendPosition, legend.title = ggplot2::element_text(size = fontSizes[4]), legend.text = ggplot2::element_text(size = fontSizes[5]), plot.title = ggplot2::element_text(size = fontSizes[1], hjust = 0.5), plot.margin = margin) +
                           ggplot2::guides(colour = ggplot2::guide_legend(override.aes = list(size = sizesList[["legendLinesPointsSize"]])),
                                           shape = ggplot2::guide_legend(override.aes = list(size = sizesList[["legendLinesPointsSize"]])))
   
-  overlapPlot <- overlapPlot + ggplot2::facet_grid(ggplot2::vars(!!rowVariable), ggplot2::vars(!!columnVariable)) + ggplot2::theme(strip.text = ggplot2::element_text(size = sizesList[["fontSizes"]][6]))
+  overlapPlot <- overlapPlot + ggplot2::facet_grid(ggplot2::vars(!!rowVariable), ggplot2::vars(!!columnVariable)) + ggplot2::theme(strip.text = ggplot2::element_text(size = fontSizes[6]))
   
   overlapPlot
 })

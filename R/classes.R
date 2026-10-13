@@ -13,9 +13,6 @@ setOldClass("PrecisionPathways")
 # Union of A Function and NULL
 setClassUnion("functionOrNULL", c("function", "NULL"))
 
-# Union of a Function and a List of Functions. Useful for allowing ensemble feature selection.
-setClassUnion("functionOrChraracterOrList", c("function", "character", "list"))
-
 # Union of A Numeric Value and NULL
 setClassUnion("numericOrNULL", c("numeric", "NULL"))
 
@@ -240,19 +237,29 @@ setMethod("show", "TransformParams",
           function(object)
           {
             cat("An object of class 'TransformParams'.\n")
-            index <- na.omit(match("Transform Name", object@characteristics[, "characteristic"]))
-            transText <- object@characteristics[index, "characteristic"]
-            cat("Transform Name: ", object@characteristics[index, "value"], ".\n", sep = '')
-            
-            otherInfo <- object@characteristics[-index, ]
-            if(nrow(otherInfo) > 0)
-            {
-              for(rowIndex in 1:nrow(otherInfo))
-              {
-                cat(otherInfo[rowIndex, "characteristic"], ": ", otherInfo[rowIndex, "value"], ".\n", sep = '')
-              }
-            }
+            .showCharacteristics(object@characteristics, "Transform Name")
           })
+
+# Prints the characteristics named by IDs first, then any others, one per line.
+.showCharacteristics <- function(characteristics, IDs)
+{
+  if(ncol(characteristics) == 0 || nrow(characteristics) == 0) return(invisible(NULL))
+  index <- match(IDs, characteristics[, "characteristic"])
+  index <- c(index[!is.na(index)], setdiff(seq_len(nrow(characteristics)), index))
+  for(rowIndex in index)
+    cat(characteristics[rowIndex, "characteristic"], ": ", characteristics[rowIndex, "value"], ".\n", sep = '')
+  invisible(NULL)
+}
+
+# The name of a feature selection, training or prediction function, as shown in characteristics.
+# Functions of the package have a registered name. Other functions are described generically.
+.functionDisplayName <- function(aFunction, default)
+{
+  functionName <- attr(aFunction, "name")
+  if(is.null(functionName)) return(default)
+  displayName <- .ClassifyRenvir[["functionsTable"]][.ClassifyRenvir[["functionsTable"]][, "character"] == functionName, "name"]
+  if(length(displayName) == 0) functionName else displayName[1]
+}
 
 ##### FeatureSetCollection #####
 #' @docType class
@@ -425,7 +432,7 @@ setMethod("show", "FeatureSetCollection",
               })
               setsText <- paste(names(object@sets)[minIndex:lastIndex], featuresConcatenated, sep = ": ")
               setsText <- paste(setsText, collapse = '\n')
-              cat(setsText)
+              cat(setsText, "\n", sep = '')
             }
           }
 )
@@ -449,6 +456,9 @@ setMethod("[[", c("FeatureSetCollection", "ANY", "missing"),
 setClassUnion("FeatureSetCollectionOrNULL", c("FeatureSetCollection", "NULL"))
 setClassUnion("functionOrList", c("function", "list"))
 setClassUnion("characterOrList", c("character", "list"))
+
+# Union of a function, a character keyword and a list of either. Allows ensemble feature selection.
+setClassUnion("functionOrCharacterOrList", c("function", "character", "list"))
 
 ##### SelectParams #####
 
@@ -477,13 +487,13 @@ setClassUnion("SelectParamsOrNULL", c("SelectParams", "NULL"))
 #' @name SelectParams
 #' @rdname SelectParams-class
 #' @aliases SelectParams SelectParams-class SelectParams,missing-method
-#' SelectParams,characterOrList-method
+#' SelectParams,functionOrCharacterOrList-method
 #' @docType class
 #' @section Constructor:
 #' \describe{
 #' \item{\code{SelectParams(featureRanking, characteristics = DataFrame(), nFeatures = 20, minPresence = 1, intermediate = character(0), subsetToSelections = TRUE, tuneParams = list(nFeatures = seq(10, 100, 10)), ...)}}{Creates a \code{SelectParams} object which stores the function(s) which will do the selection and parameters that the function will use.\cr
 #'     \describe{
-#'         \item{\code{featureRanking}}{A character keyword referring to a registered feature ranking function. See \code{\link{available}} for valid keywords.}
+#'         \item{\code{featureRanking}}{A character keyword referring to a registered feature ranking function, a feature ranking function or a list of either. See \code{\link{available}} for valid keywords. A ranking function must accept the training measurements and outcome as its first two arguments and return the features ranked from best to worst. The keyword \code{"none"} returns \code{NULL}, which \code{\link{ModellingParams}} accepts as no feature selection.}
 #'         \item{\code{characteristics}}{A \code{\link{DataFrame}} describing the characteristics of feature selection to be done. First column must be named \code{"charateristic"} and second column must be named \code{"value"}. If using wrapper functions for feature selection in this package, the feature selection name will automatically be generated and therefore it is not necessary to specify it.}
 #'         \item{\code{nFeatures}}{Default: \code{20}. The number of top-ranked features to choose. Can also be \code{NULL} if a vector of top numbers is specified to \code{tuneParams} for the list element named \code{nFeatures}.}
 #'         \item{\code{minPresence}}{Default: \code{1}. If a list of functions was provided, how many of those must a feature have been selected by to be used in classification. 1 is equivalent to a set union and a number the same length as \code{featureSelection} is equivalent to set intersection.}
@@ -517,19 +527,32 @@ standardGeneric("SelectParams"))
 #' @rdname SelectParams-class
 #' @usage NULL
 #' @export
-setMethod("SelectParams", c("characterOrList"),
+setMethod("SelectParams", c("functionOrCharacterOrList"),
           function(featureRanking, characteristics = DataFrame(), nFeatures = 20, minPresence = 1, 
                    intermediate = character(0), subsetToSelections = TRUE, tuneParams = NULL, ...)
           {
-            if(is.character(featureRanking)) featureRanking <- .selectionKeywordToFunction(featureRanking) else featureRanking <- lapply(featureRanking, .selectionKeywordToFunction)
+            if(is.character(featureRanking) && length(featureRanking) == 1 && featureRanking == "none")
+              return(NULL) # No feature selection.
+            toFunction <- function(ranking)
+            {
+              if(is.function(ranking))
+              { # Feature selection identifies functions by their name.
+                if(is.null(attr(ranking, "name"))) attr(ranking, "name") <- "User-specified Ranking"
+                return(ranking)
+              }
+              rankingFunction <- .selectionKeywordToFunction(ranking)
+              if(is.null(rankingFunction))
+                stop("'", ranking, "' is not a feature selection keyword. See available(\"selectionMethod\") for valid keywords.")
+              rankingFunction
+            }
+            if(is.list(featureRanking)) featureRanking <- lapply(featureRanking, toFunction) else featureRanking <- toFunction(featureRanking)
             if(!is.list(featureRanking) && (ncol(characteristics) == 0 || !"Selection Name" %in% characteristics[, "characteristic"]))
             {
-              if(!is.null(featureRanking))
-                characteristics <- rbind(characteristics, S4Vectors::DataFrame(characteristic = "Selection Name", value = .ClassifyRenvir[["functionsTable"]][.ClassifyRenvir[["functionsTable"]][, "character"] == attr(featureRanking, "name"), "name"]))
+              characteristics <- rbind(characteristics, S4Vectors::DataFrame(characteristic = "Selection Name", value = .functionDisplayName(featureRanking, "User-specified Ranking")))
             }
             if(is.list(featureRanking) && (ncol(characteristics) == 0 || !"Ensemble Selection" %in% characteristics[, "characteristic"]))
             {
-              selectMethodNames <- unlist(lapply(featureRanking, function(rankingFunction) .ClassifyRenvir[["functionsTable"]][.ClassifyRenvir[["functionsTable"]][, "character"] == attr(rankingFunction, "name"), "name"]))
+              selectMethodNames <- unlist(lapply(featureRanking, .functionDisplayName, "User-specified Ranking"))
               characteristics <- rbind(characteristics, S4Vectors::DataFrame(characteristic = "Ensemble Selection", value = paste(selectMethodNames, collapse = ", ")))
             }
             if(!is.null(tuneParams[["nFeatures"]])) nFeatures <- NULL # User wants to do tuning of nFeatures.
@@ -548,21 +571,9 @@ setMethod("show", "SelectParams",
           function(object)
           {
             cat("An object of class 'SelectParams'.\n")
-            IDs <- c("Selection Name", "Ensemble Selection")
-            index <- na.omit(match(IDs, object@characteristics[, "characteristic"]))
-            selectText <- object@characteristics[index, "characteristic"]
-            cat(selectText, ": ", object@characteristics[index, "value"], ".\n", sep = '')
-            if(selectText == "Ensemble Selection")
-              cat("Minimum Functions Selected By:", object@minPresence)
-            
-            otherInfo <- object@characteristics[-index, ]
-            if(nrow(otherInfo) > 0)
-            {
-              for(rowIndex in 1:nrow(otherInfo))
-              {
-                cat(otherInfo[rowIndex, "characteristic"], ": ", otherInfo[rowIndex, "value"], ".\n", sep = '')
-              }
-            }
+            .showCharacteristics(object@characteristics, c("Selection Name", "Ensemble Selection"))
+            if(is.list(object@featureRanking))
+              cat("Minimum Functions Selected By: ", object@minPresence, ".\n", sep = '')
           })
 
 ##### TrainParams #####
@@ -588,15 +599,15 @@ setClass("TrainParams", representation(
 #' @docType class
 #' @section Constructor:
 #' \describe{
-#' \item{\code{TrainParams(classifier, balancing = c("downsample", "upsample", "none"), characteristics = DataFrame(),
+#' \item{\code{TrainParams(classifier, characteristics = DataFrame(),
 #' intermediate = character(0), tuneParams = NULL, getFeatures = NULL, ...)}}{
 #' Creates a \code{TrainParams} object which stores the function which will do the
 #' classifier building and parameters that the function will use.
 #' \describe{
 #' \item{\code{classifier}}{A character keyword referring to a registered classifier. See \code{\link{available}}
 #' for valid keywords.}
-#' \item{\code{balancing}}{Default: \code{"downsample"}. A keyword specifying how to handle class imbalance for data sets with categorical outcome.
-#' Valid values are \code{"downsample"}, \code{"upsample"} and \code{"none"}.}
+#' \item{\code{balancing}}{Not used. Class imbalance is handled by the \code{balancing} setting of \code{\link{ModellingParams}};
+#' specifying it here is an error.}
 #' \item{\code{characteristics}}{A \code{\link{DataFrame}} describing the
 #' characteristics of the classifier used. First column must be named \code{"charateristic"}
 #' and second column must be named \code{"value"}. If using wrapper functions for classifiers
@@ -635,12 +646,16 @@ setClassUnion("characterOrFunction", c("character", "function"))
 #' @rdname TrainParams-class
 #' @export
 setMethod("TrainParams", c("characterOrFunction"),
-          function(classifier, balancing = c("downsample", "upsample", "none"), characteristics = DataFrame(), intermediate = character(0), tuneParams = NULL, getFeatures = NULL, ...)
+          function(classifier, balancing, characteristics = DataFrame(), intermediate = character(0), tuneParams = NULL, getFeatures = NULL, ...)
           {
+            if(!missing(balancing))
+              stop("'balancing' is a setting of ModellingParams, not TrainParams. Specify it with ModellingParams(balancing = ...).")
             extras <- list(...)              
             if(is.character(classifier))
             {
               TPparams <- .classifierKeywordToParams(classifier, tuneParams)
+              if(is.null(TPparams))
+                stop("'", classifier, "' is not a classifier keyword. See available() for valid keywords.")
               trainParams <- TPparams[[1]] # Get a default params object.
               if(is.null(getFeatures) && !is.null(trainParams@getFeatures))
                 getFeatures <- trainParams@getFeatures
@@ -650,7 +665,7 @@ setMethod("TrainParams", c("characterOrFunction"),
             }
             if(ncol(characteristics) == 0 || !"Classifier Name" %in% characteristics[, "characteristic"])
             {
-              characteristics <- rbind(characteristics, S4Vectors::DataFrame(characteristic = "Classifier Name", value = .ClassifyRenvir[["functionsTable"]][.ClassifyRenvir[["functionsTable"]][, "character"] == attr(classifier, "name"), "name"]))
+              characteristics <- rbind(characteristics, S4Vectors::DataFrame(characteristic = "Classifier Name", value = .functionDisplayName(classifier, "User-specified Classifier")))
             }
             
             if(length(extras) == 0) extras <- NULL
@@ -664,18 +679,7 @@ setMethod("show", "TrainParams",
           function(object)
           {
             cat("An object of class 'TrainParams'.\n")
-            index <- na.omit(match("Classifier Name", object@characteristics[, "characteristic"]))
-            trainText <- object@characteristics[index, "characteristic"]
-            cat("Classifier Name: ", object@characteristics[index, "value"], ".\n", sep = '')
-            
-            otherInfo <- object@characteristics[-index, ]
-            if(nrow(otherInfo) > 0)
-            {
-              for(rowIndex in 1:nrow(otherInfo))
-              {
-                cat(otherInfo[rowIndex, "characteristic"], ": ", otherInfo[rowIndex, "value"], ".\n", sep = '')
-              }
-            }
+            .showCharacteristics(object@characteristics, "Classifier Name")
           })
 
 ##### PredictParams #####
@@ -712,7 +716,8 @@ setClass("PredictParams", representation(
 #' function will use. If the training function also makes predictions, this
 #' must be set to \code{NULL}.}
 #' \describe{ \item{\code{predictor}}{A character keyword referring to a registered classifier. See \code{\link{available}}
-#' for valid keywords.}
+#' for valid keywords. Classifiers which train and predict in one function (\code{"kNN"} and \code{"naiveBayes"}) have no
+#' separate predictor; for them, use \code{predictParams = NULL} in \code{\link{ModellingParams}}.}
 #' \item{\code{characteristics}}{A \code{\link{DataFrame}} describing
 #' the characteristics of the predictor function used. First column must be
 #' named \code{"charateristic"} and second column must be named \code{"value"}.}
@@ -742,8 +747,16 @@ standardGeneric("PredictParams"))
 setMethod("PredictParams", c("characterOrFunction"),
           function(predictor, characteristics = DataFrame(), intermediate = character(0), ...)
           {
-            if(is.character(predictor))              
-              predictor <- .classifierKeywordToParams(keyword = predictor, NULL)[[2]]@predictor # Prediction function.
+            if(is.character(predictor))
+            {
+              keywordParams <- .classifierKeywordToParams(keyword = predictor, NULL)
+              if(is.null(keywordParams))
+                stop("'", predictor, "' is not a classifier keyword. See available() for valid keywords.")
+              if(is.null(keywordParams[[2]]))
+                stop("Classifier '", predictor, "' trains and predicts in one function, so it has no separate predictor.\n",
+                     "Use predictParams = NULL in ModellingParams.")
+              predictor <- keywordParams[[2]]@predictor # Prediction function.
+            }
             others <- list(...)
             if(length(others) == 0) others <- NULL
             new("PredictParams", predictor = predictor, characteristics = characteristics,
@@ -755,23 +768,9 @@ setMethod("show", "PredictParams",
           function(object)
           {
             cat("An object of class 'PredictParams'.\n")
-            if(ncol(object@characteristics) > 0)
-            {
-              index <- na.omit(match("Predictor Name", object@characteristics[, "characteristic"]))
-              if(length(index) > 0)
-                cat("Predictor Name: ", object@characteristics[index, "value"], ".\n", sep = '')
-              
-              otherInfo <- object@characteristics[-index, ]
-              if(nrow(otherInfo) > 0)
-              {
-                for(rowIndex in 1:nrow(otherInfo))
-                {
-                  cat(otherInfo[rowIndex, "characteristic"], ": ", otherInfo[rowIndex, "value"], ".\n", sep = '')
-                }
-              }
-            } 
-            if(is.null(object@predictor))
-              cat("Prediction is done by function specified to TrainParams.\n")
+            if(!is.null(attr(object@predictor, "name")))
+              cat("Predictor Function: ", attr(object@predictor, "name"), ".\n", sep = '')
+            .showCharacteristics(object@characteristics, "Predictor Name")
           })
 
 setClassUnion("PredictParamsOrNULL", c("PredictParams", "NULL"))
