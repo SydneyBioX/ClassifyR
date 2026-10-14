@@ -270,3 +270,20 @@ test_that("nested cross-validation of upsampled training sets makes its folds be
   expect_true(all(sapply(splits, function(split) any(duplicated(split[["train"]]))))) # Training sets are upsampled.
   expect_false(any(sapply(splits, function(split) any(split[["train"]] %in% split[["test"]]))))
 })
+
+test_that("a rebalanced runTest result lists each training sample once, and its performance can be calculated", {
+  data <- makeTwoClass()
+  imbalanced <- c(which(data$classes == "A"), which(data$classes == "B")[1:12])
+  measurements <- S4Vectors::DataFrame(data$measurements[imbalanced, 1:5])
+  classes <- droplevels(data$classes[imbalanced])
+  test <- c(1:5, length(classes) - 0:2)
+  for(balancing in c("upsample", "downsample"))
+  {
+    set.seed(1)
+    result <- runTest(measurements[-test, ], classes[-test], measurements[test, ], classes[test],
+                      modellingParams = ModellingParams(balancing = balancing, selectParams = NULL))
+    expect_identical(sampleNames(result), c(rownames(measurements)[-test], rownames(measurements)[test]))
+    expect_identical(unname(actualOutcome(result)), c(classes[-test], classes[test]))
+    expect_s4_class(calcCVperformance(result, "Balanced Accuracy"), "ClassifyResult")
+  }
+})

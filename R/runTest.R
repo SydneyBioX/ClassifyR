@@ -392,13 +392,16 @@ input data. Autmomatically reducing to smaller number.")
     extrasDF <- S4Vectors::DataFrame(characteristic = names(extras), value = unname(unlist(extras)))
     characteristics <- rbind(characteristics, extrasDF)
     
-    allSamples <- c(rownames(measurementsTrain), rownames(measurementsTest))
-    if(!is.null(ncol(outcomeTrain)))
+    # The result lists each training sample once, as it was before rebalancing added or removed samples.
+    samplesTrain <- if(is.null(trainUnbalanced)) rownames(measurementsTrain) else rownames(trainUnbalanced[["measurements"]])
+    outcomeTrainAll <- if(is.null(trainUnbalanced)) outcomeTrain else trainUnbalanced[["outcome"]]
+    allSamples <- c(samplesTrain, rownames(measurementsTest))
+    if(!is.null(ncol(outcomeTrainAll)))
     {
-      allOutcome <- rbind(outcomeTrain, outcomeTest)
+      allOutcome <- rbind(outcomeTrainAll, outcomeTest)
       rownames(allOutcome) <- allSamples
     } else { 
-      allOutcome <- c(outcomeTrain, outcomeTest)
+      allOutcome <- c(outcomeTrainAll, outcomeTest)
       names(allOutcome) <- allSamples
     }
 
