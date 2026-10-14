@@ -812,7 +812,9 @@ setClass("ModellingParams", representation(
 #' @aliases ModellingParams ModellingParams-class
 #' @docType class
 #' @param balancing Default: \code{"none"}. A character value specifying what kind of class balancing to do to the
-#' training samples, if any: \code{"none"}, \code{"downsample"} or \code{"upsample"}.
+#' training samples, if any: \code{"none"}, \code{"downsample"} or \code{"upsample"}. For tuning by nested
+#' cross-validation, the inner folds are made from the training samples before balancing and each inner training set
+#' is balanced.
 #' @param transformParams Parameters used for feature transformation inside of C.V.
 #' specified by a \code{\link{TransformParams}} instance. Optional, can be \code{NULL}.
 #' @param selectParams Parameters used during feature selection specified
