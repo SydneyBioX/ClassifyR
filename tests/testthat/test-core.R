@@ -228,19 +228,45 @@ test_that("class balancing of ModellingParams is applied in cross-validation", {
   imbalanced <- c(which(data$classes == "A"), which(data$classes == "B")[1:8])
   measurements <- S4Vectors::DataFrame(data$measurements[imbalanced, 1:5])
   classes <- droplevels(data$classes[imbalanced])
-  trainSizes <- function(balancing) {
-    sizes <- integer()
+  trainCounts <- function(balancing) {
+    counts <- list()
     counting <- function(measurementsTrain, classesTrain, ...) {
-      sizes <<- c(sizes, length(classesTrain))
+      counts <<- c(counts, list(table(classesTrain)))
       ClassifyR:::DLDAtrainInterface(measurementsTrain, classesTrain, ...)
     }
     params <- ModellingParams(balancing = balancing, selectParams = NULL, trainParams = TrainParams(counting),
                               predictParams = PredictParams("DLDA"))
     set.seed(1)
     runTests(measurements, classes, CrossValParams(permutations = 1, folds = 4, parallelParams = BiocParallel::SerialParam()), params)
-    sizes
+    do.call(rbind, counts)
   }
-  none <- trainSizes("none"); down <- trainSizes("downsample")
-  expect_true(all(down < none))
-  expect_true(all(down %% 2 == 0)) # Equal numbers of each class.
+  none <- trainCounts("none"); down <- trainCounts("downsample"); up <- trainCounts("upsample")
+  expect_true(all(none[, "A"] > none[, "B"]))
+  expect_equal(down[, "A"], down[, "B"]) # Equal numbers of each class.
+  expect_equal(down[, "A"], none[, "B"]) # The smaller class's size.
+  expect_equal(up[, "A"], up[, "B"])
+  expect_equal(up[, "B"], none[, "A"]) # The larger class's size.
+})
+
+test_that("nested cross-validation of upsampled training sets makes its folds before upsampling", {
+  data <- makeTwoClass()
+  imbalanced <- c(which(data$classes == "A"), which(data$classes == "B")[1:8])
+  measurements <- S4Vectors::DataFrame(data$measurements[imbalanced, 1:5])
+  classes <- droplevels(data$classes[imbalanced])
+  # Training and prediction in one function, which records the samples of each training and test set.
+  splits <- list()
+  recording <- function(measurementsTrain, classesTrain, measurementsTest, weight, ...) {
+    splits <<- c(splits, list(list(train = rownames(measurementsTrain), test = rownames(measurementsTest))))
+    model <- ClassifyR:::DLDAtrainInterface(measurementsTrain, classesTrain)
+    ClassifyR:::DLDApredictInterface(model, measurementsTest, returnType = "class")
+  }
+  params <- ModellingParams(balancing = "upsample", selectParams = NULL,
+                            trainParams = TrainParams(recording, tuneParams = list(weight = 1:2)), predictParams = NULL)
+  set.seed(1)
+  runTests(measurements, classes, CrossValParams(permutations = 1, folds = 4, tuneMode = "Nested CV", performanceType = "Balanced Error",
+                                                 parallelParams = BiocParallel::SerialParam()), params)
+  splits <- splits[sapply(splits, function(split) length(split[["test"]]) < nrow(measurements))] # Not the final model.
+  expect_gt(length(splits), 4) # Inner cross-validations happened.
+  expect_true(all(sapply(splits, function(split) any(duplicated(split[["train"]]))))) # Training sets are upsampled.
+  expect_false(any(sapply(splits, function(split) any(split[["train"]] %in% split[["test"]]))))
 })

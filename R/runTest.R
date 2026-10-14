@@ -113,8 +113,13 @@ function(measurementsTrain, outcomeTrain, measurementsTest, outcomeTest,
 
   # Rebalance the class sizes of the training samples by either downsampling or upsampling, also when called by
   # runTests. Within runTests and with no balancing, the training samples are left as they are (and in the same order).
+  # Nested cross-validation for tuning makes its folds from the samples before rebalancing, so that copies of an
+  # upsampled sample are not in both an inner training and test set; each inner training set is rebalanced.
+  trainUnbalanced <- NULL
   if((is.null(.iteration) || modellingParams@balancing != "none") && !is(outcomeTrain, "Surv"))
   {
+    if(modellingParams@balancing != "none")
+      trainUnbalanced <- list(measurements = measurementsTrain, outcome = outcomeTrain)
     rebalancedTrain <- .rebalanceTrainingClasses(measurementsTrain, outcomeTrain, modellingParams@balancing)
     measurementsTrain <- rebalancedTrain[["measurementsTrain"]]
     outcomeTrain <- rebalancedTrain[["classesTrain"]]
@@ -183,7 +188,7 @@ input data. Autmomatically reducing to smaller number.")
       modellingParams@selectParams <- .addIntermediates(modellingParams@selectParams)
  
     #topFeatures <- .doSelection(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
-    topFeatures <- tryCatch(.doSelection(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose),
+    topFeatures <- tryCatch(.doSelection(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose, trainUnbalanced),
                             error = function(error) error[["message"]])
     if(is.character(topFeatures)) return(topFeatures) # An error occurred.
     
@@ -215,7 +220,7 @@ input data. Autmomatically reducing to smaller number.")
   
   # Some classifiers have one function for training and testing, so that's why test data is also passed in.
   # trained <- .doTrain(measurementsTrain, outcomeTrain, measurementsTest, outcomeTest, crossValParams, modellingParams, verbose)
-  trained <- tryCatch(.doTrain(measurementsTrain, outcomeTrain, measurementsTest, outcomeTest, crossValParams, modellingParams, verbose),
+  trained <- tryCatch(.doTrain(measurementsTrain, outcomeTrain, measurementsTest, outcomeTest, crossValParams, modellingParams, verbose, trainUnbalanced),
                       error = function(error) error[["message"]])
   if(is.character(trained)) return(trained) # An error occurred.
   if(is.null(attr(trained[["model"]], "featuresForTrain"))) # Won't be NULL if previousTrained used to get an existing model.
@@ -272,7 +277,7 @@ input data. Autmomatically reducing to smaller number.")
     {
       measurementsTrainLess1 <- measurementsTrain[, -selectedIndex, drop = FALSE]
       measurementsTestLess1 <- measurementsTest[, -selectedIndex, drop = FALSE]
-      modelWithoutOne <- tryCatch(.doTrain(measurementsTrainLess1, outcomeTrain, measurementsTestLess1, outcomeTest, crossValParams, modellingParams, verbose),
+      modelWithoutOne <- tryCatch(.doTrain(measurementsTrainLess1, outcomeTrain, measurementsTestLess1, outcomeTest, crossValParams, modellingParams, verbose, trainUnbalanced),
                                   error = function(error) error[["message"]])
       if(!is.null(modellingParams@predictParams))
       predictedOutcomeWithoutOne <- tryCatch(.doTest(modelWithoutOne[["model"]], measurementsTestLess1, modellingParams@predictParams, verbose),
