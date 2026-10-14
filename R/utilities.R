@@ -737,3 +737,19 @@ predict.dlda <- function(object, newdata, ...) { # Remove once sparsediscrim is 
   }
   permutations
 }
+
+# Converts a DataFrame to a data.frame without S4 dispatch for every column, which takes about 0.2 s for a table
+# with thousands of features. Gives the same data.frame as as.data.frame for columns that are plain vectors or
+# factors; other inputs are converted by as.data.frame.
+.asDataFrame <- function(measurements)
+{
+  if(is.data.frame(measurements)) return(measurements)
+  if(!is(measurements, "DataFrame")) return(as.data.frame(measurements))
+  columns <- as.list(measurements)
+  if(!all(vapply(columns, function(column) is.atomic(column) && is.null(dim(column)), logical(1))) ||
+     anyDuplicated(rownames(measurements)) > 0)
+    return(as.data.frame(measurements))
+  attr(columns, "row.names") <- if(is.null(rownames(measurements))) .set_row_names(nrow(measurements)) else rownames(measurements)
+  class(columns) <- "data.frame"
+  columns
+}

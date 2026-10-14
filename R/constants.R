@@ -1,3 +1,9 @@
+#' @importFrom stats aggregate binomial chisq.test density dist dnorm fisher.test glm hclust mad median model.frame
+#' model.matrix na.omit na.pass pnorm prcomp predict quantile quasibinomial sd setNames splinefun var weighted.mean
+#' @importFrom utils combn head tail
+#' @importFrom S4Vectors first second mcols<-
+NULL
+
 .ClassifyRenvir <- new.env(parent = emptyenv())
 
 # Used internally during parameter selection based on best performance.

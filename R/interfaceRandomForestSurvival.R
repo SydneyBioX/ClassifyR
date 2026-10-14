@@ -7,9 +7,11 @@ rfsrcTrainInterface <- function(measurementsTrain, survivalTrain, mTryProportion
     message(Sys.time(), ": Fitting rfsrc classifier to training data and making predictions on test data.")
 
   # Surv objects store survival information as a two-column table, time and event, in that order.    
-  bindedMeasurements <- cbind(measurementsTrain, time = survivalTrain[, 1], event = survivalTrain[, 2])
+  bindedMeasurements <- .asDataFrame(measurementsTrain)
+  bindedMeasurements[["time"]] <- survivalTrain[, 1]
+  bindedMeasurements[["event"]] <- survivalTrain[, 2]
   mtry <- round(mTryProportion * ncol(measurementsTrain)) # Number of features to try.
-  randomForestSRC::rfsrc(Surv(time, event) ~ ., data = as.data.frame(bindedMeasurements), mtry = mtry,
+  randomForestSRC::rfsrc(Surv(time, event) ~ ., data = bindedMeasurements, mtry = mtry,
                           var.used = "all.trees", importance = TRUE, ...)
 }
 attr(rfsrcTrainInterface, "name") <- "rfsrcTrainInterface"
@@ -17,7 +19,7 @@ attr(rfsrcTrainInterface, "name") <- "rfsrcTrainInterface"
 # model is of class rfsrc
 rfsrcPredictInterface <- function(model, measurementsTest, ..., verbose = 3)
 {
-  predictedOutcome = predict(model, as.data.frame(measurementsTest), ...)$predicted
+  predictedOutcome = predict(model, .asDataFrame(measurementsTest), ...)$predicted
   names(predictedOutcome) = rownames(measurementsTest)
   predictedOutcome
 }
