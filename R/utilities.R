@@ -60,6 +60,8 @@ samplesSplits <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permute
          test = unlist(lapply(samplesFolds, '[[', 2), recursive = FALSE))
   } else if(samplesSplits == "Permute Percentage Split") {
     # Take the same percentage of samples from each class to be in training set.
+    # Balance the non-censored observations, as for k-fold splits.
+    if(is(outcome, "Surv")) outcome <- factor(outcome[, "status"])
     percent <- percentTest
     samplesTrain <- round((100 - percent) / 100 * table(outcome))
     samplesTest <- round(percent / 100 * table(outcome))
@@ -68,8 +70,8 @@ samplesSplits <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permute
       trainSet <- unlist(mapply(function(outcomeName, number)
       {
         sample(which(outcome == outcomeName), number)
-      }, levels(outcome), samplesTrain))
-      testSet <- setdiff(1:length(classes), trainSet)
+      }, levels(outcome), samplesTrain, SIMPLIFY = FALSE))
+      testSet <- setdiff(1:length(outcome), trainSet)
       list(trainSet, testSet)
     })
     # Reorganise into two lists: training, testing.
@@ -166,7 +168,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
     rankings <- lapply(1:nrow(tuneCombosSelect), function(rowIndex)
     {
       tuneCombo <- tuneCombosSelect[rowIndex, , drop = FALSE]
-      if(tuneCombo != "none") # Add real parameters before function call.
+      if(!identical(names(tuneCombo), "None")) # Add real parameters before function call.
         paramList <- append(paramList, tuneCombo)
       if(attr(featureRanking, "name") == "randomSelection")
         paramList <- append(paramList, list(nFeatures = topNfeatures))
@@ -333,9 +335,9 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
         result <- runTests(measurementsTrain, outcomeTrain,
                            crossValParams, modellingParams,
                            verbose = verbose)
-        if(is.character(result[[1]])) stop(result)
+        if(is.list(result) && is.character(result[[1]])) stop(result[[1]])
         result <- calcCVperformance(result, performanceType)
-        median(performances(result)[[performanceType]])
+        median(performance(result)[[performanceType]])
       } else {
         stop("Tuning parameter(s) are specified but 'tuneMode' is 'none'. Please see ?CrossValParams for options.") 
       }
@@ -348,7 +350,10 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
     tuneChosen <- tuneCombos[bestOne, , drop = FALSE]
     tuneDetails <- list(tuneCombos, bestOne)
     names(tuneDetails) <- c("tuneCombinations", "bestIndex")
-    modellingParams@trainParams@otherParams <- tuneChosen
+    # Keep the user's other training settings; the chosen tuning values replace any of the same name.
+    otherParams <- modellingParams@trainParams@otherParams
+    otherParams <- otherParams[setdiff(names(otherParams), colnames(tuneChosen))]
+    modellingParams@trainParams@otherParams <- c(otherParams, as.list(tuneChosen))
   }
 
     if (!"previousTrained" %in% attr(modellingParams@trainParams@classifier, "name")) 
@@ -374,7 +379,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
 {
   if(!is.null(predictParams@predictor))
   {
-    measurementsTest <- measurementsTest[, attr(trained, "featuresForTrain")] # Ensure consistency with features used for training.
+    measurementsTest <- measurementsTest[, attr(trained, "featuresForTrain"), drop = FALSE] # Ensure consistency with features used for training.
     paramList <- list(trained, measurementsTest)
     if(length(predictParams@otherParams) > 0) paramList <- c(paramList, predictParams@otherParams)
     paramList <- c(paramList, verbose = verbose)
@@ -581,7 +586,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
         "DLDA" = DLDAparams(),
         "naiveBayes" = naiveBayesParams(tuneParams = tuneParams),
         "mixturesNormals" = mixModelsParams(),
-        "kNN" = kNNparams(),
+        "kNN" = kNNparams(tuneParams = tuneParams),
         "CoxPH" = coxphParams(),
         "CoxNet" = coxnetParams(),
         "previousTrained" = list(TrainParams(previousTrained), NULL)
