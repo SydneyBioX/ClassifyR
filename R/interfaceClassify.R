@@ -10,8 +10,11 @@ classifyInterface <- function(countsTrain, classesTrain, countsTest, ...,
   if(verbose == 3)
     message(Sys.time(), ": Fitting Poisson LDA classifier to training data and making predictions on test data.")
 
-  predicted <- PoiClaClu::Classify(trainingMatrix, classesTrain, testingMatrix, ...)
-  classPredictions <- predicted[["ytehat"]]
+  trainingMatrix <- as.matrix(countsTrain)
+  testingMatrix <- as.matrix(countsTest[, colnames(trainingMatrix), drop = FALSE])
+  # PoiClaClu represents the classes as the numbers 1 to K.
+  predicted <- PoiClaClu::Classify(trainingMatrix, as.integer(classesTrain), testingMatrix, ...)
+  classPredictions <- factor(levels(classesTrain)[predicted[["ytehat"]]], levels = levels(classesTrain))
   classScores <- predicted[["discriminant"]]
   colnames(classScores) <- levels(classesTrain)
   rownames(classScores) <- names(classPredictions) <- rownames(countsTest)

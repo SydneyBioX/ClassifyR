@@ -170,12 +170,12 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
       tuneCombo <- tuneCombosSelect[rowIndex, , drop = FALSE]
       if(!identical(names(tuneCombo), "None")) # Add real parameters before function call.
         paramList <- append(paramList, tuneCombo)
-      if(attr(featureRanking, "name") == "randomSelection")
+      if(identical(attr(featureRanking, "name"), "randomSelection"))
         paramList <- append(paramList, list(nFeatures = topNfeatures))
       do.call(featureRanking, paramList)
     })
 
-    if(attr(featureRanking, "name") %in% c("randomSelection", "previousSelection", "Union Selection")) # Actually selection not ranking.
+    if(isTRUE(attr(featureRanking, "name") %in% c("randomSelection", "previousSelection", "Union Selection"))) # Actually selection not ranking.
       return(list(NULL, rankings[[1]], NULL))
 
     if(crossValParams@tuneMode == "none") # No parameters to choose between.
@@ -409,19 +409,20 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
   do.call(rbind, lapply(distinctClasses, function(aClass)
   {
     classTable <- subset(PRtable, class == aClass)
+    FPR <- classTable[, "FPR"]
+    TPR <- classTable[, "TPR"]
+    current <- seq_along(FPR)[-1]
+    previous <- current - 1
+    # Some samples had identical predictions but belong to different classes.
+    bothChange <- FPR[current] != FPR[previous] & TPR[current] != TPR[previous]
+    if(anyNA(bothChange))
+      stop("The ROC curve of class ", aClass, " has missing rates. Each class needs at least one sample and scores must not be missing.")
+    newAreas <- ifelse(bothChange,
+                       (FPR[current] - FPR[previous]) * TPR[previous] + # Rectangle part
+                       0.5 * (FPR[current] - FPR[previous]) * (TPR[current] - TPR[previous]), # Triangle part on top.
+                       (FPR[current] - FPR[previous]) * TPR[current]) # Line went either up or right, but not both.
     areaSum <- 0
-    for(index in 2:nrow(classTable))
-    {
-      # Some samples had identical predictions but belong to different classes.
-      if(classTable[index, "FPR"] != classTable[index - 1, "FPR"] && classTable[index, "TPR"] != classTable[index - 1, "TPR"])
-      {
-        newArea <- (classTable[index, "FPR"] - classTable[index - 1, "FPR"]) * classTable[index - 1, "TPR"] + # Rectangle part
-         0.5 * (classTable[index, "FPR"] - classTable[index - 1, "FPR"]) * (classTable[index, "TPR"] - classTable[index - 1, "TPR"]) # Triangle part on top.
-      } else { # Only one sample with predicted score. Line went either up or right, but not both.
-        newArea <- (classTable[index, "FPR"] - classTable[index - 1, "FPR"]) * classTable[index, "TPR"]
-      }
-      areaSum <- areaSum + newArea
-    }
+    for(newArea in newAreas) areaSum <- areaSum + newArea # Same order of addition as the trapezoid sum.
     data.frame(classTable, AUC = round(areaSum, 2), check.names = FALSE)
   }))
 }
@@ -656,9 +657,11 @@ predict.dlda <- function(object, newdata, ...) { # Remove once sparsediscrim is 
     newdata <- as.matrix(newdata)
   }
 
+  # Discriminant score of each class: the pooled-variance distance to the class mean, penalised by the prior.
+  # The predicted class has the smallest score.
   scores <- apply(newdata, 1, function(obs) {
     sapply(object$est, function(class_est) {
-      with(class_est, sum((obs - xbar)^2 / object$var_pool) + log(prior))
+      with(class_est, sum((obs - xbar)^2 / object$var_pool) - 2 * log(prior))
     })
   })
 
@@ -688,29 +691,27 @@ predict.dlda <- function(object, newdata, ...) { # Remove once sparsediscrim is 
   }
   x <- as.matrix(x)
 
-  posterior <- mapply(function(xbar_k, cov_k, prior_k) {
-    if (is.vector(cov_k)) {
-      post_k <- apply(x, 1, function(obs) {
-        .dmvnorm_diag(x=obs, mean=xbar_k, sigma=cov_k)
-      })
-    } else {
-      post_k <- dmvnorm(x=x, mean=xbar_k, sigma=cov_k)
-    }
-    prior_k * post_k
+  # Log of prior times density, one column per class. Working on the log scale avoids the underflow
+  # of a product of many per-feature densities.
+  logPosterior <- mapply(function(xbar_k, cov_k, prior_k) {
+    log(prior_k) + apply(x, 1, function(obs) {
+      .dmvnorm_diag(x=obs, mean=xbar_k, sigma=cov_k, log=TRUE)
+    })
   }, means, covs, priors)
-
-  if (is.vector(posterior)) {
-    posterior <- posterior / sum(posterior)
-    posterior <- matrix(posterior, nrow = 1) # Ensure it's always matrix, like just below.
-    colnames(posterior) <- names(priors)
-  } else {
-    posterior <- posterior / rowSums(posterior)
+  if (is.vector(logPosterior)) {
+    logPosterior <- matrix(logPosterior, nrow = 1) # Ensure it's always a matrix.
+    colnames(logPosterior) <- names(priors)
   }
-  posterior
+
+  # Normalise each row with the log-sum-exp.
+  largest <- apply(logPosterior, 1, max)
+  posterior <- exp(logPosterior - largest)
+  posterior / rowSums(posterior)
 }
 
-.dmvnorm_diag <- function(x, mean, sigma) { # Remove once sparsediscrim is reinstated to CRAN.
-  exp(sum(dnorm(x, mean=mean, sd=sqrt(sigma), log=TRUE)))
+.dmvnorm_diag <- function(x, mean, sigma, log = FALSE) { # Remove once sparsediscrim is reinstated to CRAN.
+  logDensity <- sum(dnorm(x, mean=mean, sd=sqrt(sigma), log=TRUE))
+  if (log) logDensity else exp(logDensity)
 }
 
 # Function to create permutations of a vector, with the possibility to restrict values at certain positions.
@@ -727,11 +728,28 @@ predict.dlda <- function(object, newdata, ...) { # Remove once sparsediscrim is 
   
   if(!is.null(fixed))
   {
+    if(!is.matrix(permutations)) permutations <- matrix(permutations, ncol = 1)
     for(rowIndex in seq_len(nrow(fixed)))
     {
       keepColumns <- permutations[fixed[rowIndex, 1], ] == fixed[rowIndex, 2]
-      permutations <- permutations[, keepColumns]
+      permutations <- permutations[, keepColumns, drop = FALSE]
     }
   }
   permutations
+}
+
+# Converts a DataFrame to a data.frame without S4 dispatch for every column, which takes about 0.2 s for a table
+# with thousands of features. Gives the same data.frame as as.data.frame for columns that are plain vectors or
+# factors; other inputs are converted by as.data.frame.
+.asDataFrame <- function(measurements)
+{
+  if(is.data.frame(measurements)) return(measurements)
+  if(!is(measurements, "DataFrame")) return(as.data.frame(measurements))
+  columns <- as.list(measurements)
+  if(!all(vapply(columns, function(column) is.atomic(column) && is.null(dim(column)), logical(1))) ||
+     anyDuplicated(rownames(measurements)) > 0)
+    return(as.data.frame(measurements))
+  attr(columns, "row.names") <- if(is.null(rownames(measurements))) .set_row_names(nrow(measurements)) else rownames(measurements)
+  class(columns) <- "data.frame"
+  columns
 }

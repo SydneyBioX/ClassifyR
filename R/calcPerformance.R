@@ -42,17 +42,17 @@
 #' \item{\code{"Balanced Accuracy"}: Balanced accuracy.}
 #' \item{\code{"Sample Error"}: Error rate for each sample in the data set.}
 #' \item{\code{"Sample Accuracy"}: Accuracy for each sample in the data set.}
-#' \item{\code{"Micro Precision"}: Sum of the number of correct predictions in
-#'         each class, divided by the sum of number of samples in each class.}
-#' \item{\code{"Micro Recall"}: Sum of the number of correct predictions in each 
+#' \item{\code{"Micro Precision"}: Sum of the number of correct predictions in each 
 #'         class, divided by the sum of number of samples predicted as
 #'         belonging to each class.}
+#' \item{\code{"Micro Recall"}: Sum of the number of correct predictions in
+#'         each class, divided by the sum of number of samples in each class.}
 #' \item{\code{"Micro F1"}: F1 score obtained by calculating the
 #' harmonic mean of micro precision and micro recall.}
-#' \item{\code{"Macro Precision"}: Sum of the ratios of the number of correct predictions
-#' in each class to the number of samples in each class, divided by the number of classes.}
-#' \item{\code{"Macro Recall"}: Sum of the ratios of the number of correct predictions in each
+#' \item{\code{"Macro Precision"}: Sum of the ratios of the number of correct predictions in each
 #' class to the number of samples predicted to be in each class, divided by the number of classes.}
+#' \item{\code{"Macro Recall"}: Sum of the ratios of the number of correct predictions
+#' in each class to the number of samples in each class, divided by the number of classes.}
 #' \item{\code{"Macro F1"}: F1 score obtained by calculating the harmonic mean of macro precision
 #' and macro recall.}
 #' \item{\code{"Matthews Correlation Coefficient"}: Matthews Correlation Coefficient (MCC). A score
@@ -102,12 +102,15 @@ setMethod("calcExternalPerformance", c("factor", "factor"),
 {
   if(length(performanceTypes) == 1 && performanceTypes == "auto") performanceTypes <- "Balanced Accuracy"
               
-  if(length(levels(actualOutcome)) > 2 && performanceTypes == "Matthews Correlation Coefficient")
+  if(length(levels(actualOutcome)) > 2 && "Matthews Correlation Coefficient" %in% performanceTypes)
     stop("Error: Matthews Correlation Coefficient specified but data set has more than 2 classes.")
-  if(is(predictedOutcome, "factor")) levels(predictedOutcome) <- levels(actualOutcome)
+  unknownClasses <- setdiff(as.character(predictedOutcome), c(levels(actualOutcome), NA))
+  if(length(unknownClasses) > 0)
+    stop("Predicted classes ", paste(unknownClasses, collapse = ", "), " are not classes of 'actualOutcome'.")
+  predictedOutcome <- factor(as.character(predictedOutcome), levels = levels(actualOutcome)) # Match classes by name.
   
   sapply(performanceTypes, function(performanceType)
-    .calcPerformance(list(actualOutcome), list(predictedOutcome), performanceType = performanceTypes)[["values"]]
+    .calcPerformance(list(actualOutcome), list(predictedOutcome), performanceType = performanceType)[["values"]]
   )
 })
 
@@ -195,9 +198,7 @@ setMethod("calcCVperformance", "ClassifyResult",
                                         performanceType = performanceType, 
                                         grouping = groupID)
         if(grepl(':', names(performance[["values"]])[1])) # Then average for each permutation.
-        {
-          performance[["values"]] <- by(performance[["values"]], sapply(strsplit(names(performance[["values"]]), ':'), '[', 1), mean)
-        }
+          performance[["values"]] <- .averagePermutations(performance[["values"]])
         result@performance[[performance[["name"]]]] <- performance[["values"]]
       }
       
@@ -206,11 +207,7 @@ setMethod("calcCVperformance", "ClassifyResult",
                                         result@predictions[, levels(actualOutcome)],
                                         performanceType = performanceType, grouping = groupID)
         if(grepl(':', names(performance[["values"]])[1])) # Then average for each permutation.
-        {
-          permuteID <- sapply(strsplit(names(performance[["values"]]), ':'), '[', 1)
-          performance[["values"]] <- by(performance[["values"]], permuteID, mean)
-          names(performance[["values"]]) <- unique(permuteID)
-        }
+          performance[["values"]] <- .averagePermutations(performance[["values"]])
         result@performance[[performance[["name"]]]] <- performance[["values"]]
       }
       
@@ -233,6 +230,15 @@ setMethod("calcCVperformance", "ClassifyResult",
   }
   result
 })
+
+# Averages values named "permutation:fold" within each permutation. Permutations are in numerical order.
+.averagePermutations <- function(values)
+{
+  permutationIDs <- sapply(strsplit(names(values), ':'), '[', 1)
+  uniqueIDs <- unique(permutationIDs)
+  uniqueIDs <- uniqueIDs[order(suppressWarnings(as.numeric(uniqueIDs)), uniqueIDs)]
+  sapply(split(values, factor(permutationIDs, levels = uniqueIDs)), mean)
+}
 
 #' @importFrom survival concordance
 .calcPerformance <- function(actualOutcome, predictedOutcome, samples = NA, performanceType, grouping = NULL)
@@ -267,38 +273,28 @@ setMethod("calcCVperformance", "ClassifyResult",
     
   if(performanceType == "Sample C-index")
   {
-    performanceValues <- do.call(rbind, mapply(function(iterationSurv, iterationPredictions, iterationSamples)
+    # For each sample, count the concordant and discordant comparable pairs it belongs to, within each group.
+    pairCounts <- do.call(rbind, mapply(function(iterationSurv, iterationPredictions, iterationSamples)
     {
-      do.call(rbind, lapply(iterationSamples, function(sampleID)
-      {
-        sampleIndex <- which(iterationSamples == sampleID)
-        otherIndices <- setdiff(seq_along(iterationSamples), sampleIndex)
-        concordants <- discordants <- 0
-        iterationSurv <- as.matrix(iterationSurv)
-        for(compareIndex in otherIndices)
-        {
-          if(iterationSurv[sampleIndex, "time"] < iterationSurv[compareIndex, "time"] && iterationPredictions[sampleIndex] > iterationPredictions[compareIndex] && iterationSurv[sampleIndex, "status"] == 1)
-          { # Reference sample has shorter time, it is not censored, greater risk. Concordant.
-            concordants <- concordants + 1
-          } else if(iterationSurv[sampleIndex, "time"] > iterationSurv[compareIndex, "time"] && iterationPredictions[sampleIndex] < iterationPredictions[compareIndex] && iterationSurv[compareIndex, "status"] == 1)
-          { # Reference sample has longer time, the comparison sample is not censored, lower risk. Concordant.
-            concordants <- concordants + 1
-          } else if(iterationSurv[sampleIndex, "time"] < iterationSurv[compareIndex, "time"] && iterationPredictions[sampleIndex] < iterationPredictions[compareIndex] && iterationSurv[sampleIndex, "status"] == 1)
-          { # Reference sample has shorter time, it is not censored, but lower risk than comparison sample. Discordant.
-            discordants <- discordants + 1
-          } else if(iterationSurv[sampleIndex, "time"] > iterationSurv[compareIndex, "time"] && iterationPredictions[sampleIndex] > iterationPredictions[compareIndex] && iterationSurv[compareIndex, "status"] == 1)
-          { # Reference sample has longer time, the comparison sample is not censored, but higher risk than comparison sample. Discordant.
-            discordants <- discordants + 1
-          }
-        }
-        data.frame(sample = sampleID, concordant = concordants, discordant = discordants)
-      }))
+      iterationSurv <- as.matrix(iterationSurv)
+      times <- iterationSurv[, "time"]
+      # Element [i, j] is TRUE if sample i has a shorter time than sample j and sample i is not censored.
+      earlierEvent <- outer(times, times, '<') & iterationSurv[, "status"] == 1
+      higherRisk <- outer(iterationPredictions, iterationPredictions, '>')
+      lowerRisk <- outer(iterationPredictions, iterationPredictions, '<')
+      # Concordant: the sample with the earlier event has the higher risk. Discordant: it has the lower risk.
+      concordant <- earlierEvent & higherRisk
+      discordant <- earlierEvent & lowerRisk
+      data.frame(sample = iterationSamples,
+                 concordant = rowSums(concordant) + colSums(concordant),
+                 discordant = rowSums(discordant) + colSums(discordant))
     }, actualOutcome, predictedOutcome, samples, SIMPLIFY = FALSE))
 
-    sampleValues <- by(performanceValues[, c("concordant", "discordant")], performanceValues[, "sample"], colSums)
-    Cindex <- round(sapply(sampleValues, '[', 1) / (sapply(sampleValues, '[', 1) + sapply(sampleValues, '[', 2)), 2)
-    names(Cindex) <- names(sampleValues)
-    Cindex[is.nan(Cindex)] <- NA # The individual with the smallest censored time might not have any useful inequalities in some results but rarely do.
+    concordants <- rowsum(pairCounts[, "concordant"], pairCounts[, "sample"])[, 1]
+    discordants <- rowsum(pairCounts[, "discordant"], pairCounts[, "sample"])[, 1]
+    Cindex <- round(concordants / (concordants + discordants), 2)[allSamples]
+    names(Cindex) <- allSamples
+    Cindex[is.nan(Cindex)] <- NA # A censored individual with a time shorter than all events has no comparable pairs.
     return(list(name = performanceType, values = Cindex))
   }
   
@@ -337,20 +333,8 @@ setMethod("calcCVperformance", "ClassifyResult",
     {
       classesTable <- do.call(rbind, lapply(levels(iterationClasses), function(class)
       {
-        totalPositives <- sum(iterationClasses == class)
-        totalNegatives <- sum(iterationClasses != class)
-        uniquePredictions <- sort(unique(iterationPredictions[, class]), decreasing = TRUE)
-        rates <- do.call(rbind, lapply(uniquePredictions, function(uniquePrediction)
-        {
-          consideredSamples <- iterationPredictions[, class] >= uniquePrediction
-          truePositives <- sum(iterationClasses[consideredSamples] == class)
-          falsePositives <- sum(iterationClasses[consideredSamples] != class)
-          TPR <- truePositives / totalPositives
-          FPR <- falsePositives / totalNegatives
-          data.frame(FPR = FPR, TPR = TPR, class = class)
-        }))
-        rates <- rbind(data.frame(FPR = 0, TPR = 0, class = class), rates)
-        rates
+        rates <- .ROCrates(iterationPredictions[, class], iterationClasses == class)
+        data.frame(FPR = c(0, rates[["FPR"]]), TPR = c(0, rates[["TPR"]]), class = class)
       }))
       classesAUC <- .calcArea(classesTable, levels(actualOutcome[[1]]))
       mean(classesAUC[!duplicated(classesAUC[, c("class", "AUC")]), "AUC"]) # Average AUC in iteration.
@@ -445,7 +429,7 @@ performanceTable <- function(resultsList, performanceTypes = "auto", aggregate =
 #' @rdname calcPerformance
 #' @usage NULL
 #' @export
-setGeneric("easyHard", function(measurements, result, assay, performanceType, ...)
+setGeneric("easyHard", function(measurements, result, ...)
     standardGeneric("easyHard"))
 
 #' @rdname calcPerformance
@@ -468,16 +452,18 @@ setMethod("easyHard", "MultiAssayExperimentOrList",
   if(!requireNamespace("glmnet", quietly = TRUE))
     stop("The package 'glmnet' could not be found. Please install it.")
                             
-  if(!assay %in% names(measurements)) stop("'assay' is not one of the names of 'measurements'.")
+  if(!assay %in% c(names(measurements), if(is(measurements, "MultiAssayExperiment")) "clinical"))
+    stop("'assay' is not one of the names of 'measurements'.")
   fitMode  <- match.arg(fitMode)              
               
   if(is(measurements, "MultiAssayExperiment"))
   {
     if(assay == "clinical")
       assay <- colData(measurements)
-    else assay <- t(measurements[, , assay]) # Ensure that features are in columns.
+    else assay <- t(as.matrix(MultiAssayExperiment::assays(measurements)[[assay]])) # Ensure that features are in columns.
   } else {assay <- measurements[[assay]]}
-  if(!is.null(useFeatures)) assay <- assay[, useFeatures]
+  if(is.matrix(assay)) assay <- S4Vectors::DataFrame(assay, check.names = FALSE)
+  if(!is.null(useFeatures)) assay <- assay[, useFeatures, drop = FALSE]
   if(performanceType == "auto")
   {
       if("risk" %in% colnames(predictions(result)))
@@ -491,13 +477,10 @@ setMethod("easyHard", "MultiAssayExperimentOrList",
     result <- calcCVperformance(result, performanceType)
   }
   samplePerformance <- performance(result)[[performanceType]]
-  if(any(is.na(samplePerformance)))
-  {
-    keep <- !is.na(samplePerformance)
-    assay <- assay[keep, ]
-    samplePerformance <- samplePerformance[keep]
-  }
-  assay <- assay[names(samplePerformance), ] # Just in case.
+  samplePerformance <- samplePerformance[!is.na(samplePerformance)]
+  if(!all(names(samplePerformance) %in% rownames(assay)))
+    stop("Some samples of 'result' are not row names of the assay.")
+  assay <- assay[names(samplePerformance), , drop = FALSE] # Match samples by name.
   assayOHE <- MatrixModels::model.Matrix(~ 0 + ., data = assay)
   
   if(fitMode == "single")
@@ -530,3 +513,21 @@ setMethod("easyHard", "MultiAssayExperimentOrList",
     broom::tidy(fitted)
   }
 })
+# Calculates the true positive rate and false positive rate at each distinct score, from the highest
+# score to the lowest. A sample is predicted positive if its score is at least the threshold.
+.ROCrates <- function(scores, isPositive)
+{
+  totalPositives <- sum(isPositive)
+  totalNegatives <- sum(!isPositive)
+  scoresOrder <- order(scores, decreasing = TRUE, na.last = NA)
+  scoresSorted <- scores[scoresOrder]
+  truePositives <- cumsum(isPositive[scoresOrder])
+  falsePositives <- cumsum(!isPositive[scoresOrder])
+  # Keep the last sample of each group of tied scores, so that all tied samples are counted.
+  thresholdEnds <- c(scoresSorted[-1] != scoresSorted[-length(scoresSorted)], TRUE)
+  truePositives <- truePositives[thresholdEnds]
+  falsePositives <- falsePositives[thresholdEnds]
+  if(anyNA(scores)) # Comparisons to a missing score are unknown.
+    truePositives <- falsePositives <- rep(NA_integer_, length(truePositives))
+  list(FPR = falsePositives / totalNegatives, TPR = truePositives / totalPositives)
+}

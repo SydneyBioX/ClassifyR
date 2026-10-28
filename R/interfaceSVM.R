@@ -6,8 +6,17 @@ SVMtrainInterface <- function(measurementsTrain, classesTrain, ..., verbose = 3)
   
   if(verbose == 3)
     message(Sys.time(), ": Fitting SVM classifier to data.")
-  allVariables <- cbind(measurementsTrain, classesTrain) 
-  trained <- e1071::svm(classesTrain ~ ., data = allVariables, probability = TRUE, ...)
+  # Numeric features are given as a matrix, which skips building a model frame; the fitted model is the same as
+  # from the formula. Other features are encoded by the formula interface.
+  isNumeric <- vapply(as.list(measurementsTrain), is.numeric, logical(1))
+  if(all(isNumeric))
+  {
+    trained <- e1071::svm(x = as.matrix(measurementsTrain), y = classesTrain, probability = TRUE, ...)
+    attr(trained, "features") <- colnames(measurementsTrain)
+  } else {
+    allVariables <- cbind(measurementsTrain, classesTrain) 
+    trained <- e1071::svm(classesTrain ~ ., data = allVariables, probability = TRUE, ...)
+  }
   
   if(ncol(measurementsTrain) == 1) # Handle inconsistency by e1071 to not always name columns.
       colnames(trained[["SV"]]) <- colnames(measurementsTrain)
@@ -26,9 +35,13 @@ SVMpredictInterface <- function(model, measurementsTest, returnType = c("both", 
   if(verbose == 3)
     message("Predicting classes using trained SVM classifier.")
   
-  # Prediction function depends on test data having same set of columns in same order as
-  # selected features used for training.
-  measurementsTest <- model.matrix(~ ., data = measurementsTest)
+  if(!is.null(attr(model, "features"))) # Fitted to a matrix of numeric features; give them in the same order.
+  {
+    measurementsTest <- as.matrix(measurementsTest[, attr(model, "features"), drop = FALSE])
+  } else { # Fitted with a formula, so prediction on a data frame encodes the features in the same
+           # way as for training, matching them by name.
+    measurementsTest <- .asDataFrame(measurementsTest)
+  }
   classPredictions <- predict(model, measurementsTest, probability = TRUE)
   
   # e1071 uses attributes to pass back probabilities. Make them a standalone variable.

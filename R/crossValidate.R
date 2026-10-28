@@ -53,6 +53,14 @@
 #' \code{selectionMethod} can be a keyword for any of the implemented approaches as shown by \code{available("selectionMethod")}.
 #' \code{multiViewMethod} can be a keyword for any of the implemented approaches as shown by \code{available("multiViewMethod")}.
 #'
+#' Every assay, classifier, selection method and combination of assays in one call is evaluated on the same
+#' training and test splits, so their performances can be compared sample by sample and split by split.
+#'
+#' If \code{nFeatures} has several values and no tuning mode is given in \code{extraParams}, the number of features is
+#' chosen by resubstitution: the classifier is trained and evaluated on the training samples for each value. Classifiers
+#' that fit their training samples perfectly (e.g. random forest) give every value the same performance, and then the
+#' smallest value is chosen.
+#'
 #' @return An object of class \code{\link{ClassifyResult}}
 #' @export
 #' @aliases crossValidate crossValidate,matrix-method crossValidate,DataFrame-method
@@ -162,7 +170,12 @@ setMethod("crossValidate", "DataFrame",
               classifier <- cleanClassifier(classifier = classifier,
                                             measurements = measurements, nFeatures = nFeaturesUse)
               
-              ##!!!!! Do something with data combinations
+              if(length(multiViewMethod) != 1 || !multiViewMethod %in% c("none", "merge", "prevalidation", "PCA"))
+                stop("multiViewMethod must be one of \"none\", \"merge\", \"prevalidation\" or \"PCA\" (see available(\"multiViewMethod\")).")
+
+              # Every cross-validation is prepared first, then all of their splits share one pool of workers.
+              queue <- .crossValidationQueue()
+
 
               ################################
               #### No multiview
@@ -201,7 +214,7 @@ setMethod("crossValidate", "DataFrame",
                                       nRepeats = nRepeats,
                                       nCores = nCores,
                                       characteristicsLabel = characteristicsLabel,
-                                      extraParams = extraParams, verbose = verbose
+                                      extraParams = extraParams, verbose = verbose, queue = queue
                                   )
                               },
                               simplify = FALSE)
@@ -216,45 +229,18 @@ setMethod("crossValidate", "DataFrame",
               #### Yes multiview
               ################################
 
-              ### Merging or binding to combine data
-              if(multiViewMethod == "merge"){
-
-
-                  # The below loops over different combinations of assays and merges them together.
-                  # This allows someone to answer which combinations of the assays might be most useful.
-
-                  if(!is.list(assayCombinations) && assayCombinations[1] == "all") assayCombinations <- do.call("c", sapply(seq_along(assayIDs), function(nChoose) combn(assayIDs, nChoose, simplify = FALSE)))
-
-                  result <- sapply(assayCombinations, function(assayIndex){
-                      CV(measurements = measurements[, S4Vectors::mcols(measurements)[["assay"]] %in% assayIndex, drop = FALSE],
-                         outcome = outcome, assayIDs = assayIndex,
-                         nFeatures = nFeaturesUse[assayIndex],
-                         selectionMethod = selectionMethod[assayIndex],
-                         classifier = classifier[assayIndex],
-                         multiViewMethod = ifelse(length(assayIndex) == 1, "none", multiViewMethod),
-                         nFolds = nFolds,
-                         nRepeats = nRepeats,
-                         nCores = nCores,
-                         characteristicsLabel = characteristicsLabel,
-                         extraParams = extraParams, verbose = verbose)
-                  }, simplify = FALSE)
-
-              }
-
-
-              ### Prevalidation to combine data
-              if(multiViewMethod == "prevalidation"){
-
-
-                  # The below loops over different combinations of assays and combines them together using prevalidation.
-                  # This allows someone to answer which combinations of the assays might be most useful.
-
-
+              # Merging, prevalidation or PCA combine the assays of each combination of assays. This allows
+              # someone to answer which combinations of the assays might be most useful.
+              if(multiViewMethod %in% c("merge", "prevalidation", "PCA"))
+              {
                   if(!is.list(assayCombinations) && assayCombinations[1] == "all")
                   {
                       assayCombinations <- do.call("c", sapply(seq_along(assayIDs), function(nChoose) combn(assayIDs, nChoose, simplify = FALSE)))
-                      assayCombinations <- assayCombinations[sapply(assayCombinations, function(combination) "clinical" %in% combination, simplify = TRUE)]
-                      if(length(assayCombinations) == 0) stop("No assayCombinations with \"clinical\" data")
+                      if(multiViewMethod != "merge") # Prevalidation and PCA add the other assays to the clinical data.
+                      {
+                          assayCombinations <- assayCombinations[sapply(assayCombinations, function(combination) "clinical" %in% combination, simplify = TRUE)]
+                          if(length(assayCombinations) == 0) stop("No assayCombinations with \"clinical\" data")
+                      }
                   }
 
                   result <- sapply(assayCombinations, function(assayIndex){
@@ -268,43 +254,11 @@ setMethod("crossValidate", "DataFrame",
                          nRepeats = nRepeats,
                          nCores = nCores,
                          characteristicsLabel = characteristicsLabel,
-                         extraParams = extraParams, verbose = verbose)
+                         extraParams = extraParams, verbose = verbose, queue = queue)
                   }, simplify = FALSE)
-
               }
 
-
-
-              ### Principal Components Analysis to combine data
-              if(multiViewMethod == "PCA"){
-
-
-                  # The below loops over different combinations of assays and combines them together using prevalidation.
-                  # This allows someone to answer which combinations of the assays might be most useful.
-
-
-                  if(!is.list(assayCombinations) && assayCombinations[1] == "all"){
-                      assayCombinations <- do.call("c", sapply(seq_along(assayIDs),function(nChoose) combn(assayIDs, nChoose, simplify = FALSE)))
-                      assayCombinations <- assayCombinations[sapply(assayCombinations, function(combination) "clinical" %in% combination, simplify = TRUE)]
-                      if(length(assayCombinations) == 0) stop("No assayCombinations with \"clinical\" data")
-                  }
-
-
-                  result <- sapply(assayCombinations, function(assayIndex){
-                      CV(measurements = measurements[, S4Vectors::mcols(measurements)$assay %in% assayIndex, drop = FALSE],
-                         outcome = outcome, assayIDs = assayIndex,
-                         nFeatures = nFeaturesUse[assayIndex],
-                         selectionMethod = selectionMethod[assayIndex],
-                         classifier = classifier[assayIndex],
-                         multiViewMethod = ifelse(length(assayIndex) == 1, "none", multiViewMethod),
-                         nFolds = nFolds,
-                         nRepeats = nRepeats,
-                         nCores = nCores,
-                         characteristicsLabel = characteristicsLabel,
-                         extraParams = extraParams, verbose = verbose)
-                  }, simplify = FALSE)
-
-              }
+              result <- .runCrossValidationQueue(queue, result, nCores)
               if(length(result) == 1) result <- result[[1]]
               result
 
@@ -466,24 +420,18 @@ Using an ordinary GLM instead.")
     classifier
 }
 
-generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams){
+generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams, seed = NULL){
 
-    if(!exists(".Random.seed")) stop("Predictive modelling should always be reproducible. Please use set.seed(<number>) yourself and run 'crossValidate' again.")
-    index <- ifelse(.Random.seed[2] + 2 == length(.Random.seed), 3, 3 + .Random.seed[2]) # Right after set.seed, the second number is the length of the random integer vector.
-    seed <- .Random.seed[index] # Get current random number.
-    
-    # Set the BPparam RNGseed.
-    if(nCores == 1)
+    if(is.null(seed))
     {
-        BPparam <- SerialParam(RNGseed = seed)
-    } else { # Parallel processing is desired.
-        
-        if(.Platform$OS.type == "windows") {# Only SnowParam suits Windows.
-            BPparam <- BiocParallel::SnowParam(min(nCores, BiocParallel::snowWorkers("SOCK")), RNGseed = seed)
-        } else { # Unix-alikes, including macOS and Linux.
-            BPparam <- BiocParallel::MulticoreParam(min(nCores, BiocParallel::multicoreWorkers()), RNGseed = seed) # Multicore is faster than SNOW, but it doesn't work on Windows.
-        }
+      if(!exists(".Random.seed")) stop("Predictive modelling should always be reproducible. Please use set.seed(<number>) yourself and run 'crossValidate' again.")
+      index <- ifelse(.Random.seed[2] + 2 == length(.Random.seed), 3, 3 + .Random.seed[2]) # Right after set.seed, the second number is the length of the random integer vector.
+      seed <- .Random.seed[index] # Get current random number.
     }
+    
+    # The seed sets the random number streams of the splits. Workers come from one pool per crossValidate call
+    # (.makeWorkerPool); nested cross-validations within a split run serially.
+    BPparam <- BiocParallel::SerialParam(RNGseed = seed)
     tuneMode <- "none"
     performanceType <- "N/A"
     if(!is.null(extraParams[["tuneCross"]][["performanceType"]])) performanceType <- extraParams[["tuneCross"]][["performanceType"]]
@@ -523,6 +471,78 @@ generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams){
   if(canTune && length(stageParams@tuneParams) == 0) stageParams@tuneParams <- NULL
   if(length(stageParams@otherParams) == 0) stageParams@otherParams <- NULL
   stageParams
+}
+
+# A queue of prepared cross-validations; add() returns the position of the added one.
+# The first cross-validation's seed and splits are kept, so that every later one uses the same splits.
+.crossValidationQueue <- function()
+{
+  items <- list()
+  shared <- NULL
+  list(add = function(item)
+       {
+         items[[length(items) + 1]] <<- item
+         if(is.null(shared))
+           shared <<- list(seed = BiocParallel::bpRNGseed(item[["crossValParams"]]@parallelParams),
+                           splits = item[["splits"]], nSamples = length(item[["outcome"]]))
+         length(items)
+       },
+       items = function() items,
+       shared = function() shared)
+}
+
+# Parallel workers for nCores cores, made once per call by .poolApply after the data are prepared: forked processes
+# on Linux and macOS, which share the main session's data without copying it, and socket workers on Windows, which
+# are sent the data once each.
+.makeWorkerPool <- function(nCores, nTasks)
+{
+  structure(list(workers = as.integer(max(1, min(nCores, nTasks))),
+                 type = if(.Platform$OS.type == "windows") "PSOCK" else "FORK"), class = "workerPool")
+}
+
+# lapply(X, FUN) on the workers of pool. FUN is left in .ClassifyRenvir of each worker (by forking, or sent once to
+# each socket worker), so only the elements of X and the results are passed between processes. The random number
+# state of the main session is the same afterwards as before.
+.poolApply <- function(X, FUN, pool)
+{
+  previousSeed <- if(exists(".Random.seed", envir = globalenv())) get(".Random.seed", envir = globalenv())
+  on.exit(if(is.null(previousSeed)) suppressWarnings(rm(".Random.seed", envir = globalenv())) else
+            assign(".Random.seed", previousSeed, envir = globalenv()))
+  if(pool[["workers"]] == 1) return(lapply(X, FUN))
+  
+  assign("currentTask", FUN, envir = .ClassifyRenvir)
+  on.exit(rm("currentTask", envir = .ClassifyRenvir), add = TRUE)
+  if(pool[["type"]] == "FORK")
+  {
+    workers <- parallel::makeForkCluster(pool[["workers"]])
+  } else {
+    workers <- parallel::makePSOCKcluster(pool[["workers"]])
+    # The same package libraries as this session, then the task function. The functions sent have the global
+    # environment as theirs, so that this call's data aren't sent along with them.
+    setLibraries <- function(paths) { base::.libPaths(paths); NULL }
+    setTask <- function(task) { assign("currentTask", task, envir = get(".ClassifyRenvir", envir = asNamespace("ClassifyR"))); NULL }
+    environment(setLibraries) <- environment(setTask) <- globalenv()
+    parallel::clusterCall(workers, setLibraries, .libPaths())
+    parallel::clusterCall(workers, setTask, FUN)
+  }
+  on.exit(parallel::stopCluster(workers), add = TRUE)
+  runTask <- function(element) get("currentTask", envir = .ClassifyRenvir)(element)
+  environment(runTask) <- asNamespace("ClassifyR") # Sent to workers as a reference, not with this call's data.
+  # Tasks are handed out in chunks as workers become free, about eight chunks per worker: enough for quick and slow
+  # tasks to balance out, and few enough that workers don't wait long for the main process to send the next chunk.
+  parallel::parLapplyLB(workers, X, runTask, chunk.size = max(1L, ceiling(length(X) / (8L * pool[["workers"]]))))
+}
+
+# Runs the splits of every queued cross-validation in one pool of workers and replaces each queue position in
+# positions (a vector or list, possibly named) by its ClassifyResult.
+.runCrossValidationQueue <- function(queue, positions, nCores)
+{
+  crossValidations <- queue$items()
+  if(length(crossValidations) == 0) return(positions)
+  nTasks <- sum(sapply(crossValidations, function(crossValidation) length(crossValidation[["splits"]][["train"]])))
+  results <- .runTestsSplits(crossValidations, .makeWorkerPool(nCores, nTasks))
+  classifyResults <- mapply(.assembleTests, crossValidations, results, SIMPLIFY = FALSE)
+  lapply(as.list(positions), function(position) classifyResults[[position]])
 }
 
 # Returns a single parameter set.
@@ -711,8 +731,8 @@ generateMultiviewParams <- function(assayIDs,
 
 }
 
-# measurements, outcome are mutually exclusive with x, outcomeTrain, measurementsTest, outcomeTest.
-CV <- function(measurements, outcome, x, outcomeTrain, measurementsTest, outcomeTest,
+# Cross-validation of one assay or combination of assays with one classifier and selection method.
+CV <- function(measurements, outcome,
                assayIDs,
                nFeatures,
                selectionMethod,
@@ -721,23 +741,24 @@ CV <- function(measurements, outcome, x, outcomeTrain, measurementsTest, outcome
                nFolds,
                nRepeats,
                nCores,
-               characteristicsLabel, extraParams, verbose)
+               characteristicsLabel, extraParams, verbose, queue = NULL)
 
 {
     # Which data-types or data-views are present?
     if(is.null(characteristicsLabel)) characteristicsLabel <- "none"
 
-    # Setup cross-validation parameters. Could be needed for independent train/test if parameter tuning
-    # is specified to be done by nested cross-validation.
+    # Cross-validations queued by one crossValidate call share the first one's seed and splits.
+    shared <- if(!is.null(queue)) queue$shared() else NULL
     crossValParams <- generateCrossValParams(nRepeats = nRepeats,
                                              nFolds = nFolds,
                                              nCores = nCores,
-                                             extraParams = extraParams)
+                                             extraParams = extraParams,
+                                             seed = shared[["seed"]])
     
 
     # Turn text into TrainParams and TestParams objects
     modellingParams <- generateModellingParams(assayIDs = assayIDs,
-                                               measurements = if(!is.null(measurements)) measurements else x,
+                                               measurements = measurements,
                                                nFeatures = nFeatures,
                                                selectionMethod = selectionMethod,
                                                classifier = classifier,
@@ -749,25 +770,11 @@ CV <- function(measurements, outcome, x, outcomeTrain, measurementsTest, outcome
     if(length(assayIDs) > 1 || length(assayIDs) == 1 && assayIDs != 1) assayText <- assayIDs else assayText <- NULL
     characteristics <- S4Vectors::DataFrame(characteristic = c(if(!is.null(assayText)) "Assay Name" else NULL, "Classifier Name", "Selection Name", "multiViewMethod", "characteristicsLabel"), value = c(if(!is.null(assayText)) paste(assayText, collapse = ", ") else NULL, paste(classifier, collapse = ", "),  paste(selectionMethod, collapse = ", "), multiViewMethod, characteristicsLabel))
 
-    if(!is.null(measurements))
-    { # Cross-validation.
-      classifyResults <- runTests(measurements, outcome, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics, verbose = verbose)
-    } else { # Independent training and testing.
-      classifyResults <- runTest(x, outcomeTrain, measurementsTest, outcomeTest, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics)
-      if(is.character(classifyResults)) stop(classifyResults)
-      fullResult <- runTest(measurements, outcome, measurements, outcome, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics, .iteration = 1)
-      classifyResults@finalModel <- fullResult$models
-      class(classifyResults@finalModel) <- c("trainedByClassifyR", classifyResults@finalModel)
-      attr(classifyResults@finalModel, "predictFunction") <- modellingParams@trainParams@classifier
-    }
-    
-    classifyResults
-}
-
-simplifyResults <- function(results, values = c("assay", "classifier", "selectionMethod", "multiViewMethod")){
-    ch <- sapply(results, function(x) x@characteristics[x@characteristics$characteristic %in% values, "value"], simplify = TRUE)
-    ch <- data.frame(t(ch))
-    results[!duplicated(ch)]
+    if(!is.null(queue)) # Prepare it now and run it with the others in the queue; return its position in the queue.
+      return(queue$add(.prepareTests(measurements, outcome, crossValParams, modellingParams, characteristics, verbose,
+                                     splits = if(!is.null(shared) && shared[["nSamples"]] == nrow(measurements)) shared[["splits"]],
+                                     deferFinal = TRUE)))
+    runTests(measurements, outcome, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics, verbose = verbose)
 }
 
 #' @rdname crossValidate
@@ -892,6 +899,9 @@ train.list <- function(x, outcomeTrain, ...)
                 if (!all(sapply(x, nrow) == length(outcomeTrain)) && !is.character(outcomeTrain))
                   stop("outcome must have same number of samples as measurements")
               
+              # The samples of every table in the order of the first table's.
+              if(!is.null(rownames(x[[1]])))
+                x <- lapply(x, function(measurements) measurements[rownames(x[[1]]), , drop = FALSE])
               df_list <- lapply(x, S4Vectors::DataFrame, check.names = FALSE)
               
               # Features are named assay_feature, as crossValidate and predict name them.
@@ -948,6 +958,8 @@ predict.trainedByClassifyR <- function(object, newData, outcome, ...)
   } else if(is(newData, "tabular")) {
     newData <- S4Vectors::DataFrame(newData, check.names = FALSE)
   } else if(is.list(newData)) { # Features of several assays are named assay_feature.
+    if(!is.null(rownames(newData[[1]]))) # The samples of every table in the order of the first table's.
+      newData <- lapply(newData, function(measurements) measurements[rownames(newData[[1]]), , drop = FALSE])
     newData <- do.call(cbind, mapply(function(measurementsOne, assayID)
     {
       measurementsOne <- S4Vectors::DataFrame(measurementsOne, check.names = FALSE)

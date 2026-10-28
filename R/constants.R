@@ -1,3 +1,9 @@
+#' @importFrom stats aggregate binomial chisq.test density dist dnorm fisher.test glm hclust mad median model.frame
+#' model.matrix na.omit na.pass pnorm prcomp predict quantile quasibinomial sd setNames splinefun var weighted.mean
+#' @importFrom utils combn head tail
+#' @importFrom S4Vectors first second mcols<-
+NULL
+
 .ClassifyRenvir <- new.env(parent = emptyenv())
 
 # Used internally during parameter selection based on best performance.
@@ -12,7 +18,7 @@
                                                       "Macro Recall", "higher",
                                                       "Macro F1", "higher",
                                                       "Matthews Correlation Coefficient", "higher",
-                                                      "AUC", "higer",
+                                                      "AUC", "higher",
                                                       "C-index", "higher"),
                                                     ncol = 2, byrow = TRUE, dimnames = list(NULL, c("type", "better"))
 ) |> as.data.frame()
@@ -103,4 +109,4 @@
   ncol = 2, byrow = TRUE, dimnames = list(NULL, c("multiViewMethod Keyword", "Description"))
 ) |> as.data.frame()
 
-.ClassifyRenvir[["prepareDataFormals"]] <- c("useFeatures", "maxMissingProp", "topNvariance")
+.ClassifyRenvir[["prepareDataFormals"]] <- c("useFeatures", "maxMissingProp", "maxSimilarity", "topNvariance")

@@ -61,10 +61,17 @@ for a classification task or Cox proportional hazards model for a survival task.
 \value{
 A list with elements \code{"real"} for the matrix of pairwise performance metrics using real
 feature selection, \code{"random"} if \code{doRandomFeatures} is \code{TRUE} for metrics of random selection, 
-\code{"top"} if \code{runTOP} is \code{TRUE}, and \code{"params"} for a list of parameters used.
+\code{"top"} if \code{runTOP} is \code{TRUE}, and \code{"params"} for a list of parameters used. The element
+\code{"diagonal"} of \code{"params"} states how the diagonal was evaluated.
 }
 \description{
 This function has been designed to perform cross-validation and model prediction on datasets in a pairwise manner.
+}
+\details{
+Only the features measured in every data set are used. For \code{trainType = "modelTrain"}, the diagonal of
+the performance matrix is resubstitution: the model is evaluated on the data set it was trained on. For
+\code{trainType = "modelTest"}, the diagonal is the cross-validated performance of feature selection and
+training within that data set. If \code{nFeatures} has several values, the random feature baseline uses the largest one.
 }
 \author{
 Harry Robertson

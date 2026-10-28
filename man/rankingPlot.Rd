@@ -91,8 +91,7 @@ FALSE, it is hidden.}
 \code{\link{SnowParam}}.}
 }
 \value{
-An object of class \code{ggplot} and a plot on the current graphics
-device, if \code{plot} is \code{TRUE}.
+An object of class \code{ggplot}.
 }
 \description{
 Pair-wise overlaps can be done for two types of analyses. Firstly, each

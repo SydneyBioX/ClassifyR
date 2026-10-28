@@ -15,11 +15,16 @@ crissCrossPlot(
 
 \item{includeValues}{Logical. If \code{TRUE}, numeric values are printed on each tile.}
 
-\item{showResubMetric}{Logical. If \code{FALSE}, the diagonal (resubstitution) cells
+\item{showResubMetric}{Logical. If \code{FALSE}, the diagonal (resubstitution) cells of a \code{"modelTrain"} result
 are set to \code{NA} and appear grayed-out or blank. Defaults to \code{FALSE}.}
+}
+\value{
+A \code{ggplot} object, or a combined plot of two heatmaps if random features were evaluated.
 }
 \description{
 This function generates a heatmap of the cross-validation results from
-\code{\link{crissCrossValidate}}. By default, it hides the "resubstitution" diagonal
-(where the training == test set) unless \code{showResubMetric = TRUE}.
+\code{\link{crissCrossValidate}}. For \code{trainType = "modelTrain"}, the diagonal
+(where the training set is the test set) is resubstitution and is hidden unless \code{showResubMetric = TRUE}.
+For \code{trainType = "modelTest"}, the diagonal is cross-validation within each data set; it is shown and
+outlined in black.
 }
