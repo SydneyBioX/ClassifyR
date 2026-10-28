@@ -1,5 +1,5 @@
 # An Interface for xgboost Package's xgb.train Function
-extremeGradientBoostingTrainInterface <- function(measurementsTrain, outcomeTrain, mTryProportion = 0.5, nrounds = 10, ..., verbose = 3)
+extremeGradientBoostingTrainInterface <- function(measurementsTrain, outcomeTrain, mTryProportion = 0.5, nrounds = 100, ..., verbose = 3)
 {
   if(!requireNamespace("xgboost", quietly = TRUE))
     stop("The package 'xgboost' could not be found. Please install it.")
