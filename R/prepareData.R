@@ -58,7 +58,6 @@ setMethod("prepareData", "data.frame",
   prepareData(S4Vectors::DataFrame(measurements, check.names = FALSE), outcome, ...)
 })
 
-#' @importFrom dcanr cor.pairs
 #' @rdname prepareData
 #' @export
 setMethod("prepareData", "DataFrame",
@@ -266,7 +265,7 @@ setMethod("prepareData", "DataFrame",
     numericFeatures <- sapply(measurements, class) == "numeric"
     if(any(numericFeatures))
     {
-        correlations <- dcanr::cor.pairs(as.matrix(measurements[, numericFeatures]))
+        correlations <- stats::cor(as.matrix(measurements[, numericFeatures, drop = FALSE]))
         correlations[lower.tri(correlations, diag = TRUE)] <- 0 # Each pair once; the second variable of a pair is dropped.
         dropFeatures <- c(dropFeatures, which(numericFeatures)[unique(which(correlations > maxSimilarity, arr.ind = TRUE)[, 2])])
     }

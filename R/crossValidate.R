@@ -162,7 +162,8 @@ setMethod("crossValidate", "DataFrame",
               classifier <- cleanClassifier(classifier = classifier,
                                             measurements = measurements, nFeatures = nFeaturesUse)
               
-              ##!!!!! Do something with data combinations
+              if(length(multiViewMethod) != 1 || !multiViewMethod %in% c("none", "merge", "prevalidation", "PCA"))
+                stop("multiViewMethod must be one of \"none\", \"merge\", \"prevalidation\" or \"PCA\" (see available(\"multiViewMethod\")).")
 
               ################################
               #### No multiview
@@ -216,45 +217,18 @@ setMethod("crossValidate", "DataFrame",
               #### Yes multiview
               ################################
 
-              ### Merging or binding to combine data
-              if(multiViewMethod == "merge"){
-
-
-                  # The below loops over different combinations of assays and merges them together.
-                  # This allows someone to answer which combinations of the assays might be most useful.
-
-                  if(!is.list(assayCombinations) && assayCombinations[1] == "all") assayCombinations <- do.call("c", sapply(seq_along(assayIDs), function(nChoose) combn(assayIDs, nChoose, simplify = FALSE)))
-
-                  result <- sapply(assayCombinations, function(assayIndex){
-                      CV(measurements = measurements[, S4Vectors::mcols(measurements)[["assay"]] %in% assayIndex, drop = FALSE],
-                         outcome = outcome, assayIDs = assayIndex,
-                         nFeatures = nFeaturesUse[assayIndex],
-                         selectionMethod = selectionMethod[assayIndex],
-                         classifier = classifier[assayIndex],
-                         multiViewMethod = ifelse(length(assayIndex) == 1, "none", multiViewMethod),
-                         nFolds = nFolds,
-                         nRepeats = nRepeats,
-                         nCores = nCores,
-                         characteristicsLabel = characteristicsLabel,
-                         extraParams = extraParams, verbose = verbose)
-                  }, simplify = FALSE)
-
-              }
-
-
-              ### Prevalidation to combine data
-              if(multiViewMethod == "prevalidation"){
-
-
-                  # The below loops over different combinations of assays and combines them together using prevalidation.
-                  # This allows someone to answer which combinations of the assays might be most useful.
-
-
+              # Merging, prevalidation or PCA combine the assays of each combination of assays. This allows
+              # someone to answer which combinations of the assays might be most useful.
+              if(multiViewMethod %in% c("merge", "prevalidation", "PCA"))
+              {
                   if(!is.list(assayCombinations) && assayCombinations[1] == "all")
                   {
                       assayCombinations <- do.call("c", sapply(seq_along(assayIDs), function(nChoose) combn(assayIDs, nChoose, simplify = FALSE)))
-                      assayCombinations <- assayCombinations[sapply(assayCombinations, function(combination) "clinical" %in% combination, simplify = TRUE)]
-                      if(length(assayCombinations) == 0) stop("No assayCombinations with \"clinical\" data")
+                      if(multiViewMethod != "merge") # Prevalidation and PCA add the other assays to the clinical data.
+                      {
+                          assayCombinations <- assayCombinations[sapply(assayCombinations, function(combination) "clinical" %in% combination, simplify = TRUE)]
+                          if(length(assayCombinations) == 0) stop("No assayCombinations with \"clinical\" data")
+                      }
                   }
 
                   result <- sapply(assayCombinations, function(assayIndex){
@@ -270,40 +244,6 @@ setMethod("crossValidate", "DataFrame",
                          characteristicsLabel = characteristicsLabel,
                          extraParams = extraParams, verbose = verbose)
                   }, simplify = FALSE)
-
-              }
-
-
-
-              ### Principal Components Analysis to combine data
-              if(multiViewMethod == "PCA"){
-
-
-                  # The below loops over different combinations of assays and combines them together using prevalidation.
-                  # This allows someone to answer which combinations of the assays might be most useful.
-
-
-                  if(!is.list(assayCombinations) && assayCombinations[1] == "all"){
-                      assayCombinations <- do.call("c", sapply(seq_along(assayIDs),function(nChoose) combn(assayIDs, nChoose, simplify = FALSE)))
-                      assayCombinations <- assayCombinations[sapply(assayCombinations, function(combination) "clinical" %in% combination, simplify = TRUE)]
-                      if(length(assayCombinations) == 0) stop("No assayCombinations with \"clinical\" data")
-                  }
-
-
-                  result <- sapply(assayCombinations, function(assayIndex){
-                      CV(measurements = measurements[, S4Vectors::mcols(measurements)$assay %in% assayIndex, drop = FALSE],
-                         outcome = outcome, assayIDs = assayIndex,
-                         nFeatures = nFeaturesUse[assayIndex],
-                         selectionMethod = selectionMethod[assayIndex],
-                         classifier = classifier[assayIndex],
-                         multiViewMethod = ifelse(length(assayIndex) == 1, "none", multiViewMethod),
-                         nFolds = nFolds,
-                         nRepeats = nRepeats,
-                         nCores = nCores,
-                         characteristicsLabel = characteristicsLabel,
-                         extraParams = extraParams, verbose = verbose)
-                  }, simplify = FALSE)
-
               }
               if(length(result) == 1) result <- result[[1]]
               result
@@ -711,8 +651,8 @@ generateMultiviewParams <- function(assayIDs,
 
 }
 
-# measurements, outcome are mutually exclusive with x, outcomeTrain, measurementsTest, outcomeTest.
-CV <- function(measurements, outcome, x, outcomeTrain, measurementsTest, outcomeTest,
+# Cross-validation of one assay or combination of assays with one classifier and selection method.
+CV <- function(measurements, outcome,
                assayIDs,
                nFeatures,
                selectionMethod,
@@ -727,8 +667,7 @@ CV <- function(measurements, outcome, x, outcomeTrain, measurementsTest, outcome
     # Which data-types or data-views are present?
     if(is.null(characteristicsLabel)) characteristicsLabel <- "none"
 
-    # Setup cross-validation parameters. Could be needed for independent train/test if parameter tuning
-    # is specified to be done by nested cross-validation.
+    # Setup cross-validation parameters.
     crossValParams <- generateCrossValParams(nRepeats = nRepeats,
                                              nFolds = nFolds,
                                              nCores = nCores,
@@ -737,7 +676,7 @@ CV <- function(measurements, outcome, x, outcomeTrain, measurementsTest, outcome
 
     # Turn text into TrainParams and TestParams objects
     modellingParams <- generateModellingParams(assayIDs = assayIDs,
-                                               measurements = if(!is.null(measurements)) measurements else x,
+                                               measurements = measurements,
                                                nFeatures = nFeatures,
                                                selectionMethod = selectionMethod,
                                                classifier = classifier,
@@ -749,25 +688,7 @@ CV <- function(measurements, outcome, x, outcomeTrain, measurementsTest, outcome
     if(length(assayIDs) > 1 || length(assayIDs) == 1 && assayIDs != 1) assayText <- assayIDs else assayText <- NULL
     characteristics <- S4Vectors::DataFrame(characteristic = c(if(!is.null(assayText)) "Assay Name" else NULL, "Classifier Name", "Selection Name", "multiViewMethod", "characteristicsLabel"), value = c(if(!is.null(assayText)) paste(assayText, collapse = ", ") else NULL, paste(classifier, collapse = ", "),  paste(selectionMethod, collapse = ", "), multiViewMethod, characteristicsLabel))
 
-    if(!is.null(measurements))
-    { # Cross-validation.
-      classifyResults <- runTests(measurements, outcome, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics, verbose = verbose)
-    } else { # Independent training and testing.
-      classifyResults <- runTest(x, outcomeTrain, measurementsTest, outcomeTest, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics)
-      if(is.character(classifyResults)) stop(classifyResults)
-      fullResult <- runTest(measurements, outcome, measurements, outcome, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics, .iteration = 1)
-      classifyResults@finalModel <- fullResult$models
-      class(classifyResults@finalModel) <- c("trainedByClassifyR", classifyResults@finalModel)
-      attr(classifyResults@finalModel, "predictFunction") <- modellingParams@trainParams@classifier
-    }
-    
-    classifyResults
-}
-
-simplifyResults <- function(results, values = c("assay", "classifier", "selectionMethod", "multiViewMethod")){
-    ch <- sapply(results, function(x) x@characteristics[x@characteristics$characteristic %in% values, "value"], simplify = TRUE)
-    ch <- data.frame(t(ch))
-    results[!duplicated(ch)]
+    runTests(measurements, outcome, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics, verbose = verbose)
 }
 
 #' @rdname crossValidate
@@ -892,6 +813,9 @@ train.list <- function(x, outcomeTrain, ...)
                 if (!all(sapply(x, nrow) == length(outcomeTrain)) && !is.character(outcomeTrain))
                   stop("outcome must have same number of samples as measurements")
               
+              # The samples of every table in the order of the first table's.
+              if(!is.null(rownames(x[[1]])))
+                x <- lapply(x, function(measurements) measurements[rownames(x[[1]]), , drop = FALSE])
               df_list <- lapply(x, S4Vectors::DataFrame, check.names = FALSE)
               
               # Features are named assay_feature, as crossValidate and predict name them.
@@ -948,6 +872,8 @@ predict.trainedByClassifyR <- function(object, newData, outcome, ...)
   } else if(is(newData, "tabular")) {
     newData <- S4Vectors::DataFrame(newData, check.names = FALSE)
   } else if(is.list(newData)) { # Features of several assays are named assay_feature.
+    if(!is.null(rownames(newData[[1]]))) # The samples of every table in the order of the first table's.
+      newData <- lapply(newData, function(measurements) measurements[rownames(newData[[1]]), , drop = FALSE])
     newData <- do.call(cbind, mapply(function(measurementsOne, assayID)
     {
       measurementsOne <- S4Vectors::DataFrame(measurementsOne, check.names = FALSE)

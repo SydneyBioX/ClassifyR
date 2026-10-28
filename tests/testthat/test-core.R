@@ -135,3 +135,22 @@ test_that("prepareData keeps the most variable features and drops similar ones",
   expect_false("g2" %in% colnames(prepared$measurements))
   expect_equal(ncol(prepared$measurements), ncol(measurements) - 1)
 })
+
+test_that("an unknown multiViewMethod is an error naming the choices", {
+  data <- makeTwoClass()
+  set.seed(1)
+  expect_error(crossValidate(list(a = data$measurements[, 1:15], b = data$measurements[, 16:30]), data$classes,
+                             multiViewMethod = "Merge", nRepeats = 1, nFolds = 3), "must be one of")
+})
+
+test_that("train and predict match the samples of a list of tables by name", {
+  data <- makeTwoClass()
+  aligned <- list(a = data$measurements[, 1:15], b = data$measurements[, 16:30])
+  shuffled <- aligned
+  shuffled$b <- shuffled$b[rev(rownames(shuffled$b)), ]
+  set.seed(1)
+  fromAligned <- train(aligned, data$classes, classifier = "DLDA", multiViewMethod = "merge", nFeatures = 3)
+  set.seed(1)
+  fromShuffled <- train(shuffled, data$classes, classifier = "DLDA", multiViewMethod = "merge", nFeatures = 3)
+  expect_equal(predict(fromShuffled, shuffled), predict(fromAligned, aligned))
+})
