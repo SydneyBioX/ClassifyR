@@ -21,9 +21,12 @@ kNNinterface <- function(measurementsTrain, classesTrain, measurementsTest, k = 
       classScores <- t(apply(nearestClasses, 1, function(nearestRow) table(factor(nearestRow, levels = levels(classesTrain))) / length(nearestRow)))
       classPredictions <- levels(classesTrain)[apply(classScores, 1, which.max)]
   } else { # Mode is weighted. Euclidean distance contributes to a sample's influence on final prediction.
-      classScores <- t(mapply(function(classes, distances) sapply(levels(classesTrain), function(class) sum(1/distances[classes == class])), split(nearestClasses, 1:nrow(nearestClasses)), split(nearestToEach[["distance"]], 1:nrow(nearestToEach[["distance"]]))))
-      if(any(is.infinite(classScores)))
-          classScores[is.infinite(classScores)] <- 999999
+      classScores <- t(mapply(function(classes, distances)
+      {
+        # A neighbour at distance zero would have infinite weight. If there are any, they alone vote, equally.
+        if(any(distances == 0)) weights <- as.numeric(distances == 0) else weights <- 1 / distances
+        sapply(levels(classesTrain), function(class) sum(weights[classes == class]))
+      }, split(nearestClasses, 1:nrow(nearestClasses)), split(nearestToEach[["distance"]], 1:nrow(nearestToEach[["distance"]]))))
       classScores <- t(apply(classScores, 1, function(row) row / sum(row)))
       classPredictions <- levels(classesTrain)[apply(classScores, 1, which.max)]
   }

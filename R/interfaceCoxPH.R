@@ -8,7 +8,7 @@ coxphTrainInterface <- function(measurementsTrain, survivalTrain, ..., verbose =
             data.")
   
   # coxph doesn't like DataFrame input.
-  measurementsTrain <- as.data.frame(measurementsTrain)    
+  measurementsTrain <- .asDataFrame(measurementsTrain)    
   survival::coxph(survivalTrain ~ ., measurementsTrain)
 }
 attr(coxphTrainInterface, "name") <- "coxphTrainInterface"
@@ -16,5 +16,5 @@ attr(coxphTrainInterface, "name") <- "coxphTrainInterface"
 # model is of class coxph.
 coxphPredictInterface <- function(model, measurementsTest, ..., verbose = 3)
 {
-  predict(model, as.data.frame(measurementsTest), type = "risk")
+  predict(model, .asDataFrame(measurementsTest), type = "risk")
 }

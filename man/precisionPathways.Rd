@@ -33,7 +33,7 @@
 \item{measurements}{Either a \code{\link{MultiAssayExperiment}} or a list of the basic tabular objects containing the data.}
 
 \item{class}{If a \code{\link{MultiAssayExperiment}}, a column name in \code{colData(measurements)} with the classes. If \code{measurements} is a \code{list} of tabular data, may also be
-a vector of classes.}
+a vector of classes. Optional for \code{precisionPathwaysPredict}: the classes of the new samples are only needed to calculate accuracies.}
 
 \item{useFeatures}{Default: \code{NULL} (i.e. use all provided features). A named list of features to use. Otherwise, the input data is a single table and this can just be a vector of feature names.
 For any assays not in the named list, all of their features are used. \code{"clinical"} is also a valid assay name and refers to the clinical data table.
@@ -46,10 +46,11 @@ tolerated proportion of missingness for a feature to be retained for modelling.}
 Assays with less features won't be reduced in size.}
 
 \item{fixedAssays}{A character vector of assay names specifying any assays which must be at the
-beginning of the pathway.}
+beginning of the pathway, in the order given. \code{NULL} allows any assay to be first.}
 
 \item{confidenceCutoff}{The minimum confidence of predictions for a sample to be predicted by a particular assay. If a sample
-was predicted to belong to a particular class a proportion \eqn{p} times, then the confidence is \eqn{2 \times |p - 0.5|}.}
+was predicted to belong to a particular class a proportion \eqn{p} times, then the confidence is \eqn{2 \times |p - 0.5|}.
+A sample whose confidence is equal to or greater than \code{confidenceCutoff} is predicted at that tier.}
 
 \item{minAssaySamples}{An integer specifying the minimum number of samples a tier may have. If a subsequent tier
 would have less than this number of samples, the samples are incorporated into the current tier.}
@@ -82,6 +83,14 @@ Precision pathways allows the evaluation of various permutations of multiomics o
 Samples are predicted by a particular assay if they were consistently predicted as a particular class
 during cross-validation. Otherwise, they are passed onto subsequent assays/tiers for prediction. Balanced accuracy
 is used to evaluate overall prediction performance and sample-specific accuracy for individual-level evaluation.
+}
+\details{
+\code{precisionPathwaysTrain} cross-validates a classifier for each assay. The confidence of a sample for an assay is
+calculated from its cross-validated predictions. \code{precisionPathwaysPredict} predicts each new sample with every model fitted
+during that cross-validation (one model per fold of every repeat), and the confidence of a new sample for an assay is calculated from
+those predictions. Each new sample is predicted independently of the classes of the new samples; the stored models are used as they are.
+The pathways are then formed in the same way as in training. Each pathway records the assays in the order in which samples passed through
+them, in its element named \code{"assays"}.
 }
 \examples{
 # To be determined.

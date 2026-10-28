@@ -53,6 +53,14 @@
 #' \code{selectionMethod} can be a keyword for any of the implemented approaches as shown by \code{available("selectionMethod")}.
 #' \code{multiViewMethod} can be a keyword for any of the implemented approaches as shown by \code{available("multiViewMethod")}.
 #'
+#' Every assay, classifier, selection method and combination of assays in one call is evaluated on the same
+#' training and test splits, so their performances can be compared sample by sample and split by split.
+#'
+#' If \code{nFeatures} has several values and no tuning mode is given in \code{extraParams}, the number of features is
+#' chosen by resubstitution: the classifier is trained and evaluated on the training samples for each value. Classifiers
+#' that fit their training samples perfectly (e.g. random forest) give every value the same performance, and then the
+#' smallest value is chosen.
+#'
 #' @return An object of class \code{\link{ClassifyResult}}
 #' @export
 #' @aliases crossValidate crossValidate,matrix-method crossValidate,DataFrame-method
@@ -165,6 +173,10 @@ setMethod("crossValidate", "DataFrame",
               if(length(multiViewMethod) != 1 || !multiViewMethod %in% c("none", "merge", "prevalidation", "PCA"))
                 stop("multiViewMethod must be one of \"none\", \"merge\", \"prevalidation\" or \"PCA\" (see available(\"multiViewMethod\")).")
 
+              # Every cross-validation is prepared first, then all of their splits share one pool of workers.
+              queue <- .crossValidationQueue()
+
+
               ################################
               #### No multiview
               ################################
@@ -202,7 +214,7 @@ setMethod("crossValidate", "DataFrame",
                                       nRepeats = nRepeats,
                                       nCores = nCores,
                                       characteristicsLabel = characteristicsLabel,
-                                      extraParams = extraParams, verbose = verbose
+                                      extraParams = extraParams, verbose = verbose, queue = queue
                                   )
                               },
                               simplify = FALSE)
@@ -242,9 +254,11 @@ setMethod("crossValidate", "DataFrame",
                          nRepeats = nRepeats,
                          nCores = nCores,
                          characteristicsLabel = characteristicsLabel,
-                         extraParams = extraParams, verbose = verbose)
+                         extraParams = extraParams, verbose = verbose, queue = queue)
                   }, simplify = FALSE)
               }
+
+              result <- .runCrossValidationQueue(queue, result, nCores)
               if(length(result) == 1) result <- result[[1]]
               result
 
@@ -406,24 +420,18 @@ Using an ordinary GLM instead.")
     classifier
 }
 
-generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams){
+generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams, seed = NULL){
 
-    if(!exists(".Random.seed")) stop("Predictive modelling should always be reproducible. Please use set.seed(<number>) yourself and run 'crossValidate' again.")
-    index <- ifelse(.Random.seed[2] + 2 == length(.Random.seed), 3, 3 + .Random.seed[2]) # Right after set.seed, the second number is the length of the random integer vector.
-    seed <- .Random.seed[index] # Get current random number.
-    
-    # Set the BPparam RNGseed.
-    if(nCores == 1)
+    if(is.null(seed))
     {
-        BPparam <- SerialParam(RNGseed = seed)
-    } else { # Parallel processing is desired.
-        
-        if(.Platform$OS.type == "windows") {# Only SnowParam suits Windows.
-            BPparam <- BiocParallel::SnowParam(min(nCores, BiocParallel::snowWorkers("SOCK")), RNGseed = seed)
-        } else { # Unix-alikes, including macOS and Linux.
-            BPparam <- BiocParallel::MulticoreParam(min(nCores, BiocParallel::multicoreWorkers()), RNGseed = seed) # Multicore is faster than SNOW, but it doesn't work on Windows.
-        }
+      if(!exists(".Random.seed")) stop("Predictive modelling should always be reproducible. Please use set.seed(<number>) yourself and run 'crossValidate' again.")
+      index <- ifelse(.Random.seed[2] + 2 == length(.Random.seed), 3, 3 + .Random.seed[2]) # Right after set.seed, the second number is the length of the random integer vector.
+      seed <- .Random.seed[index] # Get current random number.
     }
+    
+    # The seed sets the random number streams of the splits. Workers come from one pool per crossValidate call
+    # (.makeWorkerPool); nested cross-validations within a split run serially.
+    BPparam <- BiocParallel::SerialParam(RNGseed = seed)
     tuneMode <- "none"
     performanceType <- "N/A"
     if(!is.null(extraParams[["tuneCross"]][["performanceType"]])) performanceType <- extraParams[["tuneCross"]][["performanceType"]]
@@ -463,6 +471,102 @@ generateCrossValParams <- function(nRepeats, nFolds, nCores, extraParams){
   if(canTune && length(stageParams@tuneParams) == 0) stageParams@tuneParams <- NULL
   if(length(stageParams@otherParams) == 0) stageParams@otherParams <- NULL
   stageParams
+}
+
+# A queue of prepared cross-validations; add() returns the position of the added one.
+# The first cross-validation's seed and splits are kept, so that every later one uses the same splits.
+.crossValidationQueue <- function()
+{
+  items <- list()
+  shared <- NULL
+  list(add = function(item)
+       {
+         items[[length(items) + 1]] <<- item
+         if(is.null(shared))
+           shared <<- list(seed = BiocParallel::bpRNGseed(item[["crossValParams"]]@parallelParams),
+                           splits = item[["splits"]], nSamples = length(item[["outcome"]]))
+         length(items)
+       },
+       items = function() items,
+       shared = function() shared)
+}
+
+# Parallel workers for nCores cores, started once per call by .poolApply after the data are prepared: forked
+# processes on Linux and macOS (MulticoreParam), which share the main session's data without copying it, and socket
+# workers on Windows (SnowParam), which are sent the data once each.
+.makeWorkerPool <- function(nCores, nTasks)
+{
+  structure(list(workers = as.integer(max(1, min(nCores, nTasks))),
+                 type = if(.Platform$OS.type == "windows") "PSOCK" else "FORK"), class = "workerPool")
+}
+
+# lapply(X, FUN) on the workers of pool. Only the elements of X and the results are passed between processes: forked
+# workers find FUN in their copy of .ClassifyRenvir, and BiocParallel sends FUN once to each socket worker. The random
+# number state of the main session is the same afterwards as before.
+.poolApply <- function(X, FUN, pool)
+{
+  previousSeed <- if(exists(".Random.seed", envir = globalenv())) get(".Random.seed", envir = globalenv())
+  on.exit(if(is.null(previousSeed)) suppressWarnings(rm(".Random.seed", envir = globalenv())) else
+            assign(".Random.seed", previousSeed, envir = globalenv()))
+  if(pool[["workers"]] == 1) return(lapply(X, FUN))
+
+  # Linear algebra and OpenMP use one thread in each worker. A multithreaded BLAS such as OpenBLAS otherwise starts
+  # one thread per core in every worker, and the workers slow each other down many times; OpenMP code (e.g.
+  # randomForestSRC) in a forked worker can wait forever for threads of this session that the worker doesn't have.
+  # Forked workers inherit the settings of this session, so they are changed here, before the workers start; changing
+  # BLAS's inside a worker would first restart all of its threads. Socket workers are new R sessions and read them
+  # from environment variables when they start. Each setting is changed only if the session uses more than one
+  # thread, because restoring several BLAS threads afterwards starts them again.
+  blasThreads <- RhpcBLASctl::blas_get_num_procs()
+  if(isTRUE(blasThreads > 1))
+  {
+    RhpcBLASctl::blas_set_num_threads(1)
+    on.exit(RhpcBLASctl::blas_set_num_threads(blasThreads), add = TRUE)
+  }
+  ompThreads <- RhpcBLASctl::omp_get_max_threads()
+  if(isTRUE(ompThreads > 1))
+  {
+    RhpcBLASctl::omp_set_num_threads(1)
+    on.exit(RhpcBLASctl::omp_set_num_threads(ompThreads), add = TRUE)
+  }
+  # Tasks are handed out in chunks as workers become free, about eight chunks per worker: enough for quick and slow
+  # tasks to balance out, and few enough that workers don't wait long for the main process to send the next chunk.
+  nChunks <- min(length(X), 8L * pool[["workers"]])
+  if(pool[["type"]] == "FORK")
+  {
+    assign("currentTask", FUN, envir = .ClassifyRenvir)
+    on.exit(rm("currentTask", envir = .ClassifyRenvir), add = TRUE)
+    runTask <- function(element) get("currentTask", envir = .ClassifyRenvir)(element)
+    environment(runTask) <- asNamespace("ClassifyR") # Sent to workers as a reference, not with this call's data.
+    workers <- BiocParallel::MulticoreParam(pool[["workers"]], tasks = nChunks)
+  } else {
+    # The workers use the same package libraries as this session, and one thread for linear algebra and OpenMP.
+    variables <- c("R_LIBS", "OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS")
+    previousVariables <- Sys.getenv(variables, unset = NA)
+    on.exit(for(variable in variables)
+              if(is.na(previousVariables[[variable]])) Sys.unsetenv(variable) else
+                do.call(Sys.setenv, as.list(previousVariables[variable])), add = TRUE)
+    Sys.setenv(R_LIBS = paste(.libPaths(), collapse = .Platform$path.sep), OPENBLAS_NUM_THREADS = 1, OMP_NUM_THREADS = 1)
+    runTask <- FUN
+    workers <- BiocParallel::SnowParam(pool[["workers"]], type = "SOCK", tasks = nChunks)
+  }
+  # The workers are started once, so that each chunk of tasks is run by a process that already exists. Without
+  # bpstart, bplapply would start a new process for every chunk.
+  BiocParallel::bpstart(workers)
+  on.exit(BiocParallel::bpstop(workers), add = TRUE)
+  BiocParallel::bplapply(X, runTask, BPPARAM = workers)
+}
+
+# Runs the splits of every queued cross-validation in one pool of workers and replaces each queue position in
+# positions (a vector or list, possibly named) by its ClassifyResult.
+.runCrossValidationQueue <- function(queue, positions, nCores)
+{
+  crossValidations <- queue$items()
+  if(length(crossValidations) == 0) return(positions)
+  nTasks <- sum(sapply(crossValidations, function(crossValidation) length(crossValidation[["splits"]][["train"]])))
+  results <- .runTestsSplits(crossValidations, .makeWorkerPool(nCores, nTasks))
+  classifyResults <- mapply(.assembleTests, crossValidations, results, SIMPLIFY = FALSE)
+  lapply(as.list(positions), function(position) classifyResults[[position]])
 }
 
 # Returns a single parameter set.
@@ -661,17 +765,19 @@ CV <- function(measurements, outcome,
                nFolds,
                nRepeats,
                nCores,
-               characteristicsLabel, extraParams, verbose)
+               characteristicsLabel, extraParams, verbose, queue = NULL)
 
 {
     # Which data-types or data-views are present?
     if(is.null(characteristicsLabel)) characteristicsLabel <- "none"
 
-    # Setup cross-validation parameters.
+    # Cross-validations queued by one crossValidate call share the first one's seed and splits.
+    shared <- if(!is.null(queue)) queue$shared() else NULL
     crossValParams <- generateCrossValParams(nRepeats = nRepeats,
                                              nFolds = nFolds,
                                              nCores = nCores,
-                                             extraParams = extraParams)
+                                             extraParams = extraParams,
+                                             seed = shared[["seed"]])
     
 
     # Turn text into TrainParams and TestParams objects
@@ -688,6 +794,10 @@ CV <- function(measurements, outcome,
     if(length(assayIDs) > 1 || length(assayIDs) == 1 && assayIDs != 1) assayText <- assayIDs else assayText <- NULL
     characteristics <- S4Vectors::DataFrame(characteristic = c(if(!is.null(assayText)) "Assay Name" else NULL, "Classifier Name", "Selection Name", "multiViewMethod", "characteristicsLabel"), value = c(if(!is.null(assayText)) paste(assayText, collapse = ", ") else NULL, paste(classifier, collapse = ", "),  paste(selectionMethod, collapse = ", "), multiViewMethod, characteristicsLabel))
 
+    if(!is.null(queue)) # Prepare it now and run it with the others in the queue; return its position in the queue.
+      return(queue$add(.prepareTests(measurements, outcome, crossValParams, modellingParams, characteristics, verbose,
+                                     splits = if(!is.null(shared) && shared[["nSamples"]] == nrow(measurements)) shared[["splits"]],
+                                     deferFinal = TRUE)))
     runTests(measurements, outcome, crossValParams = crossValParams, modellingParams = modellingParams, characteristics = characteristics, verbose = verbose)
 }
 
@@ -881,7 +991,7 @@ predict.trainedByClassifyR <- function(object, newData, outcome, ...)
       measurementsOne
     }, newData, names(newData), SIMPLIFY = FALSE) |> unname())
   }
-  colnames(newData) <- make.names(colnames(newData))
+  colnames(newData) <- make.names(colnames(newData), unique = TRUE)
 
   # Each model predicts from the features it was trained with.
   predictOne <- function(model)
