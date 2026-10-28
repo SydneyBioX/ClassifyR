@@ -4,7 +4,7 @@ selectMulti <- function(measurementsTrain, outcomeTrain, params, verbose = 0)
               assayTrain <- lapply(assaysIndices, function(assayIndices) measurementsTrain[, assayIndices, drop = FALSE])
               tuneMode <- "none"
               performanceType <- "N/A"
-              if(!is.null(params[[1]]@selectParams@tuneParams))
+              if(!is.null(params[[1]]@selectParams) && !is.null(params[[1]]@selectParams@tuneParams))
               {
                   tuneMode <- "Resubstitution"
                   if(is(outcomeTrain, "Surv")) performanceType <- "C-index" else performanceType <- "Balanced Accuracy"

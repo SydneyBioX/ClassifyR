@@ -98,7 +98,8 @@ fastCox <- function(X, y, learnind, criterion, ...) {
 #' @param option Default: \code{"fast"}. Whether to use the fast or slow method.
 #' @param ... Not currently used.
 #'
-#' @return CrossValParams object
+#' @return A data frame with columns \code{coef}, \code{se.coef} and \code{p.value}, and a row for each
+#' column of \code{measurements}.
 #' @export
 #'
 #' @examples
@@ -110,14 +111,14 @@ fastCox <- function(X, y, learnind, criterion, ...) {
 #' @export
 colCoxTests <- function(measurements, outcome, option = c("fast", "slow"), ...) {
   option <- match.arg(option) # Error if not either of the two above options.
+  measurements <- as.matrix(measurements)  #make variables columns
   if (option == "fast") {
-    measurements <- as.matrix(measurements)  #make variables columns
     time <- outcome[, 1]
     status <- outcome[, 2]
     sorted <- order(time)
     time <- time[sorted]
     status <- status[sorted]
-    measurements <- measurements[sorted, ]
+    measurements <- measurements[sorted, , drop = FALSE]
     ## method for handling ties (alternative 'breslow')
     method <- "efron"
     ## compute columnwise coxmodels
@@ -127,19 +128,21 @@ colCoxTests <- function(measurements, outcome, option = c("fast", "slow"), ...) 
                          p.value = (1 - pnorm(abs(out$zscores))) * 2)
     rownames(output) <- colnames(measurements)
   } else {
-    output <- (apply(measurements, 2, function(measurementsFeature) {
-      fit <- try(coxph(outcome ~ measurementsFeature))
-      if (class(fit) == "try-error") {
-        c(NA, NA)
+    if (!is(outcome, "Surv"))
+      outcome <- survival::Surv(outcome[, 1], outcome[, 2])
+    output <- t(apply(measurements, 2, function(measurementsFeature) {
+      fit <- try(survival::coxph(outcome ~ measurementsFeature), silent = TRUE)
+      if (inherits(fit, "try-error")) {
+        c(NA, NA, NA)
       } else {
         summary(fit)$coefficients[1, c(1, 3, 5)]
       }
     }))
     colnames(output) <- c("coef", "se.coef", "p.value")
-    rownames(output) <- rownames(measurements)
+    rownames(output) <- colnames(measurements)
     output <- data.frame(output)
   }
   return(output)
-  ### dataframe with two columns: coef = Cox regression coefficients, p.value = Wald Test p-values.
-  ### Rows correspond to the rows of measurements.
+  ### dataframe with three columns: coef = Cox regression coefficients, se.coef = their standard errors,
+  ### p.value = Wald Test p-values. Rows correspond to the columns of measurements.
 }

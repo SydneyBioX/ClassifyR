@@ -656,9 +656,11 @@ predict.dlda <- function(object, newdata, ...) { # Remove once sparsediscrim is 
     newdata <- as.matrix(newdata)
   }
 
+  # Discriminant score of each class: the pooled-variance distance to the class mean, penalised by the prior.
+  # The predicted class has the smallest score.
   scores <- apply(newdata, 1, function(obs) {
     sapply(object$est, function(class_est) {
-      with(class_est, sum((obs - xbar)^2 / object$var_pool) + log(prior))
+      with(class_est, sum((obs - xbar)^2 / object$var_pool) - 2 * log(prior))
     })
   })
 
@@ -688,29 +690,27 @@ predict.dlda <- function(object, newdata, ...) { # Remove once sparsediscrim is 
   }
   x <- as.matrix(x)
 
-  posterior <- mapply(function(xbar_k, cov_k, prior_k) {
-    if (is.vector(cov_k)) {
-      post_k <- apply(x, 1, function(obs) {
-        .dmvnorm_diag(x=obs, mean=xbar_k, sigma=cov_k)
-      })
-    } else {
-      post_k <- dmvnorm(x=x, mean=xbar_k, sigma=cov_k)
-    }
-    prior_k * post_k
+  # Log of prior times density, one column per class. Working on the log scale avoids the underflow
+  # of a product of many per-feature densities.
+  logPosterior <- mapply(function(xbar_k, cov_k, prior_k) {
+    log(prior_k) + apply(x, 1, function(obs) {
+      .dmvnorm_diag(x=obs, mean=xbar_k, sigma=cov_k, log=TRUE)
+    })
   }, means, covs, priors)
-
-  if (is.vector(posterior)) {
-    posterior <- posterior / sum(posterior)
-    posterior <- matrix(posterior, nrow = 1) # Ensure it's always matrix, like just below.
-    colnames(posterior) <- names(priors)
-  } else {
-    posterior <- posterior / rowSums(posterior)
+  if (is.vector(logPosterior)) {
+    logPosterior <- matrix(logPosterior, nrow = 1) # Ensure it's always a matrix.
+    colnames(logPosterior) <- names(priors)
   }
-  posterior
+
+  # Normalise each row with the log-sum-exp.
+  largest <- apply(logPosterior, 1, max)
+  posterior <- exp(logPosterior - largest)
+  posterior / rowSums(posterior)
 }
 
-.dmvnorm_diag <- function(x, mean, sigma) { # Remove once sparsediscrim is reinstated to CRAN.
-  exp(sum(dnorm(x, mean=mean, sd=sqrt(sigma), log=TRUE)))
+.dmvnorm_diag <- function(x, mean, sigma, log = FALSE) { # Remove once sparsediscrim is reinstated to CRAN.
+  logDensity <- sum(dnorm(x, mean=mean, sd=sqrt(sigma), log=TRUE))
+  if (log) logDensity else exp(logDensity)
 }
 
 # Function to create permutations of a vector, with the possibility to restrict values at certain positions.

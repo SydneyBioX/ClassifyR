@@ -6,6 +6,10 @@ DLDAtrainInterface <- function(measurementsTrain, classesTrain, verbose = 3)
   if(verbose == 3)
     message(Sys.time(), ": Fitting DLDA classifier to data.")
   
+  # DLDA uses only the numeric features, as for prediction.
+  isNumeric <- sapply(measurementsTrain, is.numeric)
+  measurementsTrain <- measurementsTrain[, isNumeric, drop = FALSE]
+  
   # sparsediscrim::dlda(as.matrix(measurements), classes)
   .dlda(as.matrix(measurementsTrain), classesTrain)
 }
@@ -21,7 +25,7 @@ DLDApredictInterface <- function(model, measurementsTest, returnType = c("both",
   
   # sparsediscrim doesn't match feature names to those inside trained model.
   # Ensure that there is no chance of mismatched columns.
-  measurementsTest <- measurementsTest[, names(model[["var_pool"]])]
+  measurementsTest <- measurementsTest[, names(model[["var_pool"]]), drop = FALSE]
   
   #if(!requireNamespace("sparsediscrim", quietly = TRUE)) # Removed from CRAN, sadly.
   #stop("The package 'sparsediscrim' could not be found. Please install it.")
@@ -31,7 +35,8 @@ DLDApredictInterface <- function(model, measurementsTest, returnType = c("both",
   #predict(model, as.matrix(test))
   predictions <- predict(model, as.matrix(measurementsTest)) # Copy located in utilities.R.
 
+  classScores <- predictions[["posterior"]][, model[["groups"]], drop = FALSE]
   switch(returnType, class = predictions[["class"]], # Factor vector.
-         score = predictions[["posterior"]][, model[["groups"]]], # Numeric matrix.
-         both = data.frame(class = predictions[["class"]], predictions[["posterior"]], check.names = FALSE))
+         score = classScores, # Numeric matrix.
+         both = data.frame(class = predictions[["class"]], classScores, check.names = FALSE))
 }
