@@ -409,19 +409,20 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
   do.call(rbind, lapply(distinctClasses, function(aClass)
   {
     classTable <- subset(PRtable, class == aClass)
+    FPR <- classTable[, "FPR"]
+    TPR <- classTable[, "TPR"]
+    current <- seq_along(FPR)[-1]
+    previous <- current - 1
+    # Some samples had identical predictions but belong to different classes.
+    bothChange <- FPR[current] != FPR[previous] & TPR[current] != TPR[previous]
+    if(anyNA(bothChange))
+      stop("The ROC curve of class ", aClass, " has missing rates. Each class needs at least one sample and scores must not be missing.")
+    newAreas <- ifelse(bothChange,
+                       (FPR[current] - FPR[previous]) * TPR[previous] + # Rectangle part
+                       0.5 * (FPR[current] - FPR[previous]) * (TPR[current] - TPR[previous]), # Triangle part on top.
+                       (FPR[current] - FPR[previous]) * TPR[current]) # Line went either up or right, but not both.
     areaSum <- 0
-    for(index in 2:nrow(classTable))
-    {
-      # Some samples had identical predictions but belong to different classes.
-      if(classTable[index, "FPR"] != classTable[index - 1, "FPR"] && classTable[index, "TPR"] != classTable[index - 1, "TPR"])
-      {
-        newArea <- (classTable[index, "FPR"] - classTable[index - 1, "FPR"]) * classTable[index - 1, "TPR"] + # Rectangle part
-         0.5 * (classTable[index, "FPR"] - classTable[index - 1, "FPR"]) * (classTable[index, "TPR"] - classTable[index - 1, "TPR"]) # Triangle part on top.
-      } else { # Only one sample with predicted score. Line went either up or right, but not both.
-        newArea <- (classTable[index, "FPR"] - classTable[index - 1, "FPR"]) * classTable[index, "TPR"]
-      }
-      areaSum <- areaSum + newArea
-    }
+    for(newArea in newAreas) areaSum <- areaSum + newArea # Same order of addition as the trapezoid sum.
     data.frame(classTable, AUC = round(areaSum, 2), check.names = FALSE)
   }))
 }
