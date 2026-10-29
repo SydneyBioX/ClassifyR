@@ -29,6 +29,23 @@ test_that("balancing is not accepted by TrainParams", {
   expect_s4_class(TrainParams("DLDA"), "TrainParams")
 })
 
+test_that("ModellingParams does not rebalance classes by default", {
+  expect_identical(ModellingParams()@balancing, "none")
+  expect_identical(ModellingParams(balancing = "downsample")@balancing, "downsample")
+})
+
+test_that("CrossValParams runs serially by default, reproducibly after set.seed", {
+  expect_s4_class(CrossValParams()@parallelParams, "SerialParam")
+  data <- makeTwoClass(shift = 1)
+  measurements <- DataFrame(data$measurements, check.names = FALSE)
+  runOnce <- function()
+  {
+    set.seed(3)
+    runTests(measurements, data$classes, CrossValParams(permutations = 2, folds = 3), ModellingParams(), verbose = 0)
+  }
+  expect_identical(predictions(runOnce()), predictions(runOnce()))
+})
+
 test_that("show methods print complete lines", {
   ensemble <- SelectParams(list("t-test", "limma"))
   expect_output(show(ensemble), "Minimum Functions Selected By: 1.", fixed = TRUE)
