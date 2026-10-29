@@ -163,6 +163,17 @@ test_that("prepareData keeps the most variable features and drops similar ones",
   expect_equal(ncol(prepared$measurements), ncol(measurements) - 1)
 })
 
+test_that("a missing or empty outcome is an error before any modelling", {
+  data <- makeTwoClass()
+  outcomes <- list(cohortA = data$classes)
+  # A list looked up by a name it doesn't have gives NULL.
+  expect_error(prepareData(data$measurements, outcomes[["cohortB"]]), "'outcome' is missing or empty")
+  expect_error(prepareData(data$measurements), "'outcome' is missing or empty")
+  set.seed(1)
+  expect_error(crossValidate(data$measurements, outcomes[["cohortB"]], nFolds = 2, nRepeats = 1), "'outcome' is missing or empty")
+  expect_error(crossValidate(as.matrix(data$measurements), factor(character()), nFolds = 2, nRepeats = 1), "'outcome' is missing or empty")
+})
+
 test_that("all assays, classifiers and combinations share the same splits", {
   data <- makeTwoClass()
   measurementsList <- list(a = data$measurements[, 1:15], b = data$measurements[, 16:30])
