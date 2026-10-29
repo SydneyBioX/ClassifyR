@@ -1,7 +1,9 @@
 # An Interface for glmnet Package's glmnet Function. Generalised linear models with sparsity.
 
-penalisedGLMtrainInterface <- function(measurementsTrain, classesTrain, lambda = NULL, ..., verbose = 3)
+penalisedGLMtrainInterface <- function(measurementsTrain, classesTrain, lambda = NULL,
+                                       lambdaTuning = c("CV", "resubstitution"), nFoldsLambda = 5, ..., verbose = 3)
 {
+  lambdaTuning <- match.arg(lambdaTuning)
   if(!requireNamespace("glmnet", quietly = TRUE))
     stop("The package 'glmnet' could not be found. Please install it.")
   if(verbose == 3)
@@ -9,20 +11,40 @@ penalisedGLMtrainInterface <- function(measurementsTrain, classesTrain, lambda =
 
   # One-hot encoding needed.    
   measurementsTrain <- .encodeTrain(measurementsTrain)
-  fitted <- glmnet::glmnet(measurementsTrain, classesTrain, family = "multinomial", lambda = lambda,
-                           weights = as.numeric(1 / (table(classesTrain)[classesTrain] / length(classesTrain))), ...)
   # Inverse class size weighting needed to give decent predictions when class imbalance.
+  weights <- as.numeric(1 / (table(classesTrain)[classesTrain] / length(classesTrain)))
+  # Logistic regression for two classes, which is faster than the equivalent multinomial model.
+  family <- if(nlevels(classesTrain) == 2) "binomial" else "multinomial"
+  fitted <- glmnet::glmnet(measurementsTrain, classesTrain, family = family, lambda = lambda,
+                           weights = weights, ...)
   
   if(is.null(lambda) || length(lambda) > 1) # fitted has numerous models for a range of lambda values.
-  { # Pick one lambda based on resubstitution performance. But not the one that makes all variables excluded from model.
-    lambdaConsider <- fitted[["lambda"]][colSums(as.matrix(fitted[["beta"]][[1]])) != 0]
-    # Predictions for all lambda values at once. A column for each lambda.
-    lambdasPredictions <- as.matrix(predict(fitted, measurementsTrain, s = lambdaConsider, type = "class"))
-    balancedErrors <- apply(lambdasPredictions, 2, function(lambdaPredictions)
+  { # Pick one lambda, but not one that excludes every variable from the model of every class.
+    classesCoefficients <- if(is.list(fitted[["beta"]])) fitted[["beta"]] else list(fitted[["beta"]]) # A matrix for a logistic model.
+    nonEmpty <- Reduce(`|`, lapply(classesCoefficients, function(classCoefficients) colSums(abs(as.matrix(classCoefficients))) != 0))
+    lambdaConsider <- fitted[["lambda"]][nonEmpty]
+    nFoldsLambda <- min(nFoldsLambda, table(classesTrain))
+    if(lambdaTuning == "CV" && nFoldsLambda < 3)
     {
-      classPredictions <- factor(as.character(lambdaPredictions), levels = fitted[["classnames"]])
-      calcExternalPerformance(classesTrain, classPredictions, "Balanced Error")
-    })
+      warning("A class has fewer than three training samples, so lambda is chosen by resubstitution.")
+      lambdaTuning <- "resubstitution"
+    }
+    if(lambdaTuning == "CV")
+    { # Class-weighted misclassification of the inner folds, which is the balanced error. Folds stratified by class.
+      foldsIDs <- integer(length(classesTrain))
+      for(classIndices in split(seq_along(classesTrain), classesTrain))
+        foldsIDs[classIndices] <- sample(rep_len(seq_len(nFoldsLambda), length(classIndices)))
+      fittedCV <- glmnet::cv.glmnet(measurementsTrain, classesTrain, family = family, lambda = fitted[["lambda"]],
+                                    weights = weights, foldid = foldsIDs, type.measure = "class", ...)
+      balancedErrors <- fittedCV[["cvm"]][match(lambdaConsider, fittedCV[["lambda"]])]
+    } else { # Resubstitution. Predictions for all lambda values at once. A column for each lambda.
+      lambdasPredictions <- as.matrix(predict(fitted, measurementsTrain, s = lambdaConsider, type = "class"))
+      balancedErrors <- apply(lambdasPredictions, 2, function(lambdaPredictions)
+      {
+        classPredictions <- factor(as.character(lambdaPredictions), levels = fitted[["classnames"]])
+        calcExternalPerformance(classesTrain, classPredictions, "Balanced Error")
+      })
+    }
     bestLambda <- lambdaConsider[which.min(balancedErrors)[1]] # Largest Lambda with minimum balanced error rate.
     attr(fitted, "tune") <- list(lambda = bestLambda)
   } else { # The user specified exactly one lambda value. Record it.
@@ -37,7 +59,7 @@ penalisedGLMtrainInterface <- function(measurementsTrain, classesTrain, lambda =
 }
 attr(penalisedGLMtrainInterface, "name") <- "penalisedGLMtrainInterface"
 
-# model is of class multnet
+# model is of class lognet (two classes) or multnet
 penalisedGLMpredictInterface <- function(model, measurementsTest, lambda, ..., returnType = c("both", "class", "score"), verbose = 3)
 {# ... just consumes emitted tuning variables from .doTrain which are unused.
   returnType <- match.arg(returnType)
@@ -55,10 +77,15 @@ penalisedGLMpredictInterface <- function(model, measurementsTest, lambda, ..., r
     lambda <- attr(model, "tune")[["lambda"]] # Sneak it in as an attribute on the model.
 
   classPredictions <- factor(as.character(predict(model, measurementsTest, s = lambda, type = "class")), levels = model[["classnames"]])
-  classScores <- predict(model, measurementsTest, s = lambda, type = "response")[, , 1]
+  classScores <- predict(model, measurementsTest, s = lambda, type = "response")
+  if(length(dim(classScores)) == 3) # Multinomial model.
+    classScores <- classScores[, , 1]
+  else # Logistic model: the probability of the second class.
+    classScores <- matrix(c(1 - classScores[, 1], classScores[, 1]), ncol = 2,
+                          dimnames = list(rownames(measurementsTest), model[["classnames"]]))
   
   if(is.matrix(classScores))
-    classScores <- classScores[, model[["classnames"]]]
+    classScores <- classScores[, model[["classnames"]], drop = FALSE]
   else # Leave-one-out cross-validation likely used and glmnet doesn't have consistent return types.
     classScores <- t(classScores[model[["classnames"]]])
   
@@ -120,11 +147,11 @@ penalisedFeatures <- function(model)
                       {
                         # Floating point numbers test for equality.
                         whichCoefficientColumn <- which(abs(model[["lambda"]] - attr(model, "tune")[["lambda"]]) < 0.00001)[1]
-                        if(is.list(model[["beta"]])) # Categorical data
+                        if(is.list(model[["beta"]])) # Multinomial model of more than two classes.
                         {
                           coefficientsUsed <- sapply(model[["beta"]], function(classCoefficients) classCoefficients[, whichCoefficientColumn])
                           featureScores <- rowSums(abs(coefficientsUsed))
-                        } else { # survival data
+                        } else { # Logistic model of two classes, or survival data.
                             featureScores <- abs(model[["beta"]][, whichCoefficientColumn])
                         }
                         featureGroups <- attr(model, "featureGroups")[match(names(featureScores), attr(model, "featureNames"))]
