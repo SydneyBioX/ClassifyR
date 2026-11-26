@@ -337,11 +337,9 @@ crissCrossValidate <- function(measurements, outcomes,
 #' @param showDiagonal Logical. If \code{FALSE}, the diagonal cells are set to \code{NA} and appear grayed-out.
 #'        Defaults to \code{FALSE}.
 #' @param showResubMetric Deprecated name of \code{showDiagonal}.
-#' @return A \code{ggplot} object, or a combined plot of two heatmaps if random features were evaluated.
+#' @return A \code{ggplot} object. If random features were evaluated, it has two panels with a shared legend.
 #'
 #' @import ggplot2
-#' @import reshape2
-#' @import ggpubr
 #' @export
 crissCrossPlot <- function(crissCrossResult,
                            includeValues    = FALSE,
@@ -359,20 +357,22 @@ crissCrossPlot <- function(crissCrossResult,
     isResubstitution <- !identical(params$diagonal, "cross-validation")
     diagonalText <- if(isResubstitution) "resubstitution" else "cross-validation within the data set"
     
-    # Helper function: turn matrix into heatmap
-    plotMatrix <- function(mat, xlab_text, ylab_text) {
-        # Convert to matrix if needed
-        mat <- as.matrix(mat)
+    # Turns one or more matrices into a heatmap, one panel for each matrix of the named list.
+    plotMatrix <- function(matrices, xlab_text, ylab_text) {
+        long <- do.call(rbind, lapply(names(matrices), function(panel) {
+            mat <- as.matrix(matrices[[panel]])
+            if (!showDiagonal) {
+                diag(mat) <- NA
+            }
+            data.frame(Var1 = rownames(mat)[row(mat)], Var2 = colnames(mat)[col(mat)], value = as.vector(mat),
+                       isDiagonal = as.vector(row(mat) == col(mat)), panel = panel)
+        }))
+        # Tiles in the order of the matrices' rows and columns.
+        long[["Var1"]] <- factor(long[["Var1"]], levels = unique(unlist(lapply(matrices, rownames))))
+        long[["Var2"]] <- factor(long[["Var2"]], levels = unique(unlist(lapply(matrices, colnames))))
+        long[["panel"]] <- factor(long[["panel"]], levels = names(matrices))
         
-        if (!showDiagonal) {
-            diag(mat) <- NA
-        }
-        
-        melted_df <- reshape2::melt(mat, na.rm = FALSE, value.name = "value")
-        diagonalIndices <- cbind(seq_len(min(dim(mat))), seq_len(min(dim(mat))))
-        diagonal_df <- data.frame(Var1 = rownames(mat)[diagonalIndices[, 1]], Var2 = colnames(mat)[diagonalIndices[, 2]])
-        
-        gg <- ggplot(melted_df, aes(x = Var1, y = Var2, fill = value)) +
+        gg <- ggplot(long, aes(x = Var1, y = Var2, fill = value)) +
             geom_tile(color = "white") +
             scale_fill_gradient2(
                 high     = "#e25563ff",
@@ -390,11 +390,18 @@ crissCrossPlot <- function(crissCrossResult,
             theme(
                 axis.text.x = element_text(angle = 90, vjust = 1, size = 8, hjust = 1, colour = "black"),
                 axis.text.y = element_text(vjust = 1, size = 8, hjust = 1, colour = "black")
-            ) +
-            coord_fixed()
+            )
+        
+        if (length(matrices) > 1) { # Square tiles in panels that each show only their own data sets.
+            gg <- gg + facet_wrap(~ panel, scales = "free_x") +
+                theme(aspect.ratio = nlevels(droplevels(long[["Var2"]][long[["panel"]] == names(matrices)[1]])) /
+                                     nlevels(droplevels(long[["Var1"]][long[["panel"]] == names(matrices)[1]])))
+        } else {
+            gg <- gg + coord_fixed()
+        }
         
         if (showDiagonal) {
-            gg <- gg + geom_tile(data = diagonal_df, aes(x = Var1, y = Var2), inherit.aes = FALSE,
+            gg <- gg + geom_tile(data = long[long[["isDiagonal"]], ], aes(x = Var1, y = Var2), inherit.aes = FALSE,
                                  fill = NA, colour = "black", linewidth = 0.5) +
                 labs(caption = paste("Diagonal:", diagonalText))
         }
@@ -412,26 +419,15 @@ crissCrossPlot <- function(crissCrossResult,
             mainMatrix <- rbind(mainMatrix, crissCrossResult[["top"]])
         }
         
-        heatmapObj <- plotMatrix(mainMatrix, "Training Dataset", "Testing Dataset")
+        heatmapObj <- plotMatrix(list(Real = mainMatrix), "Training Dataset", "Testing Dataset")
         
     } else if (params$trainType == "modelTest") {
         # Real is "Features Extracted" vs. "Cross-validate"
-        mainMatrix <- crissCrossResult[["real"]]
-        heatmapObj1 <- plotMatrix(mainMatrix, "Features Extracted", "Dataset Tested")
-        
+        matrices <- list(`A - Feature Selection` = crissCrossResult[["real"]])
         if (isTRUE(params$doRandomFeatures) && !is.null(crissCrossResult[["random"]])) {
-            heatmapObj2 <- plotMatrix(crissCrossResult[["random"]], "Random Features", "Dataset Tested")
-            heatmapObj <- ggarrange(
-                heatmapObj1,
-                heatmapObj2,
-                labels        = c("A - Feature Selection", "B - Random Features"),
-                ncol          = 2,
-                common.legend = TRUE,
-                legend        = "right"
-            )
-        } else {
-            heatmapObj <- heatmapObj1
+            matrices[["B - Random Features"]] <- crissCrossResult[["random"]]
         }
+        heatmapObj <- plotMatrix(matrices, "Features Extracted", "Dataset Tested")
     }
     
     heatmapObj

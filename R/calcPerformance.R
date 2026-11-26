@@ -453,7 +453,6 @@ setGeneric("easyHard", function(measurements, result, ...)
 
 #' @rdname calcPerformance
 #' @exportMethod easyHard
-#' @importFrom broom tidy
 #' @param measurements For \code{easyHard} only. Either a \code{\link{DataFrame}}, \code{\link{data.frame}}, \code{\link{matrix}}, \code{\link{MultiAssayExperiment}} 
 #' or a list of the basic tabular objects containing the data.
 #' @param assay For \code{easyHard} only. The assay to use to look for associations to the per-sample metric.
@@ -504,22 +503,24 @@ setMethod("easyHard", "MultiAssayExperimentOrList",
   
   if(fitMode == "single")
   {
-    as(do.call(rbind, lapply(colnames(assay), function(featureID)
+    coefficientsAll <- do.call(rbind, lapply(colnames(assay), function(featureID)
     {
       covariate <- assay[, featureID]
       fitted <- glm(samplePerformance ~ covariate, family = binomial, weights = rep(100, length(samplePerformance)))
-      summaryDF <- broom::tidy(fitted)
+      summaryDF <- .coefficientsTable(fitted)
       if(is.factor(covariate))
       {
         summaryDF[2:nrow(summaryDF), "term"] <- paste(featureID, levels(covariate)[2:length(levels(covariate))], sep = ": ")
         
       } else {summaryDF[, "term"] <- featureID}
       summaryDF[2:nrow(summaryDF), ]
-    })), "DataFrame")
+    }))
+    rownames(coefficientsAll) <- NULL
+    as(coefficientsAll, "DataFrame")
   } else { # Penalised regression.
     samplePerformanceM <- matrix(c(1 - samplePerformance, samplePerformance), ncol = 2)
     fitted <- glmnet::glmnet(assayOHE, samplePerformanceM, family = "binomial")
-    lambdaConsider <- colSums(as.matrix(fitted[["beta"]])) != 0
+    lambdaConsider <- colSums(abs(as.matrix(fitted[["beta"]]))) != 0 # Lambdas at which any coefficient is not zero.
     bestLambda <- fitted[["lambda"]][lambdaConsider][which.min(sapply(fitted[["lambda"]][lambdaConsider], function(lambda) # Largest Lambda with minimum balanced error rate.
     {
         predictions <- predict(fitted, assayOHE, s = lambda, type = "response")
@@ -529,9 +530,17 @@ setMethod("easyHard", "MultiAssayExperimentOrList",
     useVariables <- colnames(assay)[unique(assayOHE@assign[useVariables])]
     dataForModel <- data.frame(assay, performance = samplePerformanceM[, 2])
     fitted <- glm(performance ~ . + 0, data = dataForModel, family = binomial(), weights = rep(100, nrow(dataForModel)))
-    broom::tidy(fitted)
+    as(.coefficientsTable(fitted), "DataFrame")
   }
 })
+
+# A model's coefficients table with the column names of broom::tidy: term, estimate, std.error, statistic, p.value.
+.coefficientsTable <- function(fitted)
+{
+  coefficients <- summary(fitted)[["coefficients"]]
+  data.frame(term = rownames(coefficients), estimate = coefficients[, 1], std.error = coefficients[, 2],
+             statistic = coefficients[, 3], p.value = coefficients[, 4], row.names = NULL)
+}
 # Calculates the true positive rate and false positive rate at each distinct score, from the highest
 # score to the lowest. A sample is predicted positive if its score is at least the threshold.
 .ROCrates <- function(scores, isPositive)

@@ -100,7 +100,7 @@ If using Bioconductor's *DataFrame*, this can be specified using *mcols*. In the
 
 ```{r}
 measurementsDF <- DataFrame(measurements)
-mcols(measurementsDF) <- data.frame(
+S4Vectors::mcols(measurementsDF) <- data.frame(
   assay = rep(c("assay_1", "assay_2"), times = c(10, 1990)),
   feature = colnames(measurementsDF)
 )
@@ -198,14 +198,14 @@ Function | Description | Before&nbsp;CV | During&nbsp;CV
  
 ### Fine-grained Cross-validation and Modelling Using *runTests*
 
-For more control over the finer aspects of cross-validation of a single data set, *runTests* may be employed in place of *crossValidate*. For the variety of cross-validation, the parameters are specified by a *CrossValParams* object. The default setting is for 100 permutations and five folds and no parameter tuning is done; top 20 features are selected. It is recommended to specify a *parallelParams* setting. On Linux and MacOS operating systems, it should be *MulticoreParam* and on Windows computers it should be *SnowParam*. Note that each of these have an option *RNGseed* and this **needs to be set by the user** because some classifiers or feature selection functions will have some element of randomisation. One example that works on all operating systems, but is best-suited to Windows is:
+For more control over the finer aspects of cross-validation of a single data set, *runTests* may be employed in place of *crossValidate*. For the variety of cross-validation, the parameters are specified by a *CrossValParams* object. The default setting is for 100 permutations and five folds, run on one core, and no parameter tuning is done; top 20 features are selected. To use several cores, specify a *parallelParams* setting from the BiocParallel package. On Linux and MacOS operating systems, it should be *MulticoreParam* and on Windows computers it should be *SnowParam*. Note that each of these have an option *RNGseed* and this **needs to be set by the user** because some classifiers or feature selection functions will have some element of randomisation. One example that works on all operating systems, but is best-suited to Windows is:
 
 ```{r, eval = FALSE}
-CVparams <- CrossValParams(parallelParams = SnowParam(16, RNGseed = 123))
+CVparams <- CrossValParams(parallelParams = BiocParallel::SnowParam(16, RNGseed = 123))
 CVparams
 ```
 
-For the actual operations to do to the data to build a model of it, each of the stages should be specified by an object of class *ModellingParams*. This controls how class imbalance is handled (default is to downsample to the smallest class), any transformation that needs to be done inside of cross-validation (i.e. involving a computed value from the training set), any feature selection and the training and prediction functions to be used. The default is to do an ordinary t-test (two groups) or ANOVA (three or more groups) and classification using diagonal LDA.
+For the actual operations to do to the data to build a model of it, each of the stages should be specified by an object of class *ModellingParams*. This controls how class imbalance is handled (by default, the training samples are not rebalanced), any transformation that needs to be done inside of cross-validation (i.e. involving a computed value from the training set), any feature selection and the training and prediction functions to be used. The default is to do an ordinary t-test (two groups) or ANOVA (three or more groups) and classification using diagonal LDA.
 
 ```{r}
 ModellingParams()

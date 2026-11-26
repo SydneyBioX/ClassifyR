@@ -7,7 +7,7 @@
 \title{Parameters for Data Modelling Specification}
 \usage{
 ModellingParams(
-  balancing = c("downsample", "upsample", "none"),
+  balancing = c("none", "downsample", "upsample"),
   transformParams = NULL,
   selectParams = SelectParams("t-test"),
   trainParams = TrainParams("DLDA"),
@@ -16,8 +16,8 @@ ModellingParams(
 )
 }
 \arguments{
-\item{balancing}{Default: \code{"downsample"}. A character value specifying what kind
-of class balancing to do, if any.}
+\item{balancing}{Default: \code{"none"}. A character value specifying what kind of class balancing to do to the
+training samples, if any: \code{"none"}, \code{"downsample"} or \code{"upsample"}.}
 
 \item{transformParams}{Parameters used for feature transformation inside of C.V.
 specified by a \code{\link{TransformParams}} instance. Optional, can be \code{NULL}.}
