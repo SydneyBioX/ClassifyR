@@ -26,28 +26,22 @@ newFancyClassifier <- function(measurementsTrain, classesTrain, alpha, ..., verb
 attr(newFancyClassifier, "name") <- "newFancyClassifier"
 ```
 
-2. Open the file constants.R. In the `.ClassifyRenvir[["functionsTable"]]` two-column matrix, add a row specifying the function name and a nice title to use for plot labelling. For example,
+Each interface follows the contract in R/interfaceTemplate.R: the arguments it receives and the format of the predictions it returns.
+
+2. Add the new file to the `Collate` field of the DESCRIPTION file.
+
+3. Register the function with one entry in R/registry.R, inside `.buildRegistry`. The entry gives the keyword that users type, the training and prediction functions, the name shown in results and plots, a one-sentence description for `available()`, the kinds of outcome the method accepts and, if the classifier has tuning parameters, a small range of values to try when `tuneParams` is `"auto"`. For example,
 
 ```{r, eval = FALSE}
-.ClassifyRenvir[["functionsTable"]] <- matrix(
-    ...        ...
-"newFancyClassifier", "Fancy Classifier"),
-    ...        ...
+.registerClassifier("fancy", newFancyClassifier, newFancyPredictor, displayName = "Fancy Classifier",
+                    description = "Very good classifier that predicts amazingly well.",
+                    outcomes = "classes", tunePresets = list(alpha = c(0.1, 0.5, 1)))
 ```
 
-3. Add a keyword that users will use when the want to use the function in cross-validation to one of the keywords two-column matrices along with a short one-sentence description. In the example, the new function is a classifier, so it is added to the end of the `"classifyKeywords"` matrix.
+A feature selection method is registered with `.registerSelection`, giving its ranking function instead.
 
-```{r, eval = FALSE}
-.ClassifyRenvir[["classifyKeywords"]] <- matrix(
-    ...        ...
-"fancy", "Very good classifier that predicts amazingly well."),
-    ...        ...
-```
+4. Run the package's tests. A test fits and predicts every registered keyword on small data sets and checks the format of the predictions.
 
-4. Depending on what kind of functionality the new function provides, add an entry into either `.selectionKeywordToFunction` or `.classifierKeywordToParams` functions in utilities.R. The first function maps a feature selection keyword to a wrapper function and the second maps a classifier keyword into a pair of `TrainParams` and `PredictParams` objects, which specify the functions of training and prediction stages.
-
-5. If the function is a classifier, open simpleParams.R and define the `TrainParams` and `PredictParams` parameter sets there. If the classifier has any tuning parameters, it would be good to specify a small range of values to try, since crossValidate for simplicity doesn't allow anything other than a keyword to be specified by the user.
-
-6. Open the vignette in vignettes/ClassifyR.Rmd and look for the section heading #### Provided Methods for Feature Selection and Classification. Add the new function to the appropriate table.
+5. Open the vignette in vignettes/ClassifyR.Rmd and look for the section heading #### Provided Methods for Feature Selection and Classification. Add the new function to the appropriate table.
 
 Now that the new function is defined and described, users will be able to discover it using `available()` at the R command line and results will automatically store nice names for the functions used and they will automatically be able to be shown in plots.
