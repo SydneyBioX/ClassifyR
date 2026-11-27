@@ -139,13 +139,13 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
 
 
 # Feature selection, reusing an earlier identical selection when the selection cache is active.
-.doSelection <- function(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
+.doSelection <- function(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose, trainUnbalanced = NULL)
 {
   cache <- .ClassifyRenvir[["selectionCache"]]
   # Merge selects within each assay, and those selections are the ones cached.
   if(is.null(cache) || identical(attr(modellingParams@selectParams@featureRanking, "name"), "Union Selection"))
-    return(.selectFeatures(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose))
-  .cachedSelection(cache, measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
+    return(.selectFeatures(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose, trainUnbalanced))
+  .cachedSelection(cache, measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose, trainUnbalanced)
 }
 
 # Cache of feature selections, active while .runTestsSplits runs. With the folds shared by all cross-validations of a
@@ -165,14 +165,14 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
   function() assign("selectionCache", NULL, envir = .ClassifyRenvir)
 }
 
-.cachedSelection <- function(cache, measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
+.cachedSelection <- function(cache, measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose, trainUnbalanced = NULL)
 {
   # What the selection depends on besides the data. Classifier settings matter only when the number of features is
   # tuned by fitting it.
   tuneMode <- crossValParams@tuneMode
   settings <- list(modellingParams@selectParams, tuneMode)
   if(tuneMode != "none")
-    settings <- c(settings, modellingParams, crossValParams@performanceType, if(tuneMode == "Nested CV") crossValParams)
+    settings <- c(settings, modellingParams, crossValParams@performanceType, if(tuneMode == "Nested CV") list(crossValParams, trainUnbalanced))
   randomState <- function() if(exists(".Random.seed", envir = globalenv())) get(".Random.seed", envir = globalenv())
   stateBefore <- randomState()
   
@@ -192,7 +192,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
     }
   }
   
-  selection <- .selectFeatures(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
+  selection <- .selectFeatures(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose, trainUnbalanced)
   stateAfter <- randomState()
   cache[["entries"]] <- c(cache[["entries"]], list(list(measurements = measurementsTrain, outcome = outcomeTrain, settings = settings,
                           noRandom = identical(stateBefore, stateAfter), stateBefore = stateBefore, stateAfter = stateAfter,
@@ -204,7 +204,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
 # the features in the training set from best to worst and different top sets are used either for
 # predicting on the training set (resubstitution) or nested cross-validation of the training set,
 # to find the set of top features which give the best (user-specified) performance measure.
-.selectFeatures <- function(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
+.selectFeatures <- function(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose, trainUnbalanced = NULL)
 {
   tuneParams <- modellingParams@selectParams@tuneParams
   performanceType <- crossValParams@performanceType
@@ -284,7 +284,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
            predictedOutcome <- predictions
           calcExternalPerformance(outcomeTrain, predictedOutcome, performanceType)
         } else {
-           .innerCVperformance(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
+           .innerCVperformance(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose, trainUnbalanced)
          }
        })
 
@@ -351,7 +351,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
             predictedOutcome <- predictions
           calcExternalPerformance(outcomeTrain, predictedOutcome, performanceType)
         } else {
-          .innerCVperformance(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
+          .innerCVperformance(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose, trainUnbalanced)
         }
       })
       bestOne <- ifelse(betterValues == "lower", which.min(performances)[1], which.max(performances)[1])
@@ -369,8 +369,15 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
 # Performance of a model in the nested cross-validation of a training set, for choosing tuning parameters: the
 # median over permutations. The inner scheme is set by innerPermutations and innerFolds of crossValParams and runs
 # serially, as it is already inside a split of the outer cross-validation. No model of all training samples is fitted.
-.innerCVperformance <- function(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
+# If the classes of the training set were rebalanced, the inner folds are made from the samples before rebalancing
+# (trainUnbalanced), with the features being evaluated, and runTest rebalances each inner training set.
+.innerCVperformance <- function(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose, trainUnbalanced = NULL)
 {
+  if(!is.null(trainUnbalanced))
+  {
+    measurementsTrain <- trainUnbalanced[["measurements"]][, colnames(measurementsTrain), drop = FALSE]
+    outcomeTrain <- trainUnbalanced[["outcome"]]
+  }
   performanceType <- crossValParams@performanceType
   innerParams <- CrossValParams(permutations = crossValParams@innerPermutations, folds = crossValParams@innerFolds,
                                 performanceType = performanceType, parallelParams = BiocParallel::SerialParam())
@@ -394,7 +401,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
 
 # Code to create a function call to a training function. Might also do training and testing
 # within the same function, so test samples are also passed in case they are needed.
-.doTrain <- function(measurementsTrain, outcomeTrain, measurementsTest, outcomeTest, crossValParams, modellingParams, verbose)
+.doTrain <- function(measurementsTrain, outcomeTrain, measurementsTest, outcomeTest, crossValParams, modellingParams, verbose, trainUnbalanced = NULL)
 {
   tuneDetails <- NULL
   if(!is.null(modellingParams@trainParams@tuneParams) && is.null(modellingParams@selectParams))
@@ -420,7 +427,7 @@ splitsTestInfo <- function(samplesSplits = c("k-Fold", "Permute k-Fold", "Permut
           predictedOutcome <- predictions
         calcExternalPerformance(outcomeTrain, predictedOutcome, performanceType)
       } else if(crossValParams@tuneMode == "Nested CV") {
-        .innerCVperformance(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose)
+        .innerCVperformance(measurementsTrain, outcomeTrain, crossValParams, modellingParams, verbose, trainUnbalanced)
       } else {
         stop("Tuning parameter(s) are specified but 'tuneMode' is 'none'. Please see ?CrossValParams for options.") 
       }

@@ -222,3 +222,68 @@ test_that("train and predict match the samples of a list of tables by name", {
   fromShuffled <- train(shuffled, data$classes, classifier = "DLDA", multiViewMethod = "merge", nFeatures = 3)
   expect_equal(predict(fromShuffled, shuffled), predict(fromAligned, aligned))
 })
+
+test_that("class balancing of ModellingParams is applied in cross-validation", {
+  data <- makeTwoClass()
+  imbalanced <- c(which(data$classes == "A"), which(data$classes == "B")[1:8])
+  measurements <- S4Vectors::DataFrame(data$measurements[imbalanced, 1:5])
+  classes <- droplevels(data$classes[imbalanced])
+  trainCounts <- function(balancing) {
+    counts <- list()
+    counting <- function(measurementsTrain, classesTrain, ...) {
+      counts <<- c(counts, list(table(classesTrain)))
+      ClassifyR:::DLDAtrainInterface(measurementsTrain, classesTrain, ...)
+    }
+    params <- ModellingParams(balancing = balancing, selectParams = NULL, trainParams = TrainParams(counting),
+                              predictParams = PredictParams("DLDA"))
+    set.seed(1)
+    runTests(measurements, classes, CrossValParams(permutations = 1, folds = 4, parallelParams = BiocParallel::SerialParam()), params)
+    do.call(rbind, counts)
+  }
+  none <- trainCounts("none"); down <- trainCounts("downsample"); up <- trainCounts("upsample")
+  expect_true(all(none[, "A"] > none[, "B"]))
+  expect_equal(down[, "A"], down[, "B"]) # Equal numbers of each class.
+  expect_equal(down[, "A"], none[, "B"]) # The smaller class's size.
+  expect_equal(up[, "A"], up[, "B"])
+  expect_equal(up[, "B"], none[, "A"]) # The larger class's size.
+})
+
+test_that("nested cross-validation of upsampled training sets makes its folds before upsampling", {
+  data <- makeTwoClass()
+  imbalanced <- c(which(data$classes == "A"), which(data$classes == "B")[1:8])
+  measurements <- S4Vectors::DataFrame(data$measurements[imbalanced, 1:5])
+  classes <- droplevels(data$classes[imbalanced])
+  # Training and prediction in one function, which records the samples of each training and test set.
+  splits <- list()
+  recording <- function(measurementsTrain, classesTrain, measurementsTest, weight, ...) {
+    splits <<- c(splits, list(list(train = rownames(measurementsTrain), test = rownames(measurementsTest))))
+    model <- ClassifyR:::DLDAtrainInterface(measurementsTrain, classesTrain)
+    ClassifyR:::DLDApredictInterface(model, measurementsTest, returnType = "class")
+  }
+  params <- ModellingParams(balancing = "upsample", selectParams = NULL,
+                            trainParams = TrainParams(recording, tuneParams = list(weight = 1:2)), predictParams = NULL)
+  set.seed(1)
+  runTests(measurements, classes, CrossValParams(permutations = 1, folds = 4, tuneMode = "Nested CV", performanceType = "Balanced Error",
+                                                 parallelParams = BiocParallel::SerialParam()), params)
+  splits <- splits[sapply(splits, function(split) length(split[["test"]]) < nrow(measurements))] # Not the final model.
+  expect_gt(length(splits), 4) # Inner cross-validations happened.
+  expect_true(all(sapply(splits, function(split) any(duplicated(split[["train"]]))))) # Training sets are upsampled.
+  expect_false(any(sapply(splits, function(split) any(split[["train"]] %in% split[["test"]]))))
+})
+
+test_that("a rebalanced runTest result lists each training sample once, and its performance can be calculated", {
+  data <- makeTwoClass()
+  imbalanced <- c(which(data$classes == "A"), which(data$classes == "B")[1:12])
+  measurements <- S4Vectors::DataFrame(data$measurements[imbalanced, 1:5])
+  classes <- droplevels(data$classes[imbalanced])
+  test <- c(1:5, length(classes) - 0:2)
+  for(balancing in c("upsample", "downsample"))
+  {
+    set.seed(1)
+    result <- runTest(measurements[-test, ], classes[-test], measurements[test, ], classes[test],
+                      modellingParams = ModellingParams(balancing = balancing, selectParams = NULL))
+    expect_identical(sampleNames(result), c(rownames(measurements)[-test], rownames(measurements)[test]))
+    expect_identical(unname(actualOutcome(result)), c(classes[-test], classes[test]))
+    expect_s4_class(calcCVperformance(result, "Balanced Accuracy"), "ClassifyResult")
+  }
+})
